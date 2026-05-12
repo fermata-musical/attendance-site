@@ -3,7 +3,7 @@
  */
 
 // --- Supabase Configuration ---
-const SUPABASE_URL = "https://grjjywivjczcjhjnmvsc.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://grjjywivjczcjhjnmvsc.supabase.co";
 const SUPABASE_KEY = "sb_publishable_wUsRl8qXkBgNCVPwvBp5Og_yr-htHPt";
 
 const supabaseClient = (typeof supabase !== 'undefined' && SUPABASE_URL !== "YOUR_SUPABASE_URL") 
