@@ -1,5 +1,5 @@
 /**
- * Musical Attendance App Logic (v19)
+ * Musical Attendance App Logic (v20)
  */
 
 // --- Constants & Security ---
@@ -21,14 +21,14 @@ const DEFAULT_SCHEDULES = [
 
 // --- State ---
 let state = {
-    members: JSON.parse(localStorage.getItem('fermata_v19_members')) || [],
-    attendance: JSON.parse(localStorage.getItem('fermata_v19_attendance')) || {},
-    notes: JSON.parse(localStorage.getItem('fermata_v19_notes')) || {},
-    schedules: JSON.parse(localStorage.getItem('fermata_v19_schedules')) || DEFAULT_SCHEDULES,
-    locations: JSON.parse(localStorage.getItem('fermata_v19_locations')) || DEFAULT_LOCATIONS,
-    menuTypes: JSON.parse(localStorage.getItem('fermata_v19_menu_types')) || DEFAULT_MENU_TYPES,
-    tabPermissions: JSON.parse(localStorage.getItem('fermata_v19_tab_permissions')) || { user: false, summary: true, admin: true, past: true },
-    currentMemberId: localStorage.getItem('fermata_v19_current_member_id') || null,
+    members: JSON.parse(localStorage.getItem('fermata_v21_members')) || [],
+    attendance: JSON.parse(localStorage.getItem('fermata_v21_attendance')) || {},
+    notes: JSON.parse(localStorage.getItem('fermata_v21_notes')) || {},
+    schedules: JSON.parse(localStorage.getItem('fermata_v21_schedules')) || DEFAULT_SCHEDULES,
+    locations: JSON.parse(localStorage.getItem('fermata_v21_locations')) || DEFAULT_LOCATIONS,
+    menuTypes: JSON.parse(localStorage.getItem('fermata_v21_menu_types')) || DEFAULT_MENU_TYPES,
+    tabPermissions: JSON.parse(localStorage.getItem('fermata_v21_tab_permissions')) || { user: false, summary: true, admin: true, past: true },
+    currentMemberId: localStorage.getItem('fermata_v21_current_member_id') || null,
     selectedMonth: null,
     isLoggedIn: sessionStorage.getItem('fermata_auth') === 'true',
     isAdmin: sessionStorage.getItem('fermata_admin') === 'true'
@@ -76,14 +76,14 @@ const el = {
 
 // --- Helpers ---
 function save() {
-    localStorage.setItem('fermata_v19_members', JSON.stringify(state.members));
-    localStorage.setItem('fermata_v19_attendance', JSON.stringify(state.attendance));
-    localStorage.setItem('fermata_v19_notes', JSON.stringify(state.notes));
-    localStorage.setItem('fermata_v19_schedules', JSON.stringify(state.schedules));
-    localStorage.setItem('fermata_v19_locations', JSON.stringify(state.locations));
-    localStorage.setItem('fermata_v19_menu_types', JSON.stringify(state.menuTypes));
-    localStorage.setItem('fermata_v19_tab_permissions', JSON.stringify(state.tabPermissions));
-    localStorage.setItem('fermata_v19_current_member_id', state.currentMemberId || '');
+    localStorage.setItem('fermata_v21_members', JSON.stringify(state.members));
+    localStorage.setItem('fermata_v21_attendance', JSON.stringify(state.attendance));
+    localStorage.setItem('fermata_v21_notes', JSON.stringify(state.notes));
+    localStorage.setItem('fermata_v21_schedules', JSON.stringify(state.schedules));
+    localStorage.setItem('fermata_v21_locations', JSON.stringify(state.locations));
+    localStorage.setItem('fermata_v21_menu_types', JSON.stringify(state.menuTypes));
+    localStorage.setItem('fermata_v21_tab_permissions', JSON.stringify(state.tabPermissions));
+    localStorage.setItem('fermata_v21_current_member_id', state.currentMemberId || '');
 }
 
 function showToast(msg) { el.toast.textContent = msg; el.toast.classList.remove('hidden'); setTimeout(() => el.toast.classList.add('hidden'), 2000); }
@@ -94,8 +94,11 @@ function getCurrentMonth() { return new Date().toISOString().substring(0, 7); }
 
 function generateTimeOptions() {
     const times = [""];
-    for (let h = 8; h <= 22; h++) {
-        for (let m = 0; m < 60; m += 15) { times.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`); }
+    for (let h = 8; h <= 22; h++) { // Updated range to 8:00 - 22:00
+        for (let m = 0; m < 60; m += 15) { 
+            if (h === 22 && m > 0) break; // Stop at 22:00
+            times.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`); 
+        }
     }
     return times;
 }
@@ -157,12 +160,24 @@ function renderDatalists() {
 // --- User Mode ---
 function renderMembers() {
     el.memberList.innerHTML = '';
-    state.members.forEach(m => {
-        const chip = document.createElement('div');
-        chip.className = `member-chip ${state.currentMemberId === m.id ? 'active' : ''}`; chip.textContent = m.name;
-        chip.onclick = () => { state.currentMemberId = (state.currentMemberId === m.id) ? null : m.id; save(); render(); };
-        el.memberList.appendChild(chip);
-    });
+    const visibleMembers = state.isAdmin ? state.members : state.members.filter(m => m.id === state.currentMemberId);
+    
+    if (!state.isAdmin && state.currentMemberId) {
+        const m = visibleMembers[0];
+        if (m) {
+            const chip = document.createElement('div');
+            chip.className = 'member-chip active'; chip.textContent = m.name;
+            chip.onclick = () => { state.currentMemberId = null; save(); render(); };
+            el.memberList.appendChild(chip);
+        }
+    } else if (state.isAdmin) {
+        state.members.forEach(m => {
+            const chip = document.createElement('div');
+            chip.className = `member-chip ${state.currentMemberId === m.id ? 'active' : ''}`; chip.textContent = m.name;
+            chip.onclick = () => { state.currentMemberId = (state.currentMemberId === m.id) ? null : m.id; save(); render(); };
+            el.memberList.appendChild(chip);
+        });
+    }
 }
 
 function renderSelection() {
@@ -222,18 +237,20 @@ function renderSummary() {
     if (state.members.length === 0) { el.summaryView.innerHTML = '<p class="text-center text-muted">メンバーを登録すると表示されます</p>'; return; }
     let html = '';
     futureSchedules.forEach(day => {
-        let hasAttendee = day.sessions.some(s => state.members.some(m => state.attendance[`${s.id}_${m.id}`] === 'present'));
-        if (!hasAttendee) return;
-        html += `<div class="summary-day-group"><div class="summary-day-header"><span class="summary-day-date">${day.date}</span><span class="summary-day-location">${day.location}</span></div>`;
+        let hasAttendee = day.sessions.some(s => state.members.some(m => state.attendance[`${s.id}_m.id}`] === 'present')); // Note: Corrected variable name below
+        let attendeesInDay = false;
+        let dayHtml = `<div class="summary-day-group"><div class="summary-day-header"><span class="summary-day-date">${day.date}</span><span class="summary-day-location">${day.location}</span></div>`;
         day.sessions.forEach(s => {
             const att = state.members.filter(m => state.attendance[`${s.id}_${m.id}`] === 'present').map(m => {
                 const note = state.notes[`${s.id}_${m.id}`];
                 return `<span class="participant-name">${m.name}</span>${note ? `<span class="participant-note"> (${note})</span>` : ''}`;
             });
             if (att.length === 0) return;
-            html += `<div class="summary-session"><div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem;">${formatTimeRange(s)} ${s.menu}</div><div class="summary-participants"><span class="summary-label">出席：</span><span class="name-list">${att.join('、')}</span></div></div>`;
+            attendeesInDay = true;
+            dayHtml += `<div class="summary-session"><div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem;">${formatTimeRange(s)} ${s.menu}</div><div class="summary-participants"><span class="summary-label">出席：</span><span class="name-list">${att.join('、')}</span></div></div>`;
         });
-        html += '</div>';
+        dayHtml += '</div>';
+        if (attendeesInDay) html += dayHtml;
     });
     el.summaryView.innerHTML = html || '<p class="text-center text-muted">直近の出席予定はありません</p>';
 }
@@ -266,15 +283,18 @@ function renderAdminSchedules() {
     });
     activeSchedules.forEach((day) => {
         const item = document.createElement('div'); item.className = 'admin-schedule-item';
-        let sHtml = day.sessions.map((s) => `
-            <div class="admin-session-edit">
-                <div class="admin-form-grid">
-                    <div><label>時間</label><div class="time-range"><select class="time-select" onchange="updateSessionById('${day.id}', '${s.id}', 'start', this.value)">${TIME_OPTIONS.map(t => `<option value="${t}" ${s.start === t ? 'selected' : ''}>${t || '（未設定）'}</option>`).join('')}</select><span>〜</span><select class="time-select" onchange="updateSessionById('${day.id}', '${s.id}', 'end', this.value)">${TIME_OPTIONS.map(t => `<option value="${t}" ${s.end === t ? 'selected' : ''}>${t || '（未設定）'}</option>`).join('')}</select></div></div>
-                    <div><label>メニュー種別</label><input type="text" list="menu-type-options" value="${s.menu || ''}" placeholder="内容を入力" onchange="updateSessionById('${day.id}', '${s.id}', 'menu', this.value)"></div>
+        let sHtml = day.sessions.map((s) => {
+            return `
+                <div class="admin-session-edit">
+                    <div class="admin-form-grid">
+                        <div><label>開始時間</label><select class="time-select" onchange="updateSessionById('${day.id}', '${s.id}', 'start', this.value)">${TIME_OPTIONS.map(t => `<option value="${t}" ${s.start === t ? 'selected' : ''}>${t || '（未設定）'}</option>`).join('')}</select></div>
+                        <div><label>終了時間</label><select class="time-select" onchange="updateSessionById('${day.id}', '${s.id}', 'end', this.value)">${TIME_OPTIONS.map(t => `<option value="${t}" ${s.end === t ? 'selected' : ''}>${t || '（未設定）'}</option>`).join('')}</select></div>
+                        <div><label>メニュー種別</label><input type="text" list="menu-type-options" value="${s.menu || ''}" placeholder="内容を入力" onchange="updateSessionById('${day.id}', '${s.id}', 'menu', this.value)"></div>
+                    </div>
+                    <button class="btn-discreet" onclick="removeSessionById('${day.id}', '${s.id}')" style="width: 100%; text-align: right;">練習枠を削除</button>
                 </div>
-                <button class="btn-discreet" onclick="removeSessionById('${day.id}', '${s.id}')" style="width: 100%; text-align: right;">練習枠を削除</button>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         item.innerHTML = `<div class="admin-day-title"><div class="admin-form-row" style="margin-bottom:0"><div><label>日付</label><input type="date" value="${day.date}" onchange="updateDayById('${day.id}', 'date', this.value)"></div><div><label>場所</label><input type="text" list="location-options" value="${day.location}" placeholder="場所を入力" onchange="updateDayById('${day.id}', 'location', this.value)" style="font-weight:bold"></div></div></div><div style="padding: 1rem;">${sHtml}<div class="admin-actions" style="display: flex; justify-content: space-between; margin-top: 0.5rem;"><button class="btn btn-sm btn-secondary" onclick="addSessionById('${day.id}')">＋ 練習枠を追加</button><button class="btn-discreet" onclick="removeDayById('${day.id}')">日程ごと削除</button></div></div>`;
         el.adminScheduleList.appendChild(item);
     });
@@ -282,9 +302,24 @@ function renderAdminSchedules() {
 
 function renderOptionLists() {
     const renderList = (list, key) => list.map((o, idx) => `
-        <div class="option-item"><span>${o}</span><button class="icon-btn" onclick="removeOption('${key}', ${idx})">🗑️</button></div>
+        <div class="option-item" style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="icon-btn" onclick="moveOption('${key}', ${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+                <button class="icon-btn" onclick="moveOption('${key}', ${idx}, 1)" ${idx === list.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
+                <span>${o}</span>
+            </div>
+            <button class="icon-btn" onclick="removeOption('${key}', ${idx})">🗑️</button>
+        </div>
     `).join('');
     el.locList.innerHTML = renderList(state.locations, 'locations'); el.menuList.innerHTML = renderList(state.menuTypes, 'menuTypes');
+}
+
+function moveOption(key, idx, dir) {
+    const list = state[key];
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    [list[idx], list[targetIdx]] = [list[targetIdx], list[idx]];
+    save(); render();
 }
 
 // --- Operations ---
@@ -303,10 +338,20 @@ function switchTab(tab, force = false) {
     }
     el.tabUser.classList.toggle('active', tab === 'user'); el.tabSummary.classList.toggle('active', tab === 'summary'); el.tabAdmin.classList.toggle('active', tab === 'admin'); el.tabPast.classList.toggle('active', tab === 'past');
     el.userModeContent.classList.toggle('hidden', tab !== 'user'); el.summaryModeContent.classList.toggle('hidden', tab !== 'summary'); el.adminModeContent.classList.toggle('hidden', tab !== 'admin'); el.pastModeContent.classList.toggle('hidden', tab !== 'past');
+    renderMembers(); // Re-render members list on tab switch to handle privacy
 }
 
 function updateDayById(id, key, val) { const d = state.schedules.find(s => s.id === id); if (d) d[key] = val; save(); render(); }
-function updateSessionById(did, sid, key, val) { const d = state.schedules.find(s => s.id === did); if (d) { const s = d.sessions.find(x => x.id === sid); if (s) s[key] = val; } save(); render(); }
+function updateSessionById(did, sid, key, val) { 
+    const d = state.schedules.find(s => s.id === did); 
+    if (d) { 
+        const s = d.sessions.find(x => x.id === sid); 
+        if (s) {
+            s[key] = val; 
+        }
+    } 
+    save(); render(); 
+}
 function addSessionById(did) { 
     const d = state.schedules.find(s => s.id === did); 
     if (d) {
@@ -332,7 +377,15 @@ function setupEventListeners() {
     };
     el.logoutBtn.onclick = () => { sessionStorage.removeItem('fermata_auth'); sessionStorage.removeItem('fermata_admin'); location.reload(); };
     el.tabUser.onclick = () => switchTab('user'); el.tabSummary.onclick = () => switchTab('summary'); el.tabAdmin.onclick = () => switchTab('admin'); el.tabPast.onclick = () => switchTab('past');
-    el.addMemberBtn.onclick = () => { const name = el.memberNameInput.value.trim(); if (!name) return; const newM = { id: generateId(), name }; state.members.push(newM); state.currentMemberId = newM.id; el.memberNameInput.value = ''; save(); render(); showToast('登録しました'); };
+    el.addMemberBtn.onclick = () => { 
+        const name = el.memberNameInput.value.trim(); if (!name) return; 
+        let member = state.members.find(m => m.name === name);
+        if (!member) {
+            member = { id: generateId(), name };
+            state.members.push(member);
+        }
+        state.currentMemberId = member.id; el.memberNameInput.value = ''; save(); render(); showToast('ログインしました'); 
+    };
     document.getElementById('add-new-day-btn').onclick = () => { state.schedules.push({ id: generateId(), date: '', location: '', sessions: [{ id: generateId(), start: '09:00', end: '10:00', menu: '' }] }); save(); render(); };
     el.addLocBtn.onclick = () => addOption('locations'); el.addMenuBtn.onclick = () => addOption('menuTypes'); el.deleteAllPastBtn.onclick = deleteAllPast;
     document.getElementById('delete-member-btn').onclick = () => { if (confirm('削除しますか？')) { state.members = state.members.filter(m => m.id !== state.currentMemberId); state.currentMemberId = null; save(); render(); } };
@@ -347,6 +400,7 @@ window.updateSessionById = updateSessionById;
 window.addSessionById = addSessionById;
 window.removeSessionById = removeSessionById;
 window.removeOption = removeOption;
+window.moveOption = moveOption;
 window.saveNote = saveNote;
 window.togglePermission = togglePermission;
 
