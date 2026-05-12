@@ -1,5 +1,5 @@
 /**
- * Musical Attendance App Logic (v25) - Full Admin Functions Restored
+ * Musical Attendance App Logic (v26) - Final Admin Fixes & UI Polish
  */
 
 // --- Supabase Configuration ---
@@ -14,11 +14,24 @@ const sb = (typeof supabase !== 'undefined' && SUPABASE_KEY !== "YOUR_SUPABASE_A
 const PASS_GENERAL = "kuma";
 const PASS_ADMIN = "9203";
 
+// 15分刻みの時間リスト生成 (8:00 - 22:00)
+const TIME_OPTIONS = (() => {
+    const opts = [];
+    for (let h = 8; h <= 22; h++) {
+        for (let m = 0; m < 60; m += 15) {
+            const time = `${h}:${m.toString().padStart(2, '0')}`;
+            opts.push(time);
+            if (h === 22) break; // 22:00で終了
+        }
+    }
+    return opts;
+})();
+
 // --- State ---
 let state = {
     isLoggedIn: sessionStorage.getItem('fermata_logged_in') === 'true',
     isAdmin: sessionStorage.getItem('fermata_is_admin') === 'true',
-    currentMemberName: localStorage.getItem('fermata_v25_member_name') || null,
+    currentMemberName: localStorage.getItem('fermata_v26_member_name') || null,
     schedules: [],
     attendance: [],
     members: [],
@@ -85,30 +98,24 @@ async function fetchData() {
     if (!sb) return;
     console.log("Fetching everything...");
     
-    // 1. Schedules & Sessions
-    const { data: sch } = await sb.from('schedules').select('*, sessions(*)').order('date');
-    if (sch) state.schedules = sch;
+    const [schRes, attRes, memRes, locRes, mnuRes, stgRes] = await Promise.all([
+        sb.from('schedules').select('*, sessions(*)').order('date'),
+        sb.from('attendance').select('*'),
+        sb.from('members').select('*').order('name'),
+        sb.from('locations').select('*').order('sort_order'),
+        sb.from('menu_types').select('*').order('sort_order'),
+        sb.from('settings').select('*').eq('key', 'tab_permissions').single()
+    ]);
 
-    // 2. Attendance
-    const { data: att } = await sb.from('attendance').select('*');
-    if (att) state.attendance = att;
-
-    // 3. Members
-    const { data: mem } = await sb.from('members').select('*').order('name');
-    if (mem) state.members = mem;
-
-    // 4. Locations & Menus
-    const { data: loc } = await sb.from('locations').select('*').order('sort_order');
-    if (loc) state.locations = loc;
-    const { data: mnu } = await sb.from('menu_types').select('*').order('sort_order');
-    if (mnu) state.menuTypes = mnu;
-
-    // 5. Settings (Tab Permissions)
-    const { data: stg } = await sb.from('settings').select('*').eq('key', 'tab_permissions').single();
-    if (stg) state.tabPermissions = stg.value;
+    if (schRes.data) state.schedules = schRes.data;
+    if (attRes.data) state.attendance = attRes.data;
+    if (memRes.data) state.members = memRes.data;
+    if (locRes.data) state.locations = locRes.data;
+    if (mnuRes.data) state.menuTypes = mnuRes.data;
+    if (stgRes.data) state.tabPermissions = stgRes.data.value;
 }
 
-// --- Render Functions ---
+// --- Render ---
 function render() {
     renderTabs();
     renderMembers();
@@ -133,8 +140,8 @@ function renderTabs() {
 }
 
 function renderDatalists() {
-    el.locDatalist.innerHTML = state.locations.map(o => `<option value="${o.name}">${o.name}</option>`).join('');
-    el.menuDatalist.innerHTML = state.menuTypes.map(o => `<option value="${o.name}">${o.name}</option>`).join('');
+    el.locDatalist.innerHTML = state.locations.map(o => `<option value="${o.name}"></option>`).join('');
+    el.menuDatalist.innerHTML = state.menuTypes.map(o => `<option value="${o.name}"></option>`).join('');
 }
 
 function renderMembers() {
@@ -145,7 +152,7 @@ function renderMembers() {
         chip.textContent = m.name;
         chip.onclick = () => {
             state.currentMemberName = (state.currentMemberName === m.name) ? null : m.name;
-            localStorage.setItem('fermata_v25_member_name', state.currentMemberName || '');
+            localStorage.setItem('fermata_v26_member_name', state.currentMemberName || '');
             render();
         };
         el.memberList.appendChild(chip);
@@ -222,19 +229,38 @@ function renderAdminSchedules() {
     if (!state.isAdmin) return;
     el.adminScheduleList.innerHTML = '';
     const today = getToday();
-    state.schedules.filter(d => d.date >= today).forEach(day => {
+    state.schedules.filter(d => d.date >= today).sort((a,b)=>a.date.localeCompare(b.date)).forEach(day => {
         const item = document.createElement('div'); item.className = 'admin-schedule-item';
+        const timeOptionsHtml = TIME_OPTIONS.map(t => `<option value="${t}">${t}</option>`).join('');
+        
         let sHtml = day.sessions.map(s => `
             <div class="admin-session-edit">
+                <div class="admin-session-header">
+                    <span style="font-weight:bold; font-size:0.9rem; color:var(--primary-dark);">練習枠</span>
+                    <button class="btn-danger-text" onclick="deleteSession('${day.id}', '${s.id}')">枠を削除</button>
+                </div>
                 <div class="admin-form-grid">
-                    <div><label>開始時間</label><input type="text" class="time-select" value="${s.start_time || ''}" onchange="updateSession('${day.id}', '${s.id}', 'start_time', this.value)"></div>
-                    <div><label>終了時間</label><input type="text" class="time-select" value="${s.end_time || ''}" onchange="updateSession('${day.id}', '${s.id}', 'end_time', this.value)"></div>
+                    <div><label>開始</label><select onchange="updateSession('${day.id}', '${s.id}', 'start_time', this.value)"><option value="">選択</option>${TIME_OPTIONS.map(t => `<option value="${t}" ${s.start_time === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+                    <div><label>終了</label><select onchange="updateSession('${day.id}', '${s.id}', 'end_time', this.value)"><option value="">選択</option>${TIME_OPTIONS.map(t => `<option value="${t}" ${s.end_time === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
                     <div><label>メニュー</label><input type="text" list="menu-type-options" value="${s.menu || ''}" onchange="updateSession('${day.id}', '${s.id}', 'menu', this.value)"></div>
                 </div>
-                <button class="btn-discreet" onclick="deleteSession('${day.id}', '${s.id}')">練習枠を削除</button>
             </div>
         `).join('');
-        item.innerHTML = `<div class="admin-day-title"><div class="admin-form-row"><div><label>日付</label><input type="date" value="${day.date}" onchange="updateDay('${day.id}', 'date', this.value)"></div><div><label>場所</label><input type="text" list="location-options" value="${day.location}" onchange="updateDay('${day.id}', 'location', this.value)"></div></div></div><div style="padding:1rem;">${sHtml}<div class="admin-actions"><button class="btn btn-sm btn-secondary" onclick="addSession('${day.id}')">＋ 練習枠を追加</button><button class="btn-discreet" onclick="deleteDay('${day.id}')">日程ごと削除</button></div></div>`;
+        
+        item.innerHTML = `
+            <div class="admin-day-title">
+                <div class="admin-form-row">
+                    <div><label>日付</label><input type="date" value="${day.date}" onchange="updateDay('${day.id}', 'date', this.value)"></div>
+                    <div><label>場所</label><input type="text" list="location-options" value="${day.location}" onchange="updateDay('${day.id}', 'location', this.value)"></div>
+                </div>
+            </div>
+            <div style="padding:1rem;">
+                ${sHtml}
+                <div class="admin-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="addSession('${day.id}')">＋ 練習枠を追加</button>
+                    <button class="btn-danger-text" onclick="deleteDay('${day.id}')">日程ごと削除</button>
+                </div>
+            </div>`;
         el.adminScheduleList.appendChild(item);
     });
 }
@@ -245,7 +271,7 @@ function renderPastSchedules() {
     const today = getToday();
     state.schedules.filter(d => d.date < today).sort((a,b)=>b.date.localeCompare(a.date)).forEach(day => {
         const div = document.createElement('div'); div.className = 'admin-schedule-item';
-        div.innerHTML = `<div class="admin-day-title"><strong>${day.date}</strong> ${day.location}</div><div style="padding:1rem;"><button class="btn-discreet" onclick="deleteDay('${day.id}')">削除</button></div>`;
+        div.innerHTML = `<div class="admin-day-title"><strong>${day.date}</strong> ${day.location}</div><div class="admin-actions"><div></div><button class="btn-danger-text" onclick="deleteDay('${day.id}')">削除</button></div>`;
         el.pastScheduleList.appendChild(div);
     });
 }
@@ -282,7 +308,7 @@ function renderPermissionControls() {
 async function addDay() {
     if (!sb) return;
     const { error } = await sb.from('schedules').insert({ date: getToday(), location: '' });
-    if (error) alert("追加失敗: " + error.message);
+    if (error) alert("追加に失敗しました。SQLが正しく実行されているか確認してください。");
     else { await fetchData(); render(); showToast("日程を追加しました"); }
 }
 
@@ -292,7 +318,7 @@ async function updateDay(id, key, val) {
 }
 
 async function deleteDay(id) {
-    if (!confirm("削除しますか？")) return;
+    if (!confirm("日程全体を削除しますか？")) return;
     await sb.from('schedules').delete().eq('id', id);
     await fetchData(); render();
 }
@@ -308,6 +334,7 @@ async function updateSession(schId, sid, key, val) {
 }
 
 async function deleteSession(schId, sid) {
+    if (!confirm("この練習枠を削除しますか？")) return;
     await sb.from('sessions').delete().eq('id', sid);
     await fetchData(); render();
 }
@@ -315,9 +342,10 @@ async function deleteSession(schId, sid) {
 async function addOption(key) {
     const input = key === 'locations' ? el.newLocInput : el.newMenuInput;
     const name = input.value.trim();
-    if (!name) return;
-    await sb.from(key).insert({ name, sort_order: 99 });
-    input.value = ''; await fetchData(); render();
+    if (!name || !sb) return;
+    const { error } = await sb.from(key).insert({ name, sort_order: state[key === 'locations' ? 'locations' : 'menuTypes'].length + 1 });
+    if (error) { console.error(error); alert("追加できませんでした。SQL Editorでテーブルが作成されているか確認してください。"); }
+    else { input.value = ''; await fetchData(); render(); showToast("追加しました"); }
 }
 
 async function deleteOption(key, id) {
@@ -326,13 +354,20 @@ async function deleteOption(key, id) {
 }
 
 async function moveOption(key, id, idx, dir) {
-    // Simplified: in a real app you'd swap sort_order. For now, let's just toast.
-    showToast("並び替えは現在サーバー側で制限されています（開発中）");
+    const list = key === 'locations' ? state.locations : state.menuTypes;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= list.length) return;
+    // Simple swap
+    const other = list[newIdx];
+    await sb.from(key).update({ sort_order: other.sort_order }).eq('id', id);
+    await sb.from(key).update({ sort_order: list[idx].sort_order }).eq('id', other.id);
+    await fetchData(); render();
 }
 
 async function togglePermission(tabId, val) {
     state.tabPermissions[tabId] = val;
-    await sb.from('settings').update({ value: state.tabPermissions }).eq('key', 'tab_permissions');
+    const { error } = await sb.from('settings').upsert({ key: 'tab_permissions', value: state.tabPermissions }, { onConflict: 'key' });
+    if (error) console.error(error);
     await fetchData(); render();
 }
 
@@ -371,7 +406,7 @@ function setupEventListeners() {
     el.addMemberBtn.onclick = async () => {
         const name = el.memberNameInput.value.trim(); if (!name) return;
         if (!state.members.find(m => m.name === name)) { await sb.from('members').insert({ name }); await fetchData(); }
-        state.currentMemberName = name; localStorage.setItem('fermata_v25_member_name', name);
+        state.currentMemberName = name; localStorage.setItem('fermata_v26_member_name', name);
         el.memberNameInput.value = ''; render();
     };
     document.getElementById('add-new-day-btn').onclick = addDay;
