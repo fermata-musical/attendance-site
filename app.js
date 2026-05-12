@@ -3,8 +3,8 @@
  */
 
 // --- Constants & Security ---
-const SITE_PASSWORD_HASH = "fermata2026"; // メンバー用共通パスワード
-const ADMIN_PASSWORD_HASH = "admin999";    // 管理者用パスワード
+const SITE_PASSWORD_HASH = "kuma"; // メンバー用共通パスワード
+const ADMIN_PASSWORD_HASH = "9203";    // 管理者用パスワード
 
 // --- Default Data ---
 const DEFAULT_LOCATIONS = ['青崎公民館', '祇園公民館', '宇品公民館', '八本松地域センター'];
