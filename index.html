@@ -15,40 +15,12 @@
 <body>
     <div class="container" id="login-screen">
         <section class="card" style="max-width: 400px; margin: 5rem auto; text-align: center;">
-            <div id="site-auth-area">
-                <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔑 サイトログイン</h1>
-                <p class="text-muted" style="margin-bottom: 2rem; font-size: 0.9rem;">閲覧には共通パスワードが必要です</p>
-                <div class="form-group">
-                    <input type="password" id="site-password-input" placeholder="パスワードを入力" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--primary-dark); outline: none;">
-                    <button id="site-login-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">ログイン</button>
-                </div>
+            <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔑 サイトログイン</h1>
+            <p class="text-muted" style="margin-bottom: 2rem; font-size: 0.9rem;">パスワードを入力してください</p>
+            <div class="form-group">
+                <input type="password" id="site-password-input" placeholder="パスワードを入力" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--primary-dark); outline: none;">
+                <button id="site-login-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">ログイン</button>
             </div>
-
-            <div id="member-auth-area" class="hidden">
-                <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">👤 メンバー認証</h1>
-                <p class="text-muted" style="margin-bottom: 1.5rem; font-size: 0.9rem;">ご自身のお名前とパスコードで認証してください</p>
-                
-                <!-- Login Form -->
-                <div id="member-login-form">
-                    <div class="form-group">
-                        <select id="login-member-select" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #ddd;"></select>
-                        <input type="password" id="member-passcode-input" placeholder="パスコード(4〜8桁)" maxlength="8" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #ddd;">
-                        <button id="member-login-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">ログイン</button>
-                    </div>
-                    <button id="show-register-btn" class="btn-discreet" style="margin-top: 1rem;">新規登録はこちら</button>
-                </div>
-
-                <!-- Register Form -->
-                <div id="member-register-form" class="hidden">
-                    <div class="form-group">
-                        <input type="text" id="reg-name-input" placeholder="お名前" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #ddd;">
-                        <input type="password" id="reg-passcode-input" placeholder="パスコード(4〜8桁)" maxlength="8" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #ddd;">
-                        <button id="member-register-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">新規登録してログイン</button>
-                    </div>
-                    <button id="show-login-btn" class="btn-discreet" style="margin-top: 1rem;">ログイン画面に戻る</button>
-                </div>
-            </div>
-            
             <p id="login-error" class="hidden" style="color: var(--danger); font-size: 0.8rem; margin-top: 1rem;">パスワードが正しくありません</p>
         </section>
     </div>
@@ -89,7 +61,7 @@
                 <h2>メンバー選択</h2>
                 <div id="registration-area">
                     <div class="form-group">
-                        <label for="member-name-input">お名前を入力してログイン（初回は新規登録）</label>
+                        <label for="member-name-input">お名前を入力してください</label>
                         <div class="input-with-button">
                             <input type="text" id="member-name-input" placeholder="お名前を入力">
                             <button id="add-member-btn" class="btn btn-primary">選択</button>
