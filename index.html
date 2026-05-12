@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>稽古出欠管理 | 音楽集団フェルマータ</title>
+    <meta name="description" content="ミュージカルの稽古日程と出欠状況を管理するためのサイトです。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" id="login-screen">
+        <section class="card" style="max-width: 400px; margin: 5rem auto; text-align: center;">
+            <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔑 メンバーログイン</h1>
+            <p class="text-muted" style="margin-bottom: 2rem; font-size: 0.9rem;">閲覧にはパスワードが必要です</p>
+            <div class="form-group">
+                <input type="password" id="site-password-input" placeholder="パスワードを入力" style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid var(--primary-dark); outline: none;">
+                <button id="site-login-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">ログイン</button>
+            </div>
+            <p id="login-error" class="hidden" style="color: var(--danger); font-size: 0.8rem; margin-top: 1rem;">パスワードが正しくありません</p>
+        </section>
+    </div>
+
+    <div class="container hidden" id="main-app">
+        <header>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;"></div>
+                <div style="flex: 2; text-align: center;">
+                    <h1>稽古出欠管理</h1>
+                    <p class="subtitle">音楽集団フェルマータ</p>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <button id="logout-btn" class="btn-discreet" style="font-size: 0.75rem;">ログアウト</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button id="tab-user" class="tab-btn active">出欠入力</button>
+            <button id="tab-summary" class="tab-btn">全体の参加状況</button>
+            <button id="tab-admin" class="tab-btn">管理画面</button>
+            <button id="tab-past" class="tab-btn">過去の出欠管理</button>
+        </div>
+
+        <div id="summary-mode-content">
+            <!-- Summary Section -->
+            <section class="card">
+                <h2>全体の参加状況</h2>
+                <div id="summary-view">
+                    <p class="text-center text-muted">メンバーを登録すると表示されます</p>
+                </div>
+            </section>
+        </div>
+        <div id="user-mode-content" class="hidden">
+            <!-- Member Section -->
+            <section class="card">
+                <h2>メンバー選択</h2>
+                <div id="registration-area">
+                    <div class="form-group">
+                        <label for="member-name-input">新しくメンバーを登録する</label>
+                        <div class="input-with-button">
+                            <input type="text" id="member-name-input" placeholder="お名前を入力">
+                            <button id="add-member-btn" class="btn btn-primary">登録</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="edit-area" class="hidden">
+                    <div class="form-group">
+                        <label for="edit-name-input">名前を変更する</label>
+                        <div class="input-with-button">
+                            <input type="text" id="edit-name-input">
+                            <button id="save-name-btn" class="btn btn-primary">保存</button>
+                            <button id="cancel-edit-btn" class="btn btn-secondary">戻る</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="member-list" id="member-list">
+                    <!-- Member chips will be here -->
+                </div>
+                
+                <p id="current-selection-msg" class="text-center hidden" style="margin-top: 1.5rem; font-weight: 600;">
+                    <span id="selected-member-name"></span> さんとして入力中
+                    <button id="edit-member-btn" class="icon-btn" title="名前を変更">✏️</button>
+                    <button id="delete-member-btn" class="icon-btn" title="削除">🗑️</button>
+                </p>
+            </section>
+
+            <section id="attendance-section" class="card hidden">
+                <h2>稽古日程・出欠入力</h2>
+                <div class="notice-box">
+                    <h3>出欠入力時の注意事項</h3>
+                    <ul class="notice-list">
+                        <li class="notice-item">入力内容は、できるだけ変更しないようご協力ください。参加状況をもとに、稽古内容を調整しています。</li>
+                        <li class="notice-item">遅くとも、1週間前までに入力を完了してください。それ以降に変更がある場合は、サイト変更後、主催者へ直接ご連絡ください。</li>
+                        <li class="notice-item">備考がある場合は、備考欄へ簡潔に入力してください。（例：13:30参加、19:00退出 など）</li>
+                    </ul>
+                </div>
+                <div id="month-selector" class="month-selector">
+                    <!-- Month buttons rendered by JS -->
+                </div>
+                <div id="practice-schedule" class="schedule-container">
+                    <!-- Practice items rendered by JS -->
+                </div>
+            </section>
+        </div>
+
+        <div id="past-mode-content" class="hidden">
+            <section class="card">
+                <h2>過去の稽古記録・出欠管理</h2>
+                <p class="text-muted text-center" style="margin-bottom: 1.5rem;">終了した稽古の出欠記録です。不要なデータは削除できます。</p>
+                <div id="past-schedule-list">
+                    <!-- Past schedules with delete buttons -->
+                </div>
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button id="delete-all-past-btn" class="btn btn-sm btn-secondary" style="color: #e17055;">過去の日程をすべて一括削除</button>
+                </div>
+            </section>
+        </div>
+
+        <div id="admin-mode-content" class="hidden">
+            <section class="card">
+                <h2>稽古日程の編集</h2>
+                <p class="text-muted text-center" style="margin-bottom: 1.5rem;">※ここで変更した内容は全メンバーに反映されます</p>
+                
+                <div id="admin-schedule-list">
+                    <!-- Editable schedule list -->
+                </div>
+
+                <button id="add-new-day-btn" class="btn btn-secondary" style="width: 100%; margin-top: 1rem;">＋ 新しい稽古日を追加</button>
+            </section>
+
+
+            <section class="card">
+                <h2>プルダウン項目の管理</h2>
+                <div class="option-management">
+                    <div>
+                        <p class="summary-label">場所リスト</p>
+                        <div class="input-with-button" style="margin-top: 0.5rem;">
+                            <input type="text" id="new-loc-input" class="input-small" placeholder="新しい場所">
+                            <button id="add-loc-btn" class="btn btn-sm btn-primary">追加</button>
+                        </div>
+                        <div id="loc-list" class="option-list"></div>
+                    </div>
+                    <div>
+                        <p class="summary-label">メニュー種別リスト</p>
+                        <div class="input-with-button" style="margin-top: 0.5rem;">
+                            <input type="text" id="new-menu-input" class="input-small" placeholder="新しいメニュー">
+                            <button id="add-menu-btn" class="btn btn-sm btn-primary">追加</button>
+                        </div>
+                        <div id="menu-list" class="option-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>タブの閲覧制限設定</h2>
+                <p class="text-muted text-center" style="margin-bottom: 1.5rem;">管理者パスワードでの保護設定を切り替えます</p>
+                <div id="tab-permission-controls" class="option-list">
+                    <!-- Controlled by JS -->
+                </div>
+            </section>
+        </div>
+
+        <footer style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-size: 0.8rem; padding-bottom: 2rem;">
+            &copy; 音楽集団フェルマータ
+        </footer>
+    </div>
+
+    <!-- Data Lists for shared options -->
+    <datalist id="location-options"></datalist>
+    <datalist id="menu-type-options"></datalist>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
