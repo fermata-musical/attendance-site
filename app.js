@@ -32,20 +32,16 @@ let state = {
     }
 };
 
-let isInitialLoaded = false; // 初回読み込みフラグ
-let saveTimeout = null; // 保存遅延用タイマー
+let isInitialLoaded = false;
+let saveTimeout = null;
 
-// --- クラウド同期ロジック（最適化版） ---
+// --- クラウド同期ロジック ---
 
-// クラウドから読み込み
 async function load(force = false) {
-    // 既に読み込み済みで強制リフレッシュでないならキャッシュを使用
     if (isInitialLoaded && !force) return;
 
-    // ローディング表示（初回のみ）
     if (!isInitialLoaded) $('loading-overlay').classList.remove('hidden');
 
-    // まずはlocalStorageから即座に復元（体感速度向上）
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (localSaved) {
         state = { ...state, ...JSON.parse(localSaved) };
@@ -64,6 +60,8 @@ async function load(force = false) {
             if (cloudData && Object.keys(cloudData).length > 0) {
                 state = { ...state, ...cloudData };
                 state.currentMember = '';
+                // ★ 読み込み直後は年月タブの選択をリセット（一番古いものを選ぶため）
+                state.ui.currentMonth = '';
                 console.log("クラウドから最新データを取得しました。");
             }
         }
@@ -75,20 +73,16 @@ async function load(force = false) {
     }
 }
 
-// クラウドへ保存（非同期・デバウンス対応）
 function save() {
     state.members.sort((a, b) => a.localeCompare(b, 'ja'));
     const json = JSON.stringify(state);
     
-    // ローカルには即座に保存（絶対の安全性）
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 
     if (!SYNC_URL) return;
 
-    // クラウド保存は裏側で実行（画面を止めない）
     if (saveTimeout) clearTimeout(saveTimeout);
     
-    // インジケーター表示
     $('sync-indicator').classList.remove('hidden');
 
     saveTimeout = setTimeout(async () => {
@@ -102,13 +96,12 @@ function save() {
         } catch (error) {
             console.error("クラウド保存エラー:", error);
         } finally {
-            // 少し待ってからインジケーターを消す
             setTimeout(() => $('sync-indicator').classList.add('hidden'), 1000);
         }
-    }, 1500); // 1.5秒操作が止まったら送信
+    }, 1500);
 }
 
-// --- 既存のアプリロジック（速度改善版） ---
+// --- 既存のアプリロジック ---
 
 const $ = (id) => document.getElementById(id);
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -149,7 +142,6 @@ function initTabs() {
                 alert('管理者のみアクセス可能です。'); return;
             }
             
-            // ★ クラウドへの再取得を削除（キャッシュを使用）
             sortScheduleByDate();
             refreshAdminViewList();
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -259,9 +251,17 @@ function renderAttendanceList() {
         return;
     }
     const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
+    
+    // ★ リストを昇順（古い順）で並べる
     const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
+    
     if (months.length === 0) return;
-    if (!state.ui.currentMonth || !months.includes(state.ui.currentMonth)) state.ui.currentMonth = months[0];
+
+    // ★ 初期選択として一番最初の要素（最も古い年月）をセットする
+    if (!state.ui.currentMonth || !months.includes(state.ui.currentMonth)) {
+        state.ui.currentMonth = months[0];
+    }
+
     months.forEach(m => {
         const btn = document.createElement('button');
         btn.className = `month-btn ${m === state.ui.currentMonth ? 'active' : ''}`;
@@ -481,12 +481,17 @@ window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderA
 
 function renderAdminVisibility() {
     const container = $('visibility-controls-container'); container.innerHTML = '';
-    const tabs = { 'attendance-input': '出欠入力', 'overall-status': '参加状況', 'admin-panel': '管理', 'past-records': '過去' };
-    Object.keys(tabs).forEach(id => {
-        const cur = state.settings.visibility[id];
+    const tabs = [
+        { id: 'attendance-input', label: '出欠入力' },
+        { id: 'overall-status', label: '参加状況' },
+        { id: 'past-records', label: '過去' },
+        { id: 'admin-panel', label: '管理' }
+    ];
+    tabs.forEach(tab => {
+        const cur = state.settings.visibility[tab.id];
         container.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:0.9rem;">${tabs[id]}</span>
-                <select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${id}', this.value)">
+                <span style="font-size:0.9rem;">${tab.label}</span>
+                <select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${tab.id}', this.value)">
                     <option value="public" ${cur==='public'?'selected':''}>公開</option>
                     <option value="protected" ${cur==='protected'?'selected':''}>制限中</option>
                 </select></div>`;
