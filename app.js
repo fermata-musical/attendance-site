@@ -1,447 +1,516 @@
-/**
- * Musical Attendance App Logic (v26) - Final Admin Fixes & UI Polish
- */
+const CONFIG = {
+    COMMON_PW: 'kuma',
+    ADMIN_PW: '9203',
+    STORAGE_KEY: 'fermata_v6_sync'
+};
 
-// --- Supabase Configuration ---
-const SUPABASE_URL = "https://grjjywivjczcjhjnmvsc.supabase.co";
-const SUPABASE_KEY = "sb_publishable_wUsRl8qXkBgNCVPwvBp5Og_yr-htHPt"; 
-
-const sb = (typeof supabase !== 'undefined' && SUPABASE_KEY !== "YOUR_SUPABASE_ANON_KEY") 
-    ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) 
-    : null;
-
-// --- Constants ---
-const PASS_GENERAL = "kuma";
-const PASS_ADMIN = "9203";
-
-// 15分刻みの時間リスト生成 (8:00 - 22:00)
-const TIME_OPTIONS = (() => {
-    const opts = [];
-    for (let h = 8; h <= 22; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            const time = `${h}:${m.toString().padStart(2, '0')}`;
-            opts.push(time);
-            if (h === 22) break; // 22:00で終了
-        }
-    }
-    return opts;
-})();
-
-// --- State ---
 let state = {
-    isLoggedIn: sessionStorage.getItem('fermata_logged_in') === 'true',
-    isAdmin: sessionStorage.getItem('fermata_is_admin') === 'true',
-    currentMemberName: localStorage.getItem('fermata_v26_member_name') || null,
-    schedules: [],
-    attendance: [],
+    auth: { isLoggedIn: false, type: null },
     members: [],
-    locations: [],
-    menuTypes: [],
-    tabPermissions: { user: false, summary: false, admin: true, past: true },
-    selectedMonth: new Date().toISOString().substring(0, 7)
+    currentMember: '',
+    rehearsals: [], 
+    attendance: {}, 
+    settings: {
+        locations: ['練習室A', '大ホール', '外部スタジオ'],
+        menus: ['歌唱', 'ダンス', '芝居', '通し稽古'],
+        visibility: {
+            'attendance-input': 'public',
+            'overall-status': 'public',
+            'admin-panel': 'protected',
+            'past-records': 'protected'
+        }
+    },
+    ui: {
+        currentMonth: '',
+        statusMonth: '',
+        pastMonth: '',
+        editingId: null,
+        adminViewList: []
+    }
 };
 
-// --- DOM Elements ---
-const el = {
-    loginScreen: document.getElementById('login-screen'),
-    mainApp: document.getElementById('main-app'),
-    sitePasswordInput: document.getElementById('site-password-input'),
-    siteLoginBtn: document.getElementById('site-login-btn'),
-    loginError: document.getElementById('login-error'),
-    logoutBtn: document.getElementById('logout-btn'),
-    tabUser: document.getElementById('tab-user'),
-    tabSummary: document.getElementById('tab-summary'),
-    tabAdmin: document.getElementById('tab-admin'),
-    tabPast: document.getElementById('tab-past'),
-    userModeContent: document.getElementById('user-mode-content'),
-    summaryModeContent: document.getElementById('summary-mode-content'),
-    adminModeContent: document.getElementById('admin-mode-content'),
-    pastModeContent: document.getElementById('past-mode-content'),
-    memberList: document.getElementById('member-list'),
-    memberNameInput: document.getElementById('member-name-input'),
-    addMemberBtn: document.getElementById('add-member-btn'),
-    selectedMemberName: document.getElementById('selected-member-name'),
-    currentSelectionMsg: document.getElementById('current-selection-msg'),
-    attendanceSection: document.getElementById('attendance-section'),
-    monthSelector: document.getElementById('month-selector'),
-    practiceSchedule: document.getElementById('practice-schedule'),
-    summaryView: document.getElementById('summary-view'),
-    pastScheduleList: document.getElementById('past-schedule-list'),
-    adminScheduleList: document.getElementById('admin-schedule-list'),
-    locList: document.getElementById('loc-list'),
-    menuList: document.getElementById('menu-list'),
-    newLocInput: document.getElementById('new-loc-input'),
-    newMenuInput: document.getElementById('new-menu-input'),
-    addLocBtn: document.getElementById('add-loc-btn'),
-    addMenuBtn: document.getElementById('add-menu-btn'),
-    locDatalist: document.getElementById('location-options'),
-    menuDatalist: document.getElementById('menu-type-options'),
-    tabPermissionControls: document.getElementById('tab-permission-controls'),
-    toast: document.getElementById('toast')
-};
-
-// --- Initialization ---
-async function init() {
-    if (state.isLoggedIn) { showApp(); } else { el.loginScreen.classList.remove('hidden'); }
-    setupEventListeners();
+function load() {
+    const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (saved) {
+        state = JSON.parse(saved);
+        state.currentMember = '';
+    }
+}
+function save() { 
+    state.members.sort((a, b) => a.localeCompare(b, 'ja'));
+    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); 
 }
 
-async function showApp() {
-    el.loginScreen.classList.add('hidden');
-    el.mainApp.classList.remove('hidden');
-    await fetchData();
-    render();
-    switchTab('user');
-}
+const $ = (id) => document.getElementById(id);
+const generateId = () => Math.random().toString(36).substr(2, 9);
+const getMonthStr = (date) => date ? date.substring(0, 7) : "";
+const getToday = () => new Date().setHours(0,0,0,0);
 
-async function fetchData() {
-    if (!sb) return;
-    console.log("Fetching everything...");
-    
-    const [schRes, attRes, memRes, locRes, mnuRes, stgRes] = await Promise.all([
-        sb.from('schedules').select('*, sessions(*)').order('date'),
-        sb.from('attendance').select('*'),
-        sb.from('members').select('*').order('name'),
-        sb.from('locations').select('*').order('sort_order'),
-        sb.from('menu_types').select('*').order('sort_order'),
-        sb.from('settings').select('*').eq('key', 'tab_permissions').single()
-    ]);
-
-    if (schRes.data) state.schedules = schRes.data;
-    if (attRes.data) state.attendance = attRes.data;
-    if (memRes.data) state.members = memRes.data;
-    if (locRes.data) state.locations = locRes.data;
-    if (mnuRes.data) state.menuTypes = mnuRes.data;
-    if (stgRes.data) state.tabPermissions = stgRes.data.value;
-}
-
-// --- Render ---
-function render() {
-    renderTabs();
-    renderMembers();
-    renderSelection();
-    renderMonthSelector();
-    renderSchedules();
-    renderSummary();
-    renderAdminSchedules();
-    renderPastSchedules();
-    renderOptionLists();
-    renderPermissionControls();
-    renderDatalists();
-}
-
-function renderTabs() {
-    const tabs = [{id:'user', n:'出欠入力'}, {id:'summary', n:'全体の参加状況'}, {id:'admin', n:'管理画面'}, {id:'past', n:'過去の出欠管理'}];
-    tabs.forEach(t => {
-        const btn = document.getElementById(`tab-${t.id}`);
-        const isLocked = state.tabPermissions[t.id] && !state.isAdmin;
-        btn.innerHTML = `${isLocked ? '🔒' : ''}${t.n}`;
-    });
-}
-
-function renderDatalists() {
-    el.locDatalist.innerHTML = state.locations.map(o => `<option value="${o.name}"></option>`).join('');
-    el.menuDatalist.innerHTML = state.menuTypes.map(o => `<option value="${o.name}"></option>`).join('');
-}
-
-function renderMembers() {
-    el.memberList.innerHTML = '';
-    state.members.forEach(m => {
-        const chip = document.createElement('div');
-        chip.className = `member-chip ${state.currentMemberName === m.name ? 'active' : ''}`;
-        chip.textContent = m.name;
-        chip.onclick = () => {
-            state.currentMemberName = (state.currentMemberName === m.name) ? null : m.name;
-            localStorage.setItem('fermata_v26_member_name', state.currentMemberName || '');
-            render();
-        };
-        el.memberList.appendChild(chip);
-    });
-}
-
-function renderSelection() {
-    if (state.currentMemberName) {
-        el.selectedMemberName.textContent = state.currentMemberName;
-        el.currentSelectionMsg.classList.remove('hidden');
-        el.attendanceSection.classList.remove('hidden');
-    } else {
-        el.currentSelectionMsg.classList.add('hidden');
-        el.attendanceSection.classList.add('hidden');
+function initAuth() {
+    $('login-btn').onclick = () => {
+        const pw = $('password-input').value;
+        if (pw === CONFIG.ADMIN_PW) state.auth = { isLoggedIn: true, type: 'admin' };
+        else if (pw === CONFIG.COMMON_PW) state.auth = { isLoggedIn: true, type: 'common' };
+        else { $('login-error').classList.remove('hidden'); return; }
+        save(); location.reload();
+    };
+    $('logout-btn').onclick = () => { if (confirm('ログアウトしますか？')) { state.auth = { isLoggedIn: false, type: null }; save(); location.reload(); } };
+    if (state.auth.isLoggedIn) {
+        $('login-overlay').classList.add('hidden');
+        $('app').classList.remove('hidden');
+        updateLockIcons();
+        renderTab('attendance-input');
     }
 }
 
-function renderMonthSelector() {
-    const months = [...new Set(state.schedules.map(s => s.date.substring(0, 7)))].filter(m => m !== "").sort();
-    const curMonth = new Date().toISOString().substring(0, 7);
-    if (!months.includes(curMonth)) months.push(curMonth);
-    el.monthSelector.innerHTML = months.map(m => `
-        <button class="month-btn ${state.selectedMonth === m ? 'active' : ''}" onclick="selectMonth('${m}')">${m.split('-')[0]}年${m.split('-')[1]}月</button>
-    `).join('');
-}
-
-function selectMonth(m) { state.selectedMonth = m; renderSchedules(); renderMonthSelector(); }
-
-function renderSchedules() {
-    el.practiceSchedule.innerHTML = '';
-    const today = getToday();
-    const filtered = state.schedules.filter(s => s.date.startsWith(state.selectedMonth) && s.date >= today).sort((a,b)=>a.date.localeCompare(b.date));
-    if (filtered.length === 0) { el.practiceSchedule.innerHTML = '<p class="text-center text-muted">予定はありません</p>'; return; }
-
-    filtered.forEach(day => {
-        const dayEl = document.createElement('div'); dayEl.className = 'day-card';
-        let sHtml = day.sessions.map(s => {
-            const att = state.attendance.find(a => a.session_id === s.id && a.name === state.currentMemberName) || { status: null, note: '' };
-            return `
-                <div class="session-item">
-                    <div class="session-info"><span class="session-time">${s.start_time || ''}〜${s.end_time || ''}</span><span class="session-title">${s.menu || '稽古'}</span></div>
-                    <div class="attendance-controls">
-                        <button class="attendance-btn present ${att.status === 'present' ? 'active' : ''}" onclick="saveAttendance('${s.id}', 'present')">出席</button>
-                        <button class="attendance-btn absent ${att.status === 'absent' ? 'active' : ''}" onclick="saveAttendance('${s.id}', 'absent')">欠席</button>
-                    </div>
-                    <div class="session-note-box"><input type="text" class="session-note-input" placeholder="備考があれば入力" value="${att.note || ''}" onchange="saveNote('${s.id}', this.value)"></div>
-                </div>`;
-        }).join('');
-        dayEl.innerHTML = `<div class="day-header"><div class="day-date">${day.date}</div><div class="day-location">${day.location}</div></div><div class="sessions-list">${sHtml}</div>`;
-        el.practiceSchedule.appendChild(dayEl);
+function updateLockIcons() {
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        const id = tab.dataset.tab;
+        const icon = tab.querySelector('.lock-icon');
+        if (state.settings.visibility[id] === 'protected') icon.classList.remove('hidden');
+        else icon.classList.add('hidden');
     });
 }
 
-function renderSummary() {
-    let html = '';
-    const today = getToday();
-    state.schedules.filter(d => d.date >= today).sort((a,b)=>a.date.localeCompare(b.date)).forEach(day => {
-        let dayHtml = `<div class="summary-day-group"><div class="summary-day-header"><span class="summary-day-date">${day.date}</span><span class="summary-day-location">${day.location}</span></div>`;
-        let hasAtt = false;
-        day.sessions.forEach(s => {
-            const atts = state.attendance.filter(a => a.session_id === s.id && a.status === 'present');
-            if (atts.length === 0) return;
-            hasAtt = true;
-            const names = atts.map(a => `<span class="participant-name">${a.name}</span>${a.note ? `<span class="participant-note"> (${a.note})</span>` : ''}`).join('、');
-            dayHtml += `<div class="summary-session"><div style="font-weight:600;">${s.start_time || ''} ${s.menu || ''}</div><div class="summary-participants">出席：${names}</div></div>`;
-        });
-        if (hasAtt) html += dayHtml + '</div>';
+function initTabs() {
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.onclick = () => {
+            const id = tab.dataset.tab;
+            if (state.settings.visibility[id] === 'protected' && state.auth.type !== 'admin') {
+                alert('管理者のみアクセス可能です。'); return;
+            }
+            sortScheduleByDate();
+            refreshAdminViewList();
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active'); $(id).classList.add('active');
+            renderTab(id);
+        };
     });
-    el.summaryView.innerHTML = html || '<p class="text-center text-muted">直近の予定はありません</p>';
-}
 
-// --- Admin Render ---
-function renderAdminSchedules() {
-    if (!state.isAdmin) return;
-    el.adminScheduleList.innerHTML = '';
-    const today = getToday();
-    state.schedules.filter(d => d.date >= today).sort((a,b)=>a.date.localeCompare(b.date)).forEach(day => {
-        const item = document.createElement('div'); item.className = 'admin-schedule-item';
-        const timeOptionsHtml = TIME_OPTIONS.map(t => `<option value="${t}">${t}</option>`).join('');
-        
-        let sHtml = day.sessions.map(s => `
-            <div class="admin-session-edit">
-                <div class="admin-session-header">
-                    <span style="font-weight:bold; font-size:0.9rem; color:var(--primary-dark);">練習枠</span>
-                    <button class="btn-danger-text" onclick="deleteSession('${day.id}', '${s.id}')">枠を削除</button>
-                </div>
-                <div class="admin-form-grid">
-                    <div><label>開始</label><select onchange="updateSession('${day.id}', '${s.id}', 'start_time', this.value)"><option value="">選択</option>${TIME_OPTIONS.map(t => `<option value="${t}" ${s.start_time === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-                    <div><label>終了</label><select onchange="updateSession('${day.id}', '${s.id}', 'end_time', this.value)"><option value="">選択</option>${TIME_OPTIONS.map(t => `<option value="${t}" ${s.end_time === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-                    <div><label>メニュー</label><input type="text" list="menu-type-options" value="${s.menu || ''}" onchange="updateSession('${day.id}', '${s.id}', 'menu', this.value)"></div>
-                </div>
-            </div>
-        `).join('');
-        
-        item.innerHTML = `
-            <div class="admin-day-title">
-                <div class="admin-form-row">
-                    <div><label>日付</label><input type="date" value="${day.date}" onchange="updateDay('${day.id}', 'date', this.value)"></div>
-                    <div><label>場所</label><input type="text" list="location-options" value="${day.location}" onchange="updateDay('${day.id}', 'location', this.value)"></div>
-                </div>
-            </div>
-            <div style="padding:1rem;">
-                ${sHtml}
-                <div class="admin-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="addSession('${day.id}')">＋ 練習枠を追加</button>
-                    <button class="btn-danger-text" onclick="deleteDay('${day.id}')">日程ごと削除</button>
-                </div>
-            </div>`;
-        el.adminScheduleList.appendChild(item);
+    document.querySelectorAll('.menu-tab').forEach(tab => {
+        tab.onclick = () => {
+            sortScheduleByDate();
+            refreshAdminViewList();
+            document.querySelectorAll('.menu-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.sub-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active'); $(tab.dataset.menu).classList.add('active');
+            renderTab('admin-panel');
+        };
     });
 }
 
-function renderPastSchedules() {
-    if (!state.isAdmin) return;
-    el.pastScheduleList.innerHTML = '';
-    const today = getToday();
-    state.schedules.filter(d => d.date < today).sort((a,b)=>b.date.localeCompare(a.date)).forEach(day => {
-        const div = document.createElement('div'); div.className = 'admin-schedule-item';
-        div.innerHTML = `<div class="admin-day-title"><strong>${day.date}</strong> ${day.location}</div><div class="admin-actions"><div></div><button class="btn-danger-text" onclick="deleteDay('${day.id}')">削除</button></div>`;
-        el.pastScheduleList.appendChild(div);
+function refreshAdminViewList() {
+    state.ui.adminViewList = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday());
+}
+
+function sortScheduleByDate() {
+    state.rehearsals.sort((a,b) => {
+        if (!a.date) return 1; if (!b.date) return -1;
+        return a.date.localeCompare(b.date);
     });
 }
 
-function renderOptionLists() {
-    if (!state.isAdmin) return;
-    const renderList = (list, key) => list.map((o, idx) => `
-        <div class="option-item">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <button class="icon-btn" onclick="moveOption('${key}', '${o.id}', ${idx}, -1)">▲</button>
-                <button class="icon-btn" onclick="moveOption('${key}', '${o.id}', ${idx}, 1)">▼</button>
-                <span>${o.name}</span>
-            </div>
-            <button class="icon-btn" onclick="deleteOption('${key}', '${o.id}')">🗑️</button>
-        </div>`).join('');
-    el.locList.innerHTML = renderList(state.locations, 'locations');
-    el.menuList.innerHTML = renderList(state.menuTypes, 'menu_types');
+function renderTab(id) {
+    if (id === 'attendance-input') renderAttendanceInput();
+    if (id === 'overall-status') renderOverallStatus();
+    if (id === 'admin-panel') renderAdminPanel();
+    if (id === 'past-records') renderPastRecords();
 }
 
-function renderPermissionControls() {
-    if (!state.isAdmin) return;
-    const tabs = [{id:'user', n:'出欠入力'}, {id:'summary', n:'全体の参加状況'}, {id:'admin', n:'管理画面'}, {id:'past', n:'過去の出欠管理'}];
-    el.tabPermissionControls.innerHTML = tabs.map(t => `
-        <div class="option-item">
-            <span>${t.n}</span>
-            <label class="switch-container">
-                <input type="checkbox" ${state.tabPermissions[t.id] ? 'checked' : ''} onchange="togglePermission('${t.id}', this.checked)">
-                <span style="font-size:0.8rem;">${state.tabPermissions[t.id] ? '🔒 保護中' : '🔓 公開'}</span>
-            </label>
-        </div>`).join('');
-}
-
-// --- Admin Actions ---
-async function addDay() {
-    if (!sb) return;
-    const { error } = await sb.from('schedules').insert({ date: getToday(), location: '' });
-    if (error) alert("追加に失敗しました。SQLが正しく実行されているか確認してください。");
-    else { await fetchData(); render(); showToast("日程を追加しました"); }
-}
-
-async function updateDay(id, key, val) {
-    await sb.from('schedules').update({ [key]: val }).eq('id', id);
-    await fetchData(); render();
-}
-
-async function deleteDay(id) {
-    if (!confirm("日程全体を削除しますか？")) return;
-    await sb.from('schedules').delete().eq('id', id);
-    await fetchData(); render();
-}
-
-async function addSession(schId) {
-    await sb.from('sessions').insert({ schedule_id: schId, start_time: '09:00', end_time: '10:00', menu: '' });
-    await fetchData(); render();
-}
-
-async function updateSession(schId, sid, key, val) {
-    await sb.from('sessions').update({ [key]: val }).eq('id', sid);
-    await fetchData(); render();
-}
-
-async function deleteSession(schId, sid) {
-    if (!confirm("この練習枠を削除しますか？")) return;
-    await sb.from('sessions').delete().eq('id', sid);
-    await fetchData(); render();
-}
-
-async function addOption(key) {
-    const input = key === 'locations' ? el.newLocInput : el.newMenuInput;
-    const name = input.value.trim();
-    if (!name || !sb) return;
-    const { error } = await sb.from(key).insert({ name, sort_order: state[key === 'locations' ? 'locations' : 'menuTypes'].length + 1 });
-    if (error) { console.error(error); alert("追加できませんでした。SQL Editorでテーブルが作成されているか確認してください。"); }
-    else { input.value = ''; await fetchData(); render(); showToast("追加しました"); }
-}
-
-async function deleteOption(key, id) {
-    await sb.from(key).delete().eq('id', id);
-    await fetchData(); render();
-}
-
-async function moveOption(key, id, idx, dir) {
-    const list = key === 'locations' ? state.locations : state.menuTypes;
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= list.length) return;
-    // Simple swap
-    const other = list[newIdx];
-    await sb.from(key).update({ sort_order: other.sort_order }).eq('id', id);
-    await sb.from(key).update({ sort_order: list[idx].sort_order }).eq('id', other.id);
-    await fetchData(); render();
-}
-
-async function togglePermission(tabId, val) {
-    state.tabPermissions[tabId] = val;
-    const { error } = await sb.from('settings').upsert({ key: 'tab_permissions', value: state.tabPermissions }, { onConflict: 'key' });
-    if (error) console.error(error);
-    await fetchData(); render();
-}
-
-// --- User Actions ---
-async function saveAttendance(sid, status) {
-    if (!state.currentMemberName) { alert("最初にお名前を入力してください"); return; }
-    const current = state.attendance.find(a => a.session_id === sid && a.name === state.currentMemberName);
-    const newStatus = (current && current.status === status) ? null : status;
-    if (current) await sb.from('attendance').update({ status: newStatus }).eq('id', current.id);
-    else await sb.from('attendance').insert({ session_id: sid, name: state.currentMemberName, status: newStatus });
-    await fetchData(); render(); showToast("✅ 保存しました");
-}
-
-async function saveNote(sid, note) {
-    if (!state.currentMemberName) return;
-    const current = state.attendance.find(a => a.session_id === sid && a.name === state.currentMemberName);
-    if (current) await sb.from('attendance').update({ note }).eq('id', current.id);
-    else await sb.from('attendance').insert({ session_id: sid, name: state.currentMemberName, note });
-    await fetchData();
-}
-
-// --- Auth ---
-function handleLogin() {
-    const pass = el.sitePasswordInput.value;
-    if (pass === PASS_ADMIN || pass === PASS_GENERAL) {
-        state.isLoggedIn = true; state.isAdmin = (pass === PASS_ADMIN);
-        sessionStorage.setItem('fermata_logged_in', 'true');
-        sessionStorage.setItem('fermata_is_admin', state.isAdmin);
-        showApp();
-    } else { el.loginError.classList.remove('hidden'); }
-}
-
-function setupEventListeners() {
-    el.siteLoginBtn.onclick = handleLogin;
-    el.logoutBtn.onclick = () => { sessionStorage.clear(); location.reload(); };
-    el.addMemberBtn.onclick = async () => {
-        const name = el.memberNameInput.value.trim(); if (!name) return;
-        if (!state.members.find(m => m.name === name)) { await sb.from('members').insert({ name }); await fetchData(); }
-        state.currentMemberName = name; localStorage.setItem('fermata_v26_member_name', name);
-        el.memberNameInput.value = ''; render();
+function renderAttendanceInput() {
+    const select = $('member-select');
+    select.innerHTML = '<option value="">メンバーを選択</option>';
+    state.members.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === state.currentMember) opt.selected = true;
+        select.appendChild(opt);
+    });
+    select.onchange = (e) => {
+        state.currentMember = e.target.value;
+        save();
+        renderAttendanceInput();
     };
-    document.getElementById('add-new-day-btn').onclick = addDay;
-    el.addLocBtn.onclick = () => addOption('locations');
-    el.addMenuBtn.onclick = () => addOption('menu_types');
-    el.tabUser.onclick = () => switchTab('user');
-    el.tabSummary.onclick = () => switchTab('summary');
-    el.tabAdmin.onclick = () => switchTab('admin');
-    el.tabPast.onclick = () => switchTab('past');
+    const actionGroup = $('member-action-btns');
+    if (state.currentMember) {
+        actionGroup.classList.remove('hidden');
+        $('edit-current-member-btn').onclick = () => startEditCurrentMember();
+        $('delete-current-member-btn').onclick = () => deleteCurrentMember();
+    } else {
+        actionGroup.classList.add('hidden');
+    }
+    $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
+    $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
+    $('confirm-member-btn').onclick = () => {
+        const name = $('new-member-name').value.trim();
+        if (name && !state.members.includes(name)) {
+            state.members.push(name); state.currentMember = name;
+            $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
+            save(); renderAttendanceInput();
+        }
+    };
+    renderAttendanceList();
 }
 
-function switchTab(tab) {
-    if (state.tabPermissions[tab] && !state.isAdmin) { alert('管理者用パスワードが必要です'); return; }
-    ['user','summary','admin','past'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
-        const cnt = document.getElementById(`${t}-mode-content`);
-        if (btn) btn.classList.toggle('active', t === tab);
-        if (cnt) cnt.classList.toggle('hidden', t !== tab);
+function startEditCurrentMember() {
+    const i = state.members.indexOf(state.currentMember);
+    const newName = prompt('氏名を編集:', state.currentMember);
+    if (newName && newName.trim() !== state.currentMember) {
+        const oldName = state.currentMember;
+        state.members[i] = newName.trim();
+        state.currentMember = newName.trim();
+        if (state.attendance[oldName]) {
+            state.attendance[newName.trim()] = state.attendance[oldName];
+            delete state.attendance[oldName];
+        }
+        save(); renderAttendanceInput();
+    }
+}
+function deleteCurrentMember() {
+    if (confirm(`${state.currentMember}さんを削除しますか？`)) {
+        const i = state.members.indexOf(state.currentMember);
+        const name = state.currentMember;
+        state.members.splice(i, 1);
+        delete state.attendance[name];
+        state.currentMember = '';
+        save(); renderAttendanceInput();
+    }
+}
+
+function renderAttendanceList() {
+    const container = $('attendance-list-container');
+    const tabBar = $('month-tab-bar');
+    container.innerHTML = ''; tabBar.innerHTML = '';
+    if (!state.currentMember) {
+        container.innerHTML = '<p class="admin-hint">メンバーを選択してください</p>';
+        return;
+    }
+    const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
+    const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
+    if (months.length === 0) return;
+    if (!state.ui.currentMonth || !months.includes(state.ui.currentMonth)) state.ui.currentMonth = months[0];
+    months.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = `month-btn ${m === state.ui.currentMonth ? 'active' : ''}`;
+        btn.textContent = m.replace('-', '/') ;
+        btn.onclick = () => { state.ui.currentMonth = m; renderAttendanceList(); };
+        tabBar.appendChild(btn);
+    });
+    future.filter(r => getMonthStr(r.date) === state.ui.currentMonth).forEach(r => {
+        const card = document.createElement('div'); card.className = 'card';
+        let slotsHtml = '';
+        r.slots.forEach(s => {
+            const key = `${r.id}_${s.id}`;
+            const data = state.attendance[state.currentMember]?.[key] || {status: null, note: ''};
+            slotsHtml += `
+                <div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #FFEFF2; padding-bottom:15px;">
+                    <div style="font-size:0.9rem; margin-bottom:8px;"><strong>${s.start}〜${s.end}</strong> [${s.menu}]</div>
+                    <div class="attendance-toggle">
+                        <button class="toggle-btn present ${data.status==='出席'?'active':''}" onclick="setAttend('${r.id}','${s.id}','出席')">出席</button>
+                        <button class="toggle-btn absent ${data.status==='欠席'?'active':''}" onclick="setAttend('${r.id}','${s.id}','欠席')">欠席</button>
+                    </div>
+                    <input type="text" class="cute-input note-area" placeholder="備考があれば" value="${data.note}" onchange="setNote('${r.id}','${s.id}',this.value)">
+                </div>
+            `;
+        });
+        card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date} (${r.location})</h2></div>${slotsHtml}`;
+        container.appendChild(card);
     });
 }
 
-function getToday() { return new Date().toISOString().split('T')[0]; }
-function showToast(msg) { el.toast.textContent = msg; el.toast.classList.remove('hidden'); setTimeout(()=>el.toast.classList.add('hidden'), 2000); }
+window.setAnyAttend = (name, rid, sid, status) => {
+    const key = `${rid}_${sid}`;
+    if (!state.attendance[name]) state.attendance[name] = {};
+    const cur = state.attendance[name][key] || {status:null, note:''};
+    const newStatus = cur.status === status ? null : status;
+    state.attendance[name][key] = { ...cur, status: newStatus };
+    save();
+};
+window.setAnyNote = (name, rid, sid, note) => {
+    const key = `${rid}_${sid}`;
+    if (!state.attendance[name]) state.attendance[name] = {};
+    const cur = state.attendance[name][key] || {status:null, note:''};
+    state.attendance[name][key] = { ...cur, note };
+    save();
+};
+window.setAttend = (rid, sid, status) => { setAnyAttend(state.currentMember, rid, sid, status); renderAttendanceList(); };
+window.setNote = (rid, sid, note) => { setAnyNote(state.currentMember, rid, sid, note); save(); };
 
-// Globalize for HTML
-window.selectMonth = selectMonth;
-window.saveAttendance = saveAttendance;
-window.saveNote = saveNote;
-window.updateDay = updateDay;
-window.deleteDay = deleteDay;
-window.addSession = addSession;
-window.updateSession = updateSession;
-window.deleteSession = deleteSession;
-window.deleteOption = deleteOption;
-window.moveOption = moveOption;
-window.togglePermission = togglePermission;
+function renderAdminPanel() {
+    const activeSub = document.querySelector('.menu-tab.active').dataset.menu;
+    if (activeSub === 'rehearsal-edit') renderAdminRehearsals();
+    if (activeSub === 'dropdown-edit') renderAdminDropdowns();
+    if (activeSub === 'tab-visibility') renderAdminVisibility();
+}
 
-init();
+function renderAdminRehearsals() {
+    const list = $('admin-rehearsal-list');
+    list.innerHTML = '';
+    $('list-locations').innerHTML = state.settings.locations.map(l => `<option value="${l}">`).join('');
+    $('list-menus').innerHTML = state.settings.menus.map(m => `<option value="${m}">`).join('');
+    if (state.ui.adminViewList.length === 0 && state.rehearsals.length > 0) refreshAdminViewList();
+    state.ui.adminViewList.forEach(r => {
+        const card = document.createElement('div'); card.className = 'admin-card-inner';
+        let slotsH = '';
+        r.slots.forEach(s => {
+            slotsH += `
+                <div class="admin-line slots">
+                    <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','start',this.value)">${getTimeOpts(s.start)}</select>
+                    <span>-</span>
+                    <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','end',this.value)">${getTimeOpts(s.end)}</select>
+                    <input list="list-menus" class="cute-input menu-sel flex-fill-input" value="${s.menu}" onchange="updateS('${r.id}','${s.id}','menu',this.value)" placeholder="メニューを追加">
+                    <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            `;
+        });
+        card.innerHTML = `
+            <div class="admin-line">
+                <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR('${r.id}','date',this.value)">
+                <input list="list-locations" class="cute-input flex-fill-input" value="${r.location}" onchange="updateR('${r.id}','location',this.value)" placeholder="場所を追加">
+                <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+            ${slotsH}
+            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+function getTimeOpts(s) {
+    let h = `<option value="" ${s===''?'selected':''}>--</option>`;
+    for(let i=8; i<=22; i++) {
+        ['00','15','30','45'].forEach(m => {
+            const t = `${i.toString().padStart(2,'0')}:${m}`;
+            h += `<option value="${t}" ${t===s?'selected':''}>${t}</option>`;
+        });
+    }
+    return h;
+}
+window.updateR = (id, k, v) => { state.rehearsals.find(x => x.id === id)[k] = v; save(); };
+window.updateS = (rid, sid, k, v) => { state.rehearsals.find(x => x.id === rid).slots.find(y => y.id === sid)[k] = v; save(); };
+window.delR = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); state.ui.adminViewList = state.ui.adminViewList.filter(x => x.id !== id); save(); renderAdminRehearsals(); } };
+window.delS = (rid, sid) => { const r = state.rehearsals.find(x => x.id === rid); r.slots = r.slots.filter(y => y.id !== sid); save(); renderAdminRehearsals(); };
+
+window.addS = (id) => {
+    const r = state.rehearsals.find(x => x.id === id);
+    const last = r.slots[r.slots.length - 1];
+    r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
+    save(); renderAdminRehearsals();
+};
+
+$('add-rehearsal-btn').onclick = () => {
+    sortScheduleByDate(); 
+    const newId = generateId();
+    const newR = { id: newId, date: '', location: '', slots: [{id: generateId(), start: '', end: '', menu: ''}] };
+    state.rehearsals.push(newR);
+    refreshAdminViewList();
+    save(); renderAdminRehearsals();
+};
+
+function renderOverallStatus() {
+    const container = $('overall-status-container');
+    const tabBar = $('status-month-tab-bar');
+    container.innerHTML = ''; tabBar.innerHTML = '';
+    const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
+    const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
+    if (months.length === 0) return;
+    if (!state.ui.statusMonth || !months.includes(state.ui.statusMonth)) state.ui.statusMonth = months[0];
+    months.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = `month-btn ${m === state.ui.statusMonth ? 'active' : ''}`;
+        btn.textContent = m.replace('-', '/');
+        btn.onclick = () => { state.ui.statusMonth = m; renderOverallStatus(); };
+        tabBar.appendChild(btn);
+    });
+    future.filter(r => getMonthStr(r.date) === state.ui.statusMonth).forEach(r => {
+        const card = document.createElement('div'); card.className = 'card';
+        let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}</h2></div>`;
+        r.slots.forEach(s => {
+            const key = `${r.id}_${s.id}`;
+            const present = [], absent = [], notesOnly = [];
+            
+            // ★ 回答済みメンバーのみを判定して分類
+            state.members.forEach(name => {
+                const att = state.attendance[name]?.[key];
+                const displayName = `${name}${att?.note ? '(' + att.note + ')' : ''}`;
+                
+                if (att?.status === '出席') {
+                    present.push(displayName);
+                } else if (att?.status === '欠席') {
+                    absent.push(displayName);
+                } else if (att?.note) {
+                    notesOnly.push(displayName);
+                }
+                // ★ 未回答（出欠未選択かつ備考なし）の場合は何もしない（表示しない）
+            });
+
+            h += `<div class="slot-row" style="margin-bottom:20px; border-bottom:1px dashed #FFEFF2; padding-bottom:15px;">
+                    <div style="font-size:0.9rem; margin-bottom:12px; color:var(--pink-dark);"><strong>${s.start}〜${s.end}</strong> [${s.menu}]</div>
+                    
+                    <div class="status-group">
+                        <div class="absent-title">【出席者】</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">
+                            ${present.map(n => `<span class="pills-edit" style="cursor:default;">${n}</span>`).join('') || '<span style="color:#EEE; font-size:0.75rem;">なし</span>'}
+                        </div>
+                    </div>
+
+                    <div class="status-group">
+                        <div class="absent-title">【欠席者】</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">
+                            ${absent.map(n => `<span class="pills-edit" style="background:var(--lavender-light); color:#7B1FA2; cursor:default;">${n}</span>`).join('') || '<span style="color:#EEE; font-size:0.75rem;">なし</span>'}
+                        </div>
+                    </div>
+
+                    <div class="status-group">
+                        <div class="absent-title">【備考のみ】</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                            ${notesOnly.map(n => `<span class="pills-edit" style="background:#F5F5F5; color:#888; cursor:default;">${n}</span>`).join('') || '<span style="color:#EEE; font-size:0.75rem;">なし</span>'}
+                        </div>
+                    </div>
+                </div>`;
+        });
+        card.innerHTML = h; container.appendChild(card);
+    });
+}
+
+function renderAdminDropdowns() {
+    renderList('locations', 'admin-location-list', 'new-location-input', 'add-location-btn');
+    renderList('menus', 'admin-menu-list', 'new-menu-input', 'add-menu-btn');
+}
+function renderList(key, listId, inputId, btnId) {
+    const list = $(listId); list.innerHTML = '';
+    state.settings[key].forEach((item, i) => {
+        const li = document.createElement('li');
+        li.draggable = true;
+        li.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:white; border:1px solid #F0F0F0; border-radius:12px; margin-bottom:8px; font-size:0.9rem;";
+        li.innerHTML = `<span><i class="fa-solid fa-grip-lines" style="margin-right:10px; color:#EEE;"></i> ${item}</span> <button class="del-icon-btn" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button>`;
+        li.ondragstart = (e) => { e.dataTransfer.setData('text/plain', i); };
+        li.ondragover = (e) => e.preventDefault();
+        li.ondrop = (e) => {
+            const from = parseInt(e.dataTransfer.getData('text/plain'));
+            const moved = state.settings[key].splice(from, 1)[0];
+            state.settings[key].splice(i, 0, moved);
+            save(); renderAdminDropdowns();
+        };
+        list.appendChild(li);
+    });
+    $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
+}
+window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderAdminDropdowns(); };
+
+function renderAdminVisibility() {
+    const container = $('visibility-controls-container'); container.innerHTML = '';
+    const tabs = { 'attendance-input': '出欠入力', 'overall-status': '参加状況', 'admin-panel': '管理', 'past-records': '過去' };
+    Object.keys(tabs).forEach(id => {
+        const cur = state.settings.visibility[id];
+        container.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.9rem;">${tabs[id]}</span>
+                <select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${id}', this.value)">
+                    <option value="public" ${cur==='public'?'selected':''}>公開</option>
+                    <option value="protected" ${cur==='protected'?'selected':''}>制限中</option>
+                </select></div>`;
+    });
+}
+window.updateVis = (id, val) => { state.settings.visibility[id] = val; save(); updateLockIcons(); };
+
+function renderPastRecords() {
+    const container = $('past-records-container');
+    const tabBar = $('past-month-tab-bar');
+    container.innerHTML = ''; tabBar.innerHTML = '';
+    const pastAll = state.rehearsals.filter(r => r.date && new Date(r.date) < getToday());
+    if (pastAll.length === 0) { container.innerHTML = '<p class="admin-hint">過去の稽古日程はありません</p>'; return; }
+    const months = [...new Set(pastAll.map(r => getMonthStr(r.date)))].sort((a,b) => b.localeCompare(a));
+    if (!state.ui.pastMonth || !months.includes(state.ui.pastMonth)) state.ui.pastMonth = months[0];
+    months.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = `month-btn ${m === state.ui.pastMonth ? 'active' : ''}`;
+        btn.textContent = m.replace('-', '/');
+        btn.onclick = () => { state.ui.pastMonth = m; renderPastRecords(); };
+        tabBar.appendChild(btn);
+    });
+    const past = pastAll.filter(r => getMonthStr(r.date) === state.ui.pastMonth).sort((a,b) => b.date.localeCompare(a.date));
+    past.forEach(r => {
+        const card = document.createElement('div'); card.className = 'card';
+        const isEditing = state.ui.editingId === r.id;
+        let headerH = isEditing 
+            ? `<div class="admin-line"><input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR_Base_Past('${r.id}','date',this.value)"><input list="list-locations" class="cute-input flex-fill-input" value="${r.location}" onchange="updateR_Base_Past('${r.id}','location',this.value)"><button class="icon-btn-sm" onclick="toggleEditPast(null)"><i class="fa-solid fa-check"></i></button></div>`
+            : `<div class="section-header" onclick="toggleEditPast('${r.id}')"><div style="display:flex; align-items:center;"><input type="checkbox" class="past-checkbox" value="${r.id}" onclick="event.stopPropagation()"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date} (${r.location})</h2></div><i class="fa-solid fa-pen" style="font-size:0.8rem; color:#DDD;"></i></div>`;
+        let slotsH = '';
+        r.slots.forEach(s => {
+            const key = `${r.id}_${s.id}`;
+            const pres = [], absWithNotes = [];
+            state.members.forEach(name => {
+                const att = state.attendance[name]?.[key];
+                if (att?.status === '出席') pres.push({name, note:att.note});
+                else if (att?.status === '欠席' && att.note) absWithNotes.push({ name, note: att.note });
+            });
+
+            const timeStart = isEditing
+                ? `<input type="time" class="cute-input time-sel" value="${s.start}" onchange="updateR_Past('${r.id}','${s.id}','start',this.value)">`
+                : `<span class="time-sel-display" onclick="toggleEditPast('${r.id}')">${s.start}</span>`;
+            const timeEnd = isEditing
+                ? `<input type="time" class="cute-input time-sel" value="${s.end}" onchange="updateR_Past('${r.id}','${s.id}','end',this.value)">`
+                : `<span class="time-sel-display" onclick="toggleEditPast('${r.id}')">${s.end}</span>`;
+            
+            const menuContent = isEditing
+                ? `<input list="list-menus" class="cute-input menu-sel flex-fill-input" value="${s.menu}" onchange="updateR_Past('${r.id}','${s.id}','menu',this.value)">`
+                : `<span class="flex-fill-input" onclick="toggleEditPast('${r.id}')">${s.menu} <i class="fa-solid fa-pen" style="font-size:0.6rem; color:#EEE;"></i></span>`;
+
+            slotsH += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #EEE; padding-bottom:10px;">
+                    <div class="admin-line" style="margin-bottom:8px; font-size:0.85rem;">
+                        <strong>${timeStart}〜${timeEnd}</strong>
+                        ${menuContent}
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
+                        ${pres.map(p => `<span class="pills-edit" onclick="editAnyAttend_UI('${p.name}','${r.id}','${s.id}')">${p.name}${p.note?'('+p.note+')':''}</span>`).join('') || '<span style="color:#EEE; font-size:0.7rem;">出席者なし</span>'}
+                        <button class="icon-btn-sm" style="width:auto; padding:0 8px; font-size:0.7rem;" onclick="showAddAnyAttend_UI('${r.id}','${s.id}')">+ 追加/修正</button>
+                    </div>`;
+            if (absWithNotes.length > 0) {
+                slotsH += `<div class="absent-section">${absWithNotes.map(a => `<div class="absent-row" onclick="editAnyAttend_UI('${a.name}','${r.id}','${s.id}')"><span class="absent-name">${a.name}</span><span class="absent-note">${a.note}</span></div>`).join('')}</div>`;
+            }
+            slotsH += `</div>`;
+        });
+        
+        h = headerH + slotsH;
+        h += `<button class="puffy-btn pink puffy-btn-sm" style="width:100%; margin-top:10px;" onclick="addS_Past('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button>`;
+        card.innerHTML = h;
+        container.appendChild(card);
+    });
+    $('delete-selected-past-btn').onclick = deleteSelectedPast;
+    $('clear-past-btn').onclick = () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); save(); renderPastRecords(); } };
+}
+
+function deleteSelectedPast() {
+    const checked = Array.from(document.querySelectorAll('.past-checkbox:checked')).map(el => el.value);
+    if (checked.length === 0) { alert('削除するデータを選択してください。'); return; }
+    if (confirm(`選択した ${checked.length} 件のデータを削除しますか？`)) {
+        state.rehearsals = state.rehearsals.filter(r => !checked.includes(r.id));
+        save();
+        renderPastRecords();
+    }
+}
+window.toggleEditPast = (id) => { state.ui.editingId = id; renderPastRecords(); };
+window.updateR_Base_Past = (id, k, v) => { updateR(id, k, v); save(); renderPastRecords(); };
+window.updateR_Past = (rid, sid, k, v) => { updateS(rid, sid, k, v); save(); renderPastRecords(); };
+window.editAnyAttend_UI = (name, rid, sid) => {
+    const att = state.attendance[name]?.[`${rid}_${sid}`] || {status:null, note:''};
+    const s = confirm(`${name}さんの出欠を切り替えますか？\n現在: ${att.status || '未入力'}`) ? (att.status==='出席'?'欠席':'出席') : att.status;
+    const n = prompt(`${name}さんの備考:`, att.note);
+    if(s !== att.status || n !== att.note) { setAnyAttend(name, rid, sid, s); setAnyNote(name, rid, sid, n || ''); renderPastRecords(); }
+};
+window.showAddAnyAttend_UI = (rid, sid) => {
+    const name = prompt("修正・追加するメンバーの名前を入力してください:");
+    if(name && state.members.includes(name)) editAnyAttend_UI(name, rid, sid);
+    else if(name) alert("メンバーが見つかりません。");
+};
+window.delR_Past = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); save(); renderPastRecords(); } };
+window.addS_Past = (id) => { 
+    const r = state.rehearsals.find(x => x.id === id);
+    const last = r.slots[r.slots.length - 1];
+    r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
+    save(); 
+    renderPastRecords(); 
+};
+window.onload = () => { load(); initAuth(); initTabs(); };
