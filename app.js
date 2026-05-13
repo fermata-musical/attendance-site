@@ -241,7 +241,6 @@ function deleteCurrentMember() {
     }
 }
 
-// 汎用年月タブ描画関数
 function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId, callback) {
     const top = $(containerTopId);
     const bottom = $(containerBottomId);
@@ -284,7 +283,6 @@ function renderAttendanceList() {
         state.ui.currentMonth = months[0];
     }
 
-    // 上下タブを描画・同期
     renderMonthTabs(months, state.ui.currentMonth, 'month-tab-bar', 'month-tab-bar-bottom', (m) => {
         state.ui.currentMonth = m;
         renderAttendanceList();
@@ -307,7 +305,8 @@ function renderAttendanceList() {
                 </div>
             `;
         });
-        card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date} (${r.location})</h2></div>${slotsHtml}`;
+        // ★ 日付 (場所) を表示
+        card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div>${slotsHtml}`;
         container.appendChild(card);
     });
 }
@@ -413,7 +412,6 @@ function renderOverallStatus() {
     }
     if (!state.ui.statusMonth || !months.includes(state.ui.statusMonth)) state.ui.statusMonth = months[0];
 
-    // 上下タブを描画・同期
     renderMonthTabs(months, state.ui.statusMonth, 'status-month-tab-bar', 'status-month-tab-bar-bottom', (m) => {
         state.ui.statusMonth = m;
         renderOverallStatus();
@@ -421,7 +419,8 @@ function renderOverallStatus() {
 
     future.filter(r => getMonthStr(r.date) === state.ui.statusMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
-        let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}</h2></div>`;
+        // ★ 日付 ＋ 場所 を表示
+        let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}　${r.location}</h2></div>`;
         r.slots.forEach(s => {
             const key = `${r.id}_${s.id}`;
             const present = [], absent = [], notesOnly = [];
@@ -536,7 +535,6 @@ function renderPastRecords() {
     const months = [...new Set(pastAll.map(r => getMonthStr(r.date)))].sort((a,b) => b.localeCompare(a));
     if (!state.ui.pastMonth || !months.includes(state.ui.pastMonth)) state.ui.pastMonth = months[0];
 
-    // 上下タブを描画・同期
     renderMonthTabs(months, state.ui.pastMonth, 'past-month-tab-bar', 'past-month-tab-bar-bottom', (m) => {
         state.ui.pastMonth = m;
         renderPastRecords();
@@ -548,7 +546,7 @@ function renderPastRecords() {
         const isEditing = state.ui.editingId === r.id;
         let headerH = isEditing 
             ? `<div class="admin-line"><input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR_Base_Past('${r.id}','date',this.value)"><input list="list-locations" class="cute-input flex-fill-input" value="${r.location}" onchange="updateR_Base_Past('${r.id}','location',this.value)"><button class="icon-btn-sm" onclick="toggleEditPast(null)"><i class="fa-solid fa-check"></i></button></div>`
-            : `<div class="section-header" onclick="toggleEditPast('${r.id}')"><div style="display:flex; align-items:center;"><input type="checkbox" class="past-checkbox" value="${r.id}" onclick="event.stopPropagation()"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date} (${r.location})</h2></div><i class="fa-solid fa-pen" style="font-size:0.8rem; color:#DDD;"></i></div>`;
+            : `<div class="section-header" onclick="toggleEditPast('${r.id}')"><div style="display:flex; align-items:center;"><input type="checkbox" class="past-checkbox" value="${r.id}" onclick="event.stopPropagation()"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div><i class="fa-solid fa-pen" style="font-size:0.8rem; color:#DDD;"></i></div>`;
         let slotsH = '';
         r.slots.forEach(s => {
             const key = `${r.id}_${s.id}`;
