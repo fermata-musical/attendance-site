@@ -4,6 +4,7 @@ const CONFIG = {
     STORAGE_KEY: 'fermata_v6_sync'
 };
 
+// ★ マリナさん指定の初期データをデフォルト値として設定
 let state = {
     auth: { isLoggedIn: false, type: null },
     members: [],
@@ -11,8 +12,8 @@ let state = {
     rehearsals: [], 
     attendance: {}, 
     settings: {
-        locations: ['練習室A', '大ホール', '外部スタジオ'],
-        menus: ['歌唱', 'ダンス', '芝居', '通し稽古'],
+        locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
+        menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
         visibility: {
             'attendance-input': 'public',
             'overall-status': 'public',
@@ -34,6 +35,14 @@ function load() {
     if (saved) {
         state = JSON.parse(saved);
         state.currentMember = '';
+        
+        // ★ 既に保存されたデータがあるが、リストが空の場合の救済措置
+        if (state.settings.locations.length === 0) {
+            state.settings.locations = ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'];
+        }
+        if (state.settings.menus.length === 0) {
+            state.settings.menus = ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'];
+        }
     }
 }
 function save() { 
@@ -331,7 +340,6 @@ function renderOverallStatus() {
             const key = `${r.id}_${s.id}`;
             const present = [], absent = [], notesOnly = [];
             
-            // ★ 回答済みメンバーのみを判定して分類
             state.members.forEach(name => {
                 const att = state.attendance[name]?.[key];
                 const displayName = `${name}${att?.note ? '(' + att.note + ')' : ''}`;
@@ -343,7 +351,6 @@ function renderOverallStatus() {
                 } else if (att?.note) {
                     notesOnly.push(displayName);
                 }
-                // ★ 未回答（出欠未選択かつ備考なし）の場合は何もしない（表示しない）
             });
 
             h += `<div class="slot-row" style="margin-bottom:20px; border-bottom:1px dashed #FFEFF2; padding-bottom:15px;">
@@ -379,25 +386,38 @@ function renderAdminDropdowns() {
     renderList('locations', 'admin-location-list', 'new-location-input', 'add-location-btn');
     renderList('menus', 'admin-menu-list', 'new-menu-input', 'add-menu-btn');
 }
+
+// ★ 手動並び替え（↑↓ボタン）対応版の renderList
 function renderList(key, listId, inputId, btnId) {
     const list = $(listId); list.innerHTML = '';
     state.settings[key].forEach((item, i) => {
         const li = document.createElement('li');
-        li.draggable = true;
         li.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:white; border:1px solid #F0F0F0; border-radius:12px; margin-bottom:8px; font-size:0.9rem;";
-        li.innerHTML = `<span><i class="fa-solid fa-grip-lines" style="margin-right:10px; color:#EEE;"></i> ${item}</span> <button class="del-icon-btn" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button>`;
-        li.ondragstart = (e) => { e.dataTransfer.setData('text/plain', i); };
-        li.ondragover = (e) => e.preventDefault();
-        li.ondrop = (e) => {
-            const from = parseInt(e.dataTransfer.getData('text/plain'));
-            const moved = state.settings[key].splice(from, 1)[0];
-            state.settings[key].splice(i, 0, moved);
-            save(); renderAdminDropdowns();
-        };
+        
+        // ★ ↑↓ボタンと削除ボタンを右側に配置
+        li.innerHTML = `
+            <span>${item}</span>
+            <div style="display:flex; gap:5px; align-items:center;">
+                <button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, -1)" ${i===0?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-up"></i></button>
+                <button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, 1)" ${i===state.settings[key].length-1?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-down"></i></button>
+                <button class="del-icon-btn" style="margin-left:8px;" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `;
         list.appendChild(li);
     });
     $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
 }
+
+// ★ 並び替えロジック
+window.moveItem = (key, i, dir) => {
+    const arr = state.settings[key];
+    const target = i + dir;
+    if (target < 0 || target >= arr.length) return;
+    [arr[i], arr[target]] = [arr[target], arr[i]];
+    save();
+    renderAdminDropdowns();
+};
+
 window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderAdminDropdowns(); };
 
 function renderAdminVisibility() {
@@ -513,4 +533,6 @@ window.addS_Past = (id) => {
     save(); 
     renderPastRecords(); 
 };
+
+// ★ 初期化時にマリナさん指定のデフォルト値をセット
 window.onload = () => { load(); initAuth(); initTabs(); };
