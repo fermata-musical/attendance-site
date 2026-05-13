@@ -42,13 +42,11 @@ async function load(force = false) {
 
     if (!isInitialLoaded) $('loading-overlay').classList.remove('hidden');
 
-    // まずはlocalStorageから復元（ログイン状態を含む）
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (localSaved) {
         state = { ...state, ...JSON.parse(localSaved) };
     }
 
-    // ★重要: ログイン状態は各端末固有のものとして保持する
     const localAuth = { ...state.auth };
 
     if (!SYNC_URL) {
@@ -62,7 +60,6 @@ async function load(force = false) {
         if (response.ok) {
             const cloudData = await response.json();
             if (cloudData && Object.keys(cloudData).length > 0) {
-                // クラウドデータを反映（ただしログイン状態は上書きしない）
                 state = { ...state, ...cloudData };
                 state.auth = localAuth; 
                 state.currentMember = '';
@@ -82,7 +79,6 @@ function save() {
     state.members.sort((a, b) => a.localeCompare(b, 'ja'));
     const json = JSON.stringify(state);
     
-    // ローカルには即座に保存
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 
     if (!SYNC_URL) return;
@@ -93,7 +89,6 @@ function save() {
 
     saveTimeout = setTimeout(async () => {
         try {
-            // クラウドへ送るデータからは、念のためauth情報を除外する（プライバシーと安定性のため）
             const syncData = { ...state };
             delete syncData.auth; 
 
@@ -119,7 +114,6 @@ const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 
 function initAuth() {
-    // ログイン処理
     $('login-btn').onclick = () => {
         const pw = $('password-input').value;
         if (pw === CONFIG.ADMIN_PW) {
@@ -131,24 +125,18 @@ function initAuth() {
             return;
         }
         
-        // ログイン状態を保存してリロード
         save();
         location.reload();
     };
 
-    // ログアウト処理
     $('logout-btn').onclick = () => {
         if (confirm('ログアウトしますか？')) {
-            // 状態を完全に初期化
             state.auth = { isLoggedIn: false, type: null };
-            // 即座にlocalStorageを更新
             localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
-            // リロードして初期画面へ
             location.reload();
         }
     };
 
-    // ログイン状態に応じた初期表示
     if (state.auth.isLoggedIn) {
         $('login-overlay').classList.add('hidden');
         $('app').classList.remove('hidden');
@@ -415,7 +403,7 @@ function getTimeOpts(s) {
     return h;
 }
 window.updateR = (id, k, v) => { state.rehearsals.find(x => x.id === id)[k] = v; save(); };
-window.updateS = (rid, sid, k, v) => { state.rehearsals.find(x => x.id rid).slots.find(y => y.id === sid)[k] = v; save(); };
+window.updateS = (rid, sid, k, v) => { state.rehearsals.find(x => x.id === rid).slots.find(y => y.id === sid)[k] = v; save(); };
 window.delR = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); state.ui.adminViewList = state.ui.adminViewList.filter(x => x.id !== id); save(); renderAdminRehearsals(); } };
 window.delS = (rid, sid) => { const r = state.rehearsals.find(x => x.id === rid); r.slots = r.slots.filter(y => y.id !== sid); save(); renderAdminRehearsals(); };
 
