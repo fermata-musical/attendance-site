@@ -60,7 +60,6 @@ async function load(force = false) {
             if (cloudData && Object.keys(cloudData).length > 0) {
                 state = { ...state, ...cloudData };
                 state.currentMember = '';
-                // ★ 読み込み直後は年月タブの選択をリセット（一番古いものを選ぶため）
                 state.ui.currentMonth = '';
                 console.log("クラウドから最新データを取得しました。");
             }
@@ -242,33 +241,55 @@ function deleteCurrentMember() {
     }
 }
 
+// 汎用年月タブ描画関数
+function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId, callback) {
+    const top = $(containerTopId);
+    const bottom = $(containerBottomId);
+    top.innerHTML = '';
+    bottom.innerHTML = '';
+    
+    months.forEach(m => {
+        const btnTop = document.createElement('button');
+        btnTop.className = `month-btn ${m === currentMonth ? 'active' : ''}`;
+        btnTop.textContent = m.replace('-', '/');
+        btnTop.onclick = () => { callback(m); };
+        top.appendChild(btnTop);
+
+        const btnBottom = document.createElement('button');
+        btnBottom.className = `month-btn ${m === currentMonth ? 'active' : ''}`;
+        btnBottom.textContent = m.replace('-', '/');
+        btnBottom.onclick = () => { callback(m); };
+        bottom.appendChild(btnBottom);
+    });
+}
+
 function renderAttendanceList() {
     const container = $('attendance-list-container');
-    const tabBar = $('month-tab-bar');
-    container.innerHTML = ''; tabBar.innerHTML = '';
+    container.innerHTML = '';
     if (!state.currentMember) {
         container.innerHTML = '<p class="admin-hint">メンバーを選択してください</p>';
+        $('month-tab-bar').innerHTML = '';
+        $('month-tab-bar-bottom').innerHTML = '';
         return;
     }
     const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
-    
-    // ★ リストを昇順（古い順）で並べる
     const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
     
-    if (months.length === 0) return;
-
-    // ★ 初期選択として一番最初の要素（最も古い年月）をセットする
+    if (months.length === 0) {
+        $('month-tab-bar').innerHTML = '';
+        $('month-tab-bar-bottom').innerHTML = '';
+        return;
+    }
     if (!state.ui.currentMonth || !months.includes(state.ui.currentMonth)) {
         state.ui.currentMonth = months[0];
     }
 
-    months.forEach(m => {
-        const btn = document.createElement('button');
-        btn.className = `month-btn ${m === state.ui.currentMonth ? 'active' : ''}`;
-        btn.textContent = m.replace('-', '/') ;
-        btn.onclick = () => { state.ui.currentMonth = m; renderAttendanceList(); };
-        tabBar.appendChild(btn);
+    // 上下タブを描画・同期
+    renderMonthTabs(months, state.ui.currentMonth, 'month-tab-bar', 'month-tab-bar-bottom', (m) => {
+        state.ui.currentMonth = m;
+        renderAttendanceList();
     });
+
     future.filter(r => getMonthStr(r.date) === state.ui.currentMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
         let slotsHtml = '';
@@ -382,19 +403,22 @@ $('add-rehearsal-btn').onclick = () => {
 
 function renderOverallStatus() {
     const container = $('overall-status-container');
-    const tabBar = $('status-month-tab-bar');
-    container.innerHTML = ''; tabBar.innerHTML = '';
+    container.innerHTML = '';
     const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
     const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
-    if (months.length === 0) return;
+    if (months.length === 0) {
+        $('status-month-tab-bar').innerHTML = '';
+        $('status-month-tab-bar-bottom').innerHTML = '';
+        return;
+    }
     if (!state.ui.statusMonth || !months.includes(state.ui.statusMonth)) state.ui.statusMonth = months[0];
-    months.forEach(m => {
-        const btn = document.createElement('button');
-        btn.className = `month-btn ${m === state.ui.statusMonth ? 'active' : ''}`;
-        btn.textContent = m.replace('-', '/');
-        btn.onclick = () => { state.ui.statusMonth = m; renderOverallStatus(); };
-        tabBar.appendChild(btn);
+
+    // 上下タブを描画・同期
+    renderMonthTabs(months, state.ui.statusMonth, 'status-month-tab-bar', 'status-month-tab-bar-bottom', (m) => {
+        state.ui.statusMonth = m;
+        renderOverallStatus();
     });
+
     future.filter(r => getMonthStr(r.date) === state.ui.statusMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
         let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}</h2></div>`;
@@ -501,19 +525,23 @@ window.updateVis = (id, val) => { state.settings.visibility[id] = val; save(); u
 
 function renderPastRecords() {
     const container = $('past-records-container');
-    const tabBar = $('past-month-tab-bar');
-    container.innerHTML = ''; tabBar.innerHTML = '';
+    container.innerHTML = '';
     const pastAll = state.rehearsals.filter(r => r.date && new Date(r.date) < getToday());
-    if (pastAll.length === 0) { container.innerHTML = '<p class="admin-hint">過去の稽古日程はありません</p>'; return; }
+    if (pastAll.length === 0) {
+        container.innerHTML = '<p class="admin-hint">過去の稽古日程はありません</p>';
+        $('past-month-tab-bar').innerHTML = '';
+        $('past-month-tab-bar-bottom').innerHTML = '';
+        return;
+    }
     const months = [...new Set(pastAll.map(r => getMonthStr(r.date)))].sort((a,b) => b.localeCompare(a));
     if (!state.ui.pastMonth || !months.includes(state.ui.pastMonth)) state.ui.pastMonth = months[0];
-    months.forEach(m => {
-        const btn = document.createElement('button');
-        btn.className = `month-btn ${m === state.ui.pastMonth ? 'active' : ''}`;
-        btn.textContent = m.replace('-', '/');
-        btn.onclick = () => { state.ui.pastMonth = m; renderPastRecords(); };
-        tabBar.appendChild(btn);
+
+    // 上下タブを描画・同期
+    renderMonthTabs(months, state.ui.pastMonth, 'past-month-tab-bar', 'past-month-tab-bar-bottom', (m) => {
+        state.ui.pastMonth = m;
+        renderPastRecords();
     });
+
     const past = pastAll.filter(r => getMonthStr(r.date) === state.ui.pastMonth).sort((a,b) => b.date.localeCompare(a.date));
     past.forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
