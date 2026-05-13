@@ -10,6 +10,8 @@
     --text: #5A5A5A;
     --muted: #C0C0C0;
     --danger: #FFAB91;
+    --notice-bg: #FFF9E6; /* 注意事項用の薄い黄色 */
+    --notice-border: #FFE082;
     --shadow: 0 8px 20px rgba(255, 183, 197, 0.15);
     --radius-lg: 20px;
     --radius-md: 12px;
@@ -29,6 +31,40 @@ body {
 .tab-content.active { display: block; }
 .sub-tab-content { display: none; }
 .sub-tab-content.active { display: block; }
+
+/* 注意事項ボックスのデザイン */
+.notice-box {
+    background-color: var(--notice-bg) !important;
+    border: 1px solid var(--notice-border);
+    margin-bottom: 20px;
+    padding: 15px !important;
+}
+.notice-title {
+    color: #F57C00;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.notice-list {
+    list-style: none;
+    font-size: 0.8rem;
+    color: #6D4C41;
+}
+.notice-list li {
+    margin-bottom: 8px;
+    position: relative;
+    padding-left: 15px;
+}
+.notice-list li::before {
+    content: "・";
+    position: absolute;
+    left: 0;
+}
+.notice-list li strong {
+    color: #D84315;
+}
 
 /* Header & Title */
 header {
