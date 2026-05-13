@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>出欠管理サイト</title>
     <!-- キャッシュ対策のためバージョンを付与 -->
-    <link rel="stylesheet" href="style.css?v=1.1">
+    <link rel="stylesheet" href="style.css?v=1.2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
@@ -76,11 +76,9 @@
                                 <option value="">メンバーを選択</option>
                             </select>
                         </div>
-                        <div id="member-action-btns" class="hidden" style="display:flex; gap:5px;">
-                            <button id="edit-current-member-btn" class="icon-btn-sm" title="氏名を変更"><i class="fa-solid fa-user-pen"></i></button>
-                            <button id="delete-current-member-btn" class="icon-btn-sm" title="メンバーを削除"><i class="fa-solid fa-user-minus"></i></button>
+                        <div id="member-action-container" class="member-action-grid">
+                            <!-- JSでボタンを生成 -->
                         </div>
-                        <button id="show-add-member-btn" class="icon-btn-sm pink" title="新規追加"><i class="fa-solid fa-user-plus"></i></button>
                     </div>
                     <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #EEE; padding-top:15px;">
                         <input type="text" id="new-member-name" class="cute-input" placeholder="新しい氏名を入力" style="width:100%; margin-bottom:10px;">
@@ -160,10 +158,11 @@
         </main>
     </div>
 
+    <!-- 既存のdatalistは不要になるが、互換性のために残すか削除 -->
     <datalist id="list-locations"></datalist>
     <datalist id="list-menus"></datalist>
 
     <!-- キャッシュ対策のためバージョンを付与 -->
-    <script src="app.js?v=1.1"></script>
+    <script src="app.js?v=1.2"></script>
 </body>
 </html>

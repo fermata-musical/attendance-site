@@ -46,7 +46,6 @@ const getToday = () => new Date().setHours(0,0,0,0);
 async function loadCloud() {
     if (!SYNC_URL) return;
     
-    // クラウド取得中は一瞬ログイン状態を待避
     const localAuth = { ...state.auth };
 
     try {
@@ -55,10 +54,9 @@ async function loadCloud() {
             const cloudData = await response.json();
             if (cloudData && Object.keys(cloudData).length > 0) {
                 state = { ...state, ...cloudData };
-                state.auth = localAuth; // ログイン状態を復元
+                state.auth = localAuth; 
                 console.log("クラウドデータを同期しました。");
                 
-                // データが新しくなったので、ログイン後のメイン画面を再描画
                 if (state.auth.isLoggedIn) {
                     renderTab('attendance-input');
                 }
@@ -73,7 +71,6 @@ function save() {
     state.members.sort((a, b) => a.localeCompare(b, 'ja'));
     const json = JSON.stringify(state);
     
-    // ローカルには即座に保存
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 
     if (!SYNC_URL) return;
@@ -101,19 +98,16 @@ function save() {
     }, 1500);
 }
 
-// --- 認証初期化（最優先で実行） ---
+// --- 認証初期化 ---
 
 function initAuth() {
-    // まずローカルデータを読み込む
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (localSaved) {
         const parsed = JSON.parse(localSaved);
         state = { ...state, ...parsed };
     }
 
-    // ログイン処理
     $('login-btn').onclick = () => {
-        // 前後の空白を除去（.trim()）
         const pw = ($('password-input').value || '').trim();
         
         if (pw === CONFIG.ADMIN_PW) {
@@ -137,7 +131,6 @@ function initAuth() {
         }
     };
 
-    // 画面表示の切り替え（クラウドを待たずに即時実行）
     if (state.auth.isLoggedIn) {
         $('login-overlay').classList.add('hidden');
         $('app').classList.remove('hidden');
@@ -223,14 +216,15 @@ function renderAttendanceInput() {
         save();
         renderAttendanceInput();
     };
-    const actionGroup = $('member-action-btns');
-    if (state.currentMember) {
-        actionGroup.classList.remove('hidden');
-        $('edit-current-member-btn').onclick = () => startEditCurrentMember();
-        $('delete-current-member-btn').onclick = () => deleteCurrentMember();
-    } else {
-        actionGroup.classList.add('hidden');
-    }
+
+    // 氏名操作ボタンのレンダリング改善
+    const actionContainer = $('member-action-container');
+    actionContainer.innerHTML = `
+        <button id="show-add-member-btn" class="action-btn-styled add"><i class="fa-solid fa-plus"></i> 追加</button>
+        <button id="edit-current-member-btn" class="action-btn-styled edit ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-user-pen"></i> 編集</button>
+        <button id="delete-current-member-btn" class="action-btn-styled delete ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-trash-can"></i> 削除</button>
+    `;
+
     $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
     $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
     $('confirm-member-btn').onclick = () => {
@@ -241,6 +235,11 @@ function renderAttendanceInput() {
             save(); renderAttendanceInput();
         }
     };
+    if (state.currentMember) {
+        $('edit-current-member-btn').onclick = () => startEditCurrentMember();
+        $('delete-current-member-btn').onclick = () => deleteCurrentMember();
+    }
+
     renderAttendanceList();
 }
 
@@ -369,9 +368,7 @@ function renderAdminRehearsals() {
     const list = $('admin-rehearsal-list');
     if (!list) return;
     list.innerHTML = '';
-    $('list-locations').innerHTML = state.settings.locations.map(l => `<option value="${l}">`).join('');
-    $('list-menus').innerHTML = state.settings.menus.map(m => `<option value="${m}">`).join('');
-    if (state.ui.adminViewList.length === 0 && state.rehearsals.length > 0) refreshAdminViewList();
+    
     state.ui.adminViewList.forEach(r => {
         const card = document.createElement('div'); card.className = 'admin-card-inner';
         let slotsH = '';
@@ -381,7 +378,7 @@ function renderAdminRehearsals() {
                     <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','start',this.value)">${getTimeOpts(s.start)}</select>
                     <span>-</span>
                     <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','end',this.value)">${getTimeOpts(s.end)}</select>
-                    <input list="list-menus" class="cute-input menu-sel flex-fill-input" value="${s.menu}" onchange="updateS('${r.id}','${s.id}','menu',this.value)" placeholder="メニューを追加">
+                    ${renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu)}
                     <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             `;
@@ -389,15 +386,57 @@ function renderAdminRehearsals() {
         card.innerHTML = `
             <div class="admin-line">
                 <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR('${r.id}','date',this.value)">
-                <input list="list-locations" class="cute-input flex-fill-input" value="${r.location}" onchange="updateR('${r.id}','location',this.value)" placeholder="場所を追加">
+                ${renderAdminDropdownSelect(r.id, null, 'location', r.location)}
                 <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
             </div>
             ${slotsH}
-            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
+            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メメニュー追加</button></div>
         `;
         list.appendChild(card);
     });
 }
+
+// 日程編集用のプルダウン生成関数
+function renderAdminDropdownSelect(rid, sid, type, currentVal) {
+    const listKey = type === 'location' ? 'locations' : 'menus';
+    const items = state.settings[listKey];
+    const isOther = currentVal && !items.includes(currentVal);
+    
+    let opts = `<option value="">選択してください</option>`;
+    items.forEach(item => {
+        opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`;
+    });
+    opts += `<option value="OTHER_VAL" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
+
+    const selectId = `sel-${rid}-${sid || 'base'}-${type}`;
+    const inputId = `inp-${rid}-${sid || 'base'}-${type}`;
+
+    return `
+        <div style="flex:1; display:flex; flex-direction:column; gap:5px;">
+            <select id="${selectId}" class="cute-input flex-fill-input" onchange="handleAdminDropdownChange('${rid}', '${sid}', '${type}', this.value)">
+                ${opts}
+            </select>
+            <input id="${inputId}" type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="handleAdminOtherInputChange('${rid}', '${sid}', '${type}', this.value)">
+        </div>
+    `;
+}
+
+window.handleAdminDropdownChange = (rid, sid, type, val) => {
+    const input = $(`inp-${rid}-${sid || 'base'}-${type}`);
+    if (val === 'OTHER_VAL') {
+        input.classList.remove('hidden');
+        input.focus();
+    } else {
+        input.classList.add('hidden');
+        if (sid) updateS(rid, sid, type, val);
+        else updateR(rid, type, val);
+    }
+};
+
+window.handleAdminOtherInputChange = (rid, sid, type, val) => {
+    if (sid) updateS(rid, sid, type, val);
+    else updateR(rid, type, val);
+};
 
 function getTimeOpts(s) {
     let h = `<option value="" ${s===''?'selected':''}>--</option>`;
@@ -420,17 +459,6 @@ window.addS = (id) => {
     r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
     save(); renderAdminRehearsals();
 };
-
-if ($('add-rehearsal-btn')) {
-    $('add-rehearsal-btn').onclick = () => {
-        sortScheduleByDate(); 
-        const newId = generateId();
-        const newR = { id: newId, date: '', location: '', slots: [{id: generateId(), start: '', end: '', menu: ''}] };
-        state.rehearsals.push(newR);
-        refreshAdminViewList();
-        save(); renderAdminRehearsals();
-    };
-}
 
 function renderOverallStatus() {
     const container = $('overall-status-container');
@@ -516,6 +544,7 @@ function renderList(key, listId, inputId, btnId) {
             <div style="display:flex; gap:5px; align-items:center;">
                 <button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, -1)" ${i===0?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-up"></i></button>
                 <button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, 1)" ${i===state.settings[key].length-1?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-down"></i></button>
+                <button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="editItem('${key}', ${i})"><i class="fa-solid fa-pen"></i></button>
                 <button class="del-icon-btn" style="margin-left:8px;" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button>
             </div>
         `;
@@ -525,6 +554,16 @@ function renderList(key, listId, inputId, btnId) {
         $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
     }
 }
+
+window.editItem = (key, i) => {
+    const oldVal = state.settings[key][i];
+    const newVal = prompt('項目を編集:', oldVal);
+    if (newVal !== null && newVal.trim() !== '' && newVal !== oldVal) {
+        state.settings[key][i] = newVal.trim();
+        save();
+        renderAdminDropdowns();
+    }
+};
 
 window.moveItem = (key, i, dir) => {
     const arr = state.settings[key];
@@ -582,7 +621,7 @@ function renderPastRecords() {
         const card = document.createElement('div'); card.className = 'card';
         const isEditing = state.ui.editingId === r.id;
         let headerH = isEditing 
-            ? `<div class="admin-line"><input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR_Base_Past('${r.id}','date',this.value)"><input list="list-locations" class="cute-input flex-fill-input" value="${r.location}" onchange="updateR_Base_Past('${r.id}','location',this.value)"><button class="icon-btn-sm" onclick="toggleEditPast(null)"><i class="fa-solid fa-check"></i></button></div>`
+            ? `<div class="admin-line"><input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR_Base_Past('${r.id}','date',this.value)">${renderAdminDropdownSelect(r.id, null, 'location', r.location)}<button class="icon-btn-sm" onclick="toggleEditPast(null)"><i class="fa-solid fa-check"></i></button></div>`
             : `<div class="section-header" onclick="toggleEditPast('${r.id}')"><div style="display:flex; align-items:center;"><input type="checkbox" class="past-checkbox" value="${r.id}" onclick="event.stopPropagation()"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div><i class="fa-solid fa-pen" style="font-size:0.8rem; color:#DDD;"></i></div>`;
         let slotsH = '';
         r.slots.forEach(s => {
@@ -602,7 +641,7 @@ function renderPastRecords() {
                 : `<span class="time-sel-display" onclick="toggleEditPast('${r.id}')">${s.end}</span>`;
             
             const menuContent = isEditing
-                ? `<input list="list-menus" class="cute-input menu-sel flex-fill-input" value="${s.menu}" onchange="updateR_Past('${r.id}','${s.id}','menu',this.value)">`
+                ? renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu)
                 : `<span class="flex-fill-input" onclick="toggleEditPast('${r.id}')">${s.menu} <i class="fa-solid fa-pen" style="font-size:0.6rem; color:#EEE;"></i></span>`;
 
             slotsH += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #EEE; padding-bottom:10px;">
@@ -625,23 +664,8 @@ function renderPastRecords() {
         card.innerHTML = h;
         container.appendChild(card);
     });
-    if ($('delete-selected-past-btn')) {
-        $('delete-selected-past-btn').onclick = deleteSelectedPast;
-    }
-    if ($('clear-past-btn')) {
-        $('clear-past-btn').onclick = () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); save(); renderPastRecords(); } };
-    }
 }
 
-function deleteSelectedPast() {
-    const checked = Array.from(document.querySelectorAll('.past-checkbox:checked')).map(el => el.value);
-    if (checked.length === 0) { alert('削除するデータを選択してください。'); return; }
-    if (confirm(`選択した ${checked.length} 件のデータを削除しますか？`)) {
-        state.rehearsals = state.rehearsals.filter(r => !checked.includes(r.id));
-        save();
-        renderPastRecords();
-    }
-}
 window.toggleEditPast = (id) => { state.ui.editingId = id; renderPastRecords(); };
 window.updateR_Base_Past = (id, k, v) => { updateR(id, k, v); renderPastRecords(); };
 window.updateR_Past = (rid, sid, k, v) => { updateS(rid, sid, k, v); renderPastRecords(); };
@@ -667,9 +691,7 @@ window.addS_Past = (id) => {
 
 // --- 初期化 ---
 window.onload = async () => { 
-    // 1. 認証とローカルデータの復元（即時実行、クラウドを待たない）
     initAuth(); 
     initTabs(); 
-    // 2. クラウド同期（バックグラウンドで実行）
     await loadCloud(); 
 };

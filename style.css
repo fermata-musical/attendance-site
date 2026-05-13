@@ -6,12 +6,15 @@
     --lavender: #E1BEE7;
     --lavender-light: #F3E5F5;
     --mint: #B2DFDB;
+    --mint-dark: #4DB6AC;
     --bg: #FFF9FA;
     --card-bg: #FFFFFF;
     --text: #5A5A5A;
     --text-tab-inactive: #555555; 
     --muted: #C0C0C0;
     --danger: #FFAB91;
+    --danger-dark: #e57373;
+    --info: #64B5F6;
     --notice-bg: #FFF9E6;
     --notice-border: #FFE082;
     --tab-inactive-bg: #f3f4f6; 
@@ -116,13 +119,12 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
     box-shadow: 0 4px 10px rgba(244, 114, 182, 0.3);
 }
 
-/* ★ セクションヘッダー（日付＋場所）のフォント調整 */
 .section-header h2 {
-    font-size: 0.95rem; /* 注意事項タイトルと同じサイズ */
+    font-size: 0.95rem; 
     font-weight: 700;
     color: var(--text);
     display: flex;
-    flex-wrap: wrap; /* スマホで場所が長くても折り返せるように */
+    flex-wrap: wrap; 
     align-items: center;
     gap: 8px;
     line-height: 1.4;
@@ -155,10 +157,24 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .time-sel-display { display: inline-block; width: 40px; text-align: center; }
 .flex-fill-input { flex: 1; min-width: 0; }
 
-.member-select-row { display: flex; gap: 8px; align-items: center; }
+.member-select-row { display: flex; flex-direction: column; gap: 12px; }
 .select-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
 .select-wrapper i { position: absolute; left: 12px; color: var(--pink); font-size: 1rem; pointer-events: none; }
 .select-wrapper select { padding-left: 35px; width: 100%; border-radius: 15px; }
+
+/* 氏名操作ボタンのスタイル改善 */
+.member-action-grid {
+    display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;
+}
+.action-btn-styled {
+    flex: 1; border: none; border-radius: 12px; padding: 10px 5px; color: white; font-weight: 700; font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: 0.2s;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+}
+.action-btn-styled:active { transform: translateY(2px); box-shadow: none; }
+.action-btn-styled.add { background-color: var(--mint-dark); }
+.action-btn-styled.edit { background-color: var(--info); }
+.action-btn-styled.delete { background-color: var(--danger-dark); }
 
 .icon-btn-sm { 
     background: #F5F5F5; border: none; color: #AAA; width: 36px; height: 36px; border-radius: 12px; 
