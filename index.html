@@ -11,6 +11,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <!-- ローディング画面 -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loader-box">
+            <div class="spinner"></div>
+            <p>読み込み中...</p>
+        </div>
+    </div>
+
+    <!-- 同期中ミニ表示 -->
+    <div id="sync-indicator" class="sync-indicator hidden">
+        <i class="fa-solid fa-cloud-arrow-up"></i> 保存中...
+    </div>
+
     <div id="login-overlay" class="login-container">
         <div class="login-box card">
             <div class="main-title" style="align-items: center; margin-bottom: 25px;">
@@ -45,7 +58,6 @@
         <main>
             <!-- 出欠入力タブ -->
             <div id="attendance-input" class="tab-content active">
-                <!-- ★ 注意事項エリアの追加 -->
                 <div class="notice-box card">
                     <h3 class="notice-title"><i class="fa-solid fa-circle-info"></i> 出欠入力時の注意事項</h3>
                     <ul class="notice-list">

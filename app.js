@@ -32,62 +32,83 @@ let state = {
     }
 };
 
-// --- クラウド同期ロジック ---
+let isInitialLoaded = false; // 初回読み込みフラグ
+let saveTimeout = null; // 保存遅延用タイマー
+
+// --- クラウド同期ロジック（最適化版） ---
 
 // クラウドから読み込み
-async function load() {
-    // まずは今までのlocalStorageから読み込む（バックアップ用）
+async function load(force = false) {
+    // 既に読み込み済みで強制リフレッシュでないならキャッシュを使用
+    if (isInitialLoaded && !force) return;
+
+    // ローディング表示（初回のみ）
+    if (!isInitialLoaded) $('loading-overlay').classList.remove('hidden');
+
+    // まずはlocalStorageから即座に復元（体感速度向上）
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (localSaved) {
-        const parsed = JSON.parse(localSaved);
-        state = { ...state, ...parsed };
+        state = { ...state, ...JSON.parse(localSaved) };
     }
 
     if (!SYNC_URL) {
-        console.log("クラウドURLが設定されていないため、ローカルモードで動作します。");
+        isInitialLoaded = true;
+        $('loading-overlay').classList.add('hidden');
         return;
     }
 
     try {
         const response = await fetch(SYNC_URL);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const cloudData = await response.json();
-        
-        // クラウドにデータがある場合は、それを優先して反映
-        if (cloudData && Object.keys(cloudData).length > 0) {
-            state = { ...state, ...cloudData };
-            state.currentMember = ''; // ログイン状態はリセット
-            console.log("クラウドからデータを同期しました。");
+        if (response.ok) {
+            const cloudData = await response.json();
+            if (cloudData && Object.keys(cloudData).length > 0) {
+                state = { ...state, ...cloudData };
+                state.currentMember = '';
+                console.log("クラウドから最新データを取得しました。");
+            }
         }
     } catch (error) {
         console.error("クラウド読み込みエラー:", error);
+    } finally {
+        isInitialLoaded = true;
+        $('loading-overlay').classList.add('hidden');
     }
 }
 
-// クラウドへ保存
-async function save() {
+// クラウドへ保存（非同期・デバウンス対応）
+function save() {
     state.members.sort((a, b) => a.localeCompare(b, 'ja'));
     const json = JSON.stringify(state);
     
-    // 予備としてlocalStorageにも保存
+    // ローカルには即座に保存（絶対の安全性）
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 
     if (!SYNC_URL) return;
 
-    try {
-        // GASへの送信（fetchを使用）
-        await fetch(SYNC_URL, {
-            method: 'POST',
-            body: json,
-            mode: 'no-cors' // GASの制限回避
-        });
-        console.log("クラウドに保存しました。");
-    } catch (error) {
-        console.error("クラウド保存エラー:", error);
-    }
+    // クラウド保存は裏側で実行（画面を止めない）
+    if (saveTimeout) clearTimeout(saveTimeout);
+    
+    // インジケーター表示
+    $('sync-indicator').classList.remove('hidden');
+
+    saveTimeout = setTimeout(async () => {
+        try {
+            await fetch(SYNC_URL, {
+                method: 'POST',
+                body: json,
+                mode: 'no-cors'
+            });
+            console.log("クラウド保存完了");
+        } catch (error) {
+            console.error("クラウド保存エラー:", error);
+        } finally {
+            // 少し待ってからインジケーターを消す
+            setTimeout(() => $('sync-indicator').classList.add('hidden'), 1000);
+        }
+    }, 1500); // 1.5秒操作が止まったら送信
 }
 
-// --- 既存のアプリロジック（変更なし） ---
+// --- 既存のアプリロジック（速度改善版） ---
 
 const $ = (id) => document.getElementById(id);
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -122,15 +143,13 @@ function updateLockIcons() {
 
 function initTabs() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.onclick = async () => { // await loadのためにasync化
+        tab.onclick = () => {
             const id = tab.dataset.tab;
             if (state.settings.visibility[id] === 'protected' && state.auth.type !== 'admin') {
                 alert('管理者のみアクセス可能です。'); return;
             }
             
-            // タブ切り替え時に最新データを取得
-            if (SYNC_URL) await load();
-            
+            // ★ クラウドへの再取得を削除（キャッシュを使用）
             sortScheduleByDate();
             refreshAdminViewList();
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -180,9 +199,9 @@ function renderAttendanceInput() {
         if (name === state.currentMember) opt.selected = true;
         select.appendChild(opt);
     });
-    select.onchange = async (e) => {
+    select.onchange = (e) => {
         state.currentMember = e.target.value;
-        await save();
+        save();
         renderAttendanceInput();
     };
     const actionGroup = $('member-action-btns');
@@ -195,12 +214,12 @@ function renderAttendanceInput() {
     }
     $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
     $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
-    $('confirm-member-btn').onclick = async () => {
+    $('confirm-member-btn').onclick = () => {
         const name = $('new-member-name').value.trim();
         if (name && !state.members.includes(name)) {
             state.members.push(name); state.currentMember = name;
             $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
-            await save(); renderAttendanceInput();
+            save(); renderAttendanceInput();
         }
     };
     renderAttendanceList();
@@ -220,14 +239,14 @@ function startEditCurrentMember() {
         save(); renderAttendanceInput();
     }
 }
-async function deleteCurrentMember() {
+function deleteCurrentMember() {
     if (confirm(`${state.currentMember}さんを削除しますか？`)) {
         const i = state.members.indexOf(state.currentMember);
         const name = state.currentMember;
         state.members.splice(i, 1);
         delete state.attendance[name];
         state.currentMember = '';
-        await save(); renderAttendanceInput();
+        save(); renderAttendanceInput();
     }
 }
 
@@ -272,23 +291,23 @@ function renderAttendanceList() {
     });
 }
 
-window.setAnyAttend = async (name, rid, sid, status) => {
+window.setAnyAttend = (name, rid, sid, status) => {
     const key = `${rid}_${sid}`;
     if (!state.attendance[name]) state.attendance[name] = {};
     const cur = state.attendance[name][key] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
     state.attendance[name][key] = { ...cur, status: newStatus };
-    await save();
+    save();
 };
-window.setAnyNote = async (name, rid, sid, note) => {
+window.setAnyNote = (name, rid, sid, note) => {
     const key = `${rid}_${sid}`;
     if (!state.attendance[name]) state.attendance[name] = {};
     const cur = state.attendance[name][key] || {status:null, note:''};
     state.attendance[name][key] = { ...cur, note };
-    await save();
+    save();
 };
-window.setAttend = async (rid, sid, status) => { await setAnyAttend(state.currentMember, rid, sid, status); renderAttendanceList(); };
-window.setNote = async (rid, sid, note) => { await setAnyNote(state.currentMember, rid, sid, note); };
+window.setAttend = (rid, sid, status) => { setAnyAttend(state.currentMember, rid, sid, status); renderAttendanceList(); };
+window.setNote = (rid, sid, note) => { setAnyNote(state.currentMember, rid, sid, note); };
 
 function renderAdminPanel() {
     const activeSub = document.querySelector('.menu-tab.active').dataset.menu;
@@ -340,25 +359,25 @@ function getTimeOpts(s) {
     }
     return h;
 }
-window.updateR = async (id, k, v) => { state.rehearsals.find(x => x.id === id)[k] = v; await save(); };
-window.updateS = async (rid, sid, k, v) => { state.rehearsals.find(x => x.id === rid).slots.find(y => y.id === sid)[k] = v; await save(); };
-window.delR = async (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); state.ui.adminViewList = state.ui.adminViewList.filter(x => x.id !== id); await save(); renderAdminRehearsals(); } };
-window.delS = async (rid, sid) => { const r = state.rehearsals.find(x => x.id === rid); r.slots = r.slots.filter(y => y.id !== sid); await save(); renderAdminRehearsals(); };
+window.updateR = (id, k, v) => { state.rehearsals.find(x => x.id === id)[k] = v; save(); };
+window.updateS = (rid, sid, k, v) => { state.rehearsals.find(x => x.id === rid).slots.find(y => y.id === sid)[k] = v; save(); };
+window.delR = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); state.ui.adminViewList = state.ui.adminViewList.filter(x => x.id !== id); save(); renderAdminRehearsals(); } };
+window.delS = (rid, sid) => { const r = state.rehearsals.find(x => x.id === rid); r.slots = r.slots.filter(y => y.id !== sid); save(); renderAdminRehearsals(); };
 
-window.addS = async (id) => {
+window.addS = (id) => {
     const r = state.rehearsals.find(x => x.id === id);
     const last = r.slots[r.slots.length - 1];
     r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
-    await save(); renderAdminRehearsals();
+    save(); renderAdminRehearsals();
 };
 
-$('add-rehearsal-btn').onclick = async () => {
+$('add-rehearsal-btn').onclick = () => {
     sortScheduleByDate(); 
     const newId = generateId();
     const newR = { id: newId, date: '', location: '', slots: [{id: generateId(), start: '', end: '', menu: ''}] };
     state.rehearsals.push(newR);
     refreshAdminViewList();
-    await save(); renderAdminRehearsals();
+    save(); renderAdminRehearsals();
 };
 
 function renderOverallStatus() {
@@ -446,19 +465,19 @@ function renderList(key, listId, inputId, btnId) {
         `;
         list.appendChild(li);
     });
-    $(btnId).onclick = async () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; await save(); renderAdminDropdowns(); } };
+    $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
 }
 
-window.moveItem = async (key, i, dir) => {
+window.moveItem = (key, i, dir) => {
     const arr = state.settings[key];
     const target = i + dir;
     if (target < 0 || target >= arr.length) return;
     [arr[i], arr[target]] = [arr[target], arr[i]];
-    await save();
+    save();
     renderAdminDropdowns();
 };
 
-window.delItem = async (key, i) => { state.settings[key].splice(i, 1); await save(); renderAdminDropdowns(); };
+window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderAdminDropdowns(); };
 
 function renderAdminVisibility() {
     const container = $('visibility-controls-container'); container.innerHTML = '';
@@ -473,7 +492,7 @@ function renderAdminVisibility() {
                 </select></div>`;
     });
 }
-window.updateVis = async (id, val) => { state.settings.visibility[id] = val; await save(); updateLockIcons(); };
+window.updateVis = (id, val) => { state.settings.visibility[id] = val; save(); updateLockIcons(); };
 
 function renderPastRecords() {
     const container = $('past-records-container');
@@ -539,38 +558,38 @@ function renderPastRecords() {
         container.appendChild(card);
     });
     $('delete-selected-past-btn').onclick = deleteSelectedPast;
-    $('clear-past-btn').onclick = async () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); await save(); renderPastRecords(); } };
+    $('clear-past-btn').onclick = () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); save(); renderPastRecords(); } };
 }
 
-async function deleteSelectedPast() {
+function deleteSelectedPast() {
     const checked = Array.from(document.querySelectorAll('.past-checkbox:checked')).map(el => el.value);
     if (checked.length === 0) { alert('削除するデータを選択してください。'); return; }
     if (confirm(`選択した ${checked.length} 件のデータを削除しますか？`)) {
         state.rehearsals = state.rehearsals.filter(r => !checked.includes(r.id));
-        await save();
+        save();
         renderPastRecords();
     }
 }
 window.toggleEditPast = (id) => { state.ui.editingId = id; renderPastRecords(); };
-window.updateR_Base_Past = async (id, k, v) => { await updateR(id, k, v); renderPastRecords(); };
-window.updateR_Past = async (rid, sid, k, v) => { await updateS(rid, sid, k, v); renderPastRecords(); };
-window.editAnyAttend_UI = async (name, rid, sid) => {
+window.updateR_Base_Past = (id, k, v) => { updateR(id, k, v); renderPastRecords(); };
+window.updateR_Past = (rid, sid, k, v) => { updateS(rid, sid, k, v); renderPastRecords(); };
+window.editAnyAttend_UI = (name, rid, sid) => {
     const att = state.attendance[name]?.[`${rid}_${sid}`] || {status:null, note:''};
     const s = confirm(`${name}さんの出欠を切り替えますか？\n現在: ${att.status || '未入力'}`) ? (att.status==='出席'?'欠席':'出席') : att.status;
     const n = prompt(`${name}さんの備考:`, att.note);
-    if(s !== att.status || n !== att.note) { await setAnyAttend(name, rid, sid, s); await setAnyNote(name, rid, sid, n || ''); renderPastRecords(); }
+    if(s !== att.status || n !== att.note) { setAnyAttend(name, rid, sid, s); setAnyNote(name, rid, sid, n || ''); renderPastRecords(); }
 };
-window.showAddAnyAttend_UI = async (rid, sid) => {
+window.showAddAnyAttend_UI = (rid, sid) => {
     const name = prompt("修正・追加するメンバーの名前を入力してください:");
-    if(name && state.members.includes(name)) await editAnyAttend_UI(name, rid, sid);
+    if(name && state.members.includes(name)) editAnyAttend_UI(name, rid, sid);
     else if(name) alert("メンバーが見つかりません。");
 };
-window.delR_Past = async (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); await save(); renderPastRecords(); } };
-window.addS_Past = async (id) => { 
+window.delR_Past = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); save(); renderPastRecords(); } };
+window.addS_Past = (id) => { 
     const r = state.rehearsals.find(x => x.id === id);
     const last = r.slots[r.slots.length - 1];
     r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
-    await save(); 
+    save(); 
     renderPastRecords(); 
 };
 
