@@ -35,25 +35,19 @@ let state = {
 let isInitialLoaded = false;
 let saveTimeout = null;
 
+// --- ユーティリティ ---
+const $ = (id) => document.getElementById(id);
+const generateId = () => Math.random().toString(36).substr(2, 9);
+const getMonthStr = (date) => date ? date.substring(0, 7) : "";
+const getToday = () => new Date().setHours(0,0,0,0);
+
 // --- クラウド同期ロジック ---
 
-async function load(force = false) {
-    if (isInitialLoaded && !force) return;
-
-    if (!isInitialLoaded) $('loading-overlay').classList.remove('hidden');
-
-    const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
-    if (localSaved) {
-        state = { ...state, ...JSON.parse(localSaved) };
-    }
-
+async function loadCloud() {
+    if (!SYNC_URL) return;
+    
+    // クラウド取得中は一瞬ログイン状態を待避
     const localAuth = { ...state.auth };
-
-    if (!SYNC_URL) {
-        isInitialLoaded = true;
-        $('loading-overlay').classList.add('hidden');
-        return;
-    }
 
     try {
         const response = await fetch(SYNC_URL);
@@ -61,17 +55,17 @@ async function load(force = false) {
             const cloudData = await response.json();
             if (cloudData && Object.keys(cloudData).length > 0) {
                 state = { ...state, ...cloudData };
-                state.auth = localAuth; 
-                state.currentMember = '';
-                state.ui.currentMonth = '';
-                console.log("クラウドから最新データを取得しました。");
+                state.auth = localAuth; // ログイン状態を復元
+                console.log("クラウドデータを同期しました。");
+                
+                // データが新しくなったので、ログイン後のメイン画面を再描画
+                if (state.auth.isLoggedIn) {
+                    renderTab('attendance-input');
+                }
             }
         }
     } catch (error) {
-        console.error("クラウド読み込みエラー:", error);
-    } finally {
-        isInitialLoaded = true;
-        $('loading-overlay').classList.add('hidden');
+        console.error("クラウド同期エラー:", error);
     }
 }
 
@@ -79,6 +73,7 @@ function save() {
     state.members.sort((a, b) => a.localeCompare(b, 'ja'));
     const json = JSON.stringify(state);
     
+    // ローカルには即座に保存
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 
     if (!SYNC_URL) return;
@@ -106,16 +101,21 @@ function save() {
     }, 1500);
 }
 
-// --- 既存のアプリロジック ---
-
-const $ = (id) => document.getElementById(id);
-const generateId = () => Math.random().toString(36).substr(2, 9);
-const getMonthStr = (date) => date ? date.substring(0, 7) : "";
-const getToday = () => new Date().setHours(0,0,0,0);
+// --- 認証初期化（最優先で実行） ---
 
 function initAuth() {
+    // まずローカルデータを読み込む
+    const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (localSaved) {
+        const parsed = JSON.parse(localSaved);
+        state = { ...state, ...parsed };
+    }
+
+    // ログイン処理
     $('login-btn').onclick = () => {
-        const pw = $('password-input').value;
+        // 前後の空白を除去（.trim()）
+        const pw = ($('password-input').value || '').trim();
+        
         if (pw === CONFIG.ADMIN_PW) {
             state.auth = { isLoggedIn: true, type: 'admin' };
         } else if (pw === CONFIG.COMMON_PW) {
@@ -137,6 +137,7 @@ function initAuth() {
         }
     };
 
+    // 画面表示の切り替え（クラウドを待たずに即時実行）
     if (state.auth.isLoggedIn) {
         $('login-overlay').classList.add('hidden');
         $('app').classList.remove('hidden');
@@ -147,6 +148,8 @@ function initAuth() {
         $('app').classList.add('hidden');
     }
 }
+
+// --- 既存のアプリロジック ---
 
 function updateLockIcons() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
@@ -206,6 +209,7 @@ function renderTab(id) {
 
 function renderAttendanceInput() {
     const select = $('member-select');
+    if (!select) return;
     select.innerHTML = '<option value="">メンバーを選択</option>';
     state.members.forEach(name => {
         const opt = document.createElement('option');
@@ -268,6 +272,7 @@ function deleteCurrentMember() {
 function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId, callback) {
     const top = $(containerTopId);
     const bottom = $(containerBottomId);
+    if (!top || !bottom) return;
     top.innerHTML = '';
     bottom.innerHTML = '';
     
@@ -288,6 +293,7 @@ function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId
 
 function renderAttendanceList() {
     const container = $('attendance-list-container');
+    if (!container) return;
     container.innerHTML = '';
     if (!state.currentMember) {
         container.innerHTML = '<p class="admin-hint">メンバーを選択してください</p>';
@@ -361,6 +367,7 @@ function renderAdminPanel() {
 
 function renderAdminRehearsals() {
     const list = $('admin-rehearsal-list');
+    if (!list) return;
     list.innerHTML = '';
     $('list-locations').innerHTML = state.settings.locations.map(l => `<option value="${l}">`).join('');
     $('list-menus').innerHTML = state.settings.menus.map(m => `<option value="${m}">`).join('');
@@ -414,17 +421,20 @@ window.addS = (id) => {
     save(); renderAdminRehearsals();
 };
 
-$('add-rehearsal-btn').onclick = () => {
-    sortScheduleByDate(); 
-    const newId = generateId();
-    const newR = { id: newId, date: '', location: '', slots: [{id: generateId(), start: '', end: '', menu: ''}] };
-    state.rehearsals.push(newR);
-    refreshAdminViewList();
-    save(); renderAdminRehearsals();
-};
+if ($('add-rehearsal-btn')) {
+    $('add-rehearsal-btn').onclick = () => {
+        sortScheduleByDate(); 
+        const newId = generateId();
+        const newR = { id: newId, date: '', location: '', slots: [{id: generateId(), start: '', end: '', menu: ''}] };
+        state.rehearsals.push(newR);
+        refreshAdminViewList();
+        save(); renderAdminRehearsals();
+    };
+}
 
 function renderOverallStatus() {
     const container = $('overall-status-container');
+    if (!container) return;
     container.innerHTML = '';
     const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
     const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
@@ -495,7 +505,8 @@ function renderAdminDropdowns() {
 }
 
 function renderList(key, listId, inputId, btnId) {
-    const list = $(listId); list.innerHTML = '';
+    const list = $(listId); if (!list) return;
+    list.innerHTML = '';
     state.settings[key].forEach((item, i) => {
         const li = document.createElement('li');
         li.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 15px; background:white; border:1px solid #F0F0F0; border-radius:12px; margin-bottom:8px; font-size:0.9rem;";
@@ -510,7 +521,9 @@ function renderList(key, listId, inputId, btnId) {
         `;
         list.appendChild(li);
     });
-    $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
+    if ($(btnId)) {
+        $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } };
+    }
 }
 
 window.moveItem = (key, i, dir) => {
@@ -525,7 +538,8 @@ window.moveItem = (key, i, dir) => {
 window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderAdminDropdowns(); };
 
 function renderAdminVisibility() {
-    const container = $('visibility-controls-container'); container.innerHTML = '';
+    const container = $('visibility-controls-container'); if (!container) return;
+    container.innerHTML = '';
     const tabs = [
         { id: 'attendance-input', label: '出欠入力' },
         { id: 'overall-status', label: '参加状況' },
@@ -546,6 +560,7 @@ window.updateVis = (id, val) => { state.settings.visibility[id] = val; save(); u
 
 function renderPastRecords() {
     const container = $('past-records-container');
+    if (!container) return;
     container.innerHTML = '';
     const pastAll = state.rehearsals.filter(r => r.date && new Date(r.date) < getToday());
     if (pastAll.length === 0) {
@@ -610,8 +625,12 @@ function renderPastRecords() {
         card.innerHTML = h;
         container.appendChild(card);
     });
-    $('delete-selected-past-btn').onclick = deleteSelectedPast;
-    $('clear-past-btn').onclick = () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); save(); renderPastRecords(); } };
+    if ($('delete-selected-past-btn')) {
+        $('delete-selected-past-btn').onclick = deleteSelectedPast;
+    }
+    if ($('clear-past-btn')) {
+        $('clear-past-btn').onclick = () => { if(confirm('過去データをすべて削除しますか？')) { state.rehearsals = state.rehearsals.filter(r => !r.date || new Date(r.date) >= getToday()); save(); renderPastRecords(); } };
+    }
 }
 
 function deleteSelectedPast() {
@@ -648,7 +667,9 @@ window.addS_Past = (id) => {
 
 // --- 初期化 ---
 window.onload = async () => { 
-    await load(); 
+    // 1. 認証とローカルデータの復元（即時実行、クラウドを待たない）
     initAuth(); 
     initTabs(); 
+    // 2. クラウド同期（バックグラウンドで実行）
+    await loadCloud(); 
 };
