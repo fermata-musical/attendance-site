@@ -217,7 +217,7 @@ function renderAttendanceInput() {
         renderAttendanceInput();
     };
 
-    // 氏名操作ボタンのレンダリング改善
+    // 氏名操作ボタン（パステル調・やわらかトーン）
     const actionContainer = $('member-action-container');
     actionContainer.innerHTML = `
         <button id="show-add-member-btn" class="action-btn-styled add"><i class="fa-solid fa-plus"></i> 追加</button>
@@ -390,13 +390,13 @@ function renderAdminRehearsals() {
                 <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
             </div>
             ${slotsH}
-            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メメニュー追加</button></div>
+            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
         `;
         list.appendChild(card);
     });
 }
 
-// 日程編集用のプルダウン生成関数
+// 日程編集用のプルダウン生成関数（「その他」選択時の挙動改善）
 function renderAdminDropdownSelect(rid, sid, type, currentVal) {
     const listKey = type === 'location' ? 'locations' : 'menus';
     const items = state.settings[listKey];
@@ -410,27 +410,48 @@ function renderAdminDropdownSelect(rid, sid, type, currentVal) {
 
     const selectId = `sel-${rid}-${sid || 'base'}-${type}`;
     const inputId = `inp-${rid}-${sid || 'base'}-${type}`;
+    const containerId = `cont-${rid}-${sid || 'base'}-${type}`;
 
     return `
-        <div style="flex:1; display:flex; flex-direction:column; gap:5px;">
-            <select id="${selectId}" class="cute-input flex-fill-input" onchange="handleAdminDropdownChange('${rid}', '${sid}', '${type}', this.value)">
+        <div id="${containerId}" class="dropdown-toggle-container">
+            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${rid}', '${sid}', '${type}', this.value)">
                 ${opts}
             </select>
-            <input id="${inputId}" type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="handleAdminOtherInputChange('${rid}', '${sid}', '${type}', this.value)">
+            <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">
+                <input id="${inputId}" type="text" class="cute-input flex-fill-input" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="handleAdminOtherInputChange('${rid}', '${sid}', '${type}', this.value)">
+                <button class="icon-btn-sm" onclick="revertToDropdown('${rid}', '${sid}', '${type}')" title="一覧に戻る"><i class="fa-solid fa-xmark"></i></button>
+            </div>
         </div>
     `;
 }
 
 window.handleAdminDropdownChange = (rid, sid, type, val) => {
+    const sel = $(`sel-${rid}-${sid || 'base'}-${type}`);
+    const wrapper = $(`inp-${rid}-${sid || 'base'}-${type}-wrapper`);
     const input = $(`inp-${rid}-${sid || 'base'}-${type}`);
+    
     if (val === 'OTHER_VAL') {
-        input.classList.remove('hidden');
+        sel.classList.add('hidden');
+        wrapper.classList.remove('hidden');
         input.focus();
     } else {
-        input.classList.add('hidden');
         if (sid) updateS(rid, sid, type, val);
         else updateR(rid, type, val);
     }
+};
+
+window.revertToDropdown = (rid, sid, type) => {
+    const sel = $(`sel-${rid}-${sid || 'base'}-${type}`);
+    const wrapper = $(`inp-${rid}-${sid || 'base'}-${type}-wrapper`);
+    const input = $(`inp-${rid}-${sid || 'base'}-${type}`);
+    
+    sel.value = "";
+    sel.classList.remove('hidden');
+    wrapper.classList.add('hidden');
+    input.value = "";
+    
+    if (sid) updateS(rid, sid, type, "");
+    else updateR(rid, type, "");
 };
 
 window.handleAdminOtherInputChange = (rid, sid, type, val) => {
@@ -650,7 +671,7 @@ function renderPastRecords() {
                         ${menuContent}
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">
-                        ${pres.map(p => `<span class="pills-edit" onclick="editAnyAttend_UI('${p.name}','${r.id}','${s.id}')">${p.name}${p.note?'('+p.note+')':''}</span>`).join('') || '<span style="color:#EEE; font-size:0.7rem;">出席者なし</span>'}
+                        ${pres.map(p => `<span class="pills-edit" onclick="editAnyAttend_UI('${p.name}','${r.id}','${s.id}')">${p.name}${p.note?'('+p.note+')':''}</span>`).join('') || '<span style="color:#EEE; font-size:0.75rem;">出席者なし</span>'}
                         <button class="icon-btn-sm" style="width:auto; padding:0 8px; font-size:0.7rem;" onclick="showAddAnyAttend_UI('${r.id}','${s.id}')">+ 追加/修正</button>
                     </div>`;
             if (absWithNotes.length > 0) {

@@ -7,6 +7,9 @@
     --lavender-light: #F3E5F5;
     --mint: #B2DFDB;
     --mint-dark: #4DB6AC;
+    --mint-soft: #C8E6C9; /* やわらかい緑 */
+    --blue-soft: #E3F2FD; /* やわらかい青 */
+    --red-soft: #FFEBEE;  /* やわらかい赤/ピンク */
     --bg: #FFF9FA;
     --card-bg: #FFFFFF;
     --text: #5A5A5A;
@@ -162,19 +165,32 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .select-wrapper i { position: absolute; left: 12px; color: var(--pink); font-size: 1rem; pointer-events: none; }
 .select-wrapper select { padding-left: 35px; width: 100%; border-radius: 15px; }
 
-/* 氏名操作ボタンのスタイル改善 */
+/* 氏名操作ボタンのスタイル改善（やわらかパステル） */
 .member-action-grid {
     display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;
 }
 .action-btn-styled {
-    flex: 1; border: none; border-radius: 12px; padding: 10px 5px; color: white; font-weight: 700; font-size: 0.8rem;
-    display: flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; transition: 0.2s;
-    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+    flex: 1; border: none; border-radius: 20px; padding: 12px 5px; font-weight: 700; font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-.action-btn-styled:active { transform: translateY(2px); box-shadow: none; }
-.action-btn-styled.add { background-color: var(--mint-dark); }
-.action-btn-styled.edit { background-color: var(--info); }
-.action-btn-styled.delete { background-color: var(--danger-dark); }
+.action-btn-styled:active { transform: translateY(1px); box-shadow: none; }
+
+/* 各ボタンのパステルカラー設定 */
+.action-btn-styled.add { 
+    background-color: var(--mint-soft); 
+    color: #2E7D32; 
+    flex: 1.2; /* 追加ボタンを少し大きく */
+    font-size: 0.85rem;
+}
+.action-btn-styled.edit { 
+    background-color: var(--blue-soft); 
+    color: #1976D2; 
+}
+.action-btn-styled.delete { 
+    background-color: var(--red-soft); 
+    color: #C62828; 
+}
 
 .icon-btn-sm { 
     background: #F5F5F5; border: none; color: #AAA; width: 36px; height: 36px; border-radius: 12px; 
@@ -204,6 +220,14 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 
 .admin-card-inner { background: #FCFCFC; border: 1px solid #F0F0F0; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
 .del-icon-btn { color: #DDD; background: none; border: none; cursor: pointer; transition: 0.2s; }
+
+/* 日程編集のプルダウン/手入力切替用 */
+.dropdown-toggle-container {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;
+}
+.manual-input-wrapper {
+    display: flex; align-items: center; gap: 5px;
+}
 
 @media (max-width: 480px) {
     .admin-line.slots { gap: 4px; }
