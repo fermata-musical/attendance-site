@@ -99,18 +99,26 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 /* 上部メインタブ（ボタンっぽいカード） */
 .nav-tab {
     flex: 1; padding: 12px 5px; 
-    border: none;
-    background: var(--bg-card); 
+    border: 1px solid var(--border-dusty);
+    background: var(--bg-soft); 
     color: var(--text-sub);
     font-size: 0.8rem; border-radius: var(--radius-lg); transition: 0.3s;
     font-weight: 700;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.nav-tab:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 .nav-tab.active {
     background: var(--pink-accent); 
     color: #ffffff; 
-    box-shadow: var(--shadow-pink); 
+    border-color: var(--pink-accent);
+    box-shadow: 0 4px 10px rgba(229, 140, 171, 0.25); 
     transform: translateY(-2px);
+}
+.nav-tab.active:hover {
+    transform: translateY(-3px);
 }
 .lock-icon { color: #facc15; margin-left: 3px; font-size: 0.8rem; }
 
