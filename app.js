@@ -141,6 +141,23 @@ function initTabs() {
             renderTab('admin-panel');
         };
     });
+
+    // 管理画面：新しい稽古日を追加ボタンのイベント
+    const addRehearsalBtn = $('add-rehearsal-btn');
+    if (addRehearsalBtn) {
+        addRehearsalBtn.onclick = () => {
+            const newR = {
+                id: generateId(),
+                date: '',
+                location: '',
+                slots: [{ id: generateId(), start: '', end: '', menu: '' }]
+            };
+            state.rehearsals.push(newR);
+            refreshAdminViewList();
+            save();
+            renderAdminRehearsals();
+        };
+    }
 }
 
 function refreshAdminViewList() {
@@ -310,7 +327,7 @@ function renderAdminRehearsals() {
                 <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
             </div>
             ${slotsH}
-            <div style="margin-top:10px;"><button class="puffy-btn pink puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
+            <div style="margin-top:10px;"><button class="puffy-btn gray puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
         `;
         list.appendChild(card);
     });
