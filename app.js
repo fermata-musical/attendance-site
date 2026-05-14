@@ -100,36 +100,19 @@ async function migrateToSupabase() {
     const oldState = JSON.parse(localSaved);
     
     console.log("メンバー移行中...");
-    const memberMap = {}; 
     for (const name of oldState.members) {
-        const { data, error } = await db.from('members').insert({ name }).select().single();
-        if (!error) memberMap[name] = data.id;
+        await db.from('members').insert({ name });
     }
 
     console.log("稽古日移行中...");
-    const slotMap = {}; 
     for (const r of oldState.rehearsals) {
         for (const s of r.slots) {
-            const { data, error } = await db.from('practices').insert({
-                date: r.date, place: r.location, start_time: s.start, end_time: s.end, menu: s.menu
-            }).select().single();
-            if (!error) slotMap[s.id] = data.id;
-        }
-    }
-
-    console.log("出欠データ移行中...");
-    for (const name in oldState.attendance) {
-        const memberId = memberMap[name];
-        if (!memberId) continue;
-        for (const oldKey in oldState.attendance[name]) {
-            const [rid, sid] = oldKey.split('_');
-            const practiceId = slotMap[sid];
-            if (!practiceId) continue;
-            const att = oldState.attendance[name][oldKey];
-            await db.from('attendance').insert({
-                member_id: memberId, practice_id: practiceId,
-                status: att.status === '出席' ? 'attend' : (att.status === '欠席' ? 'absent' : null),
-                note: att.note
+            await db.from('practices').insert({
+                date: r.date, 
+                place: r.location, 
+                start_time: s.start, 
+                end_time: s.end, 
+                menu: s.menu
             });
         }
     }
@@ -227,19 +210,19 @@ function initTabs() {
     const addRehearsalBtn = $('add-rehearsal-btn');
     if (addRehearsalBtn) {
         addRehearsalBtn.onclick = async () => {
-            console.log("稽古日追加ボタンが押されました");
+            const date = getTodayStr();
+            const place = '段原公民館'; // デフォルト値
+            const start_time = '09:00';
+            const end_time = '12:00';
+            const menu = '';
+
             const { error } = await db.from('practices').insert({
-                date: getTodayStr(), // 空文字ではなく今日の日付を入れる（DBエラー回避）
-                place: '未設定', 
-                start_time: '09:00', 
-                end_time: '12:00', 
-                menu: ''
+                date, place, start_time, end_time, menu
             });
+
             if (error) {
-                console.error("稽古日追加エラー:", error);
-                alert("登録に失敗しました。");
+                alert("登録に失敗しました:\n" + error.message);
             } else {
-                console.log("稽古日追加成功");
                 await loadCloud();
             }
         };
@@ -285,14 +268,11 @@ function renderAttendanceInput() {
         $('confirm-member-btn').onclick = async () => {
             const nameInput = $('new-member-name');
             const name = nameInput.value.trim();
-            console.log("メンバー登録ボタンが押されました:", name);
             if (name) {
                 const { data, error } = await db.from('members').insert({ name }).select().single();
                 if (error) {
-                    console.error("メンバー登録エラー:", error);
-                    alert("登録に失敗しました。");
+                    alert("登録に失敗しました:\n" + error.message);
                 } else {
-                    console.log("メンバー登録成功:", data);
                     state.currentMember = data.id;
                     nameInput.value = ''; $('add-member-form').classList.add('hidden');
                     saveLocal(); await loadCloud();
@@ -312,14 +292,16 @@ async function startEditCurrentMember() {
     const newName = prompt('氏名を編集:', member.name);
     if (newName && newName.trim() !== member.name) {
         const { error } = await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
-        if (!error) await loadCloud();
+        if (error) alert(error.message);
+        else await loadCloud();
     }
 }
 async function deleteCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     if (confirm(`${member.name}さんを削除しますか？`)) {
         const { error } = await db.from('members').delete().eq('id', state.currentMember);
-        if (!error) {
+        if (error) alert(error.message);
+        else {
             state.currentMember = ''; saveLocal(); await loadCloud();
         }
     }
@@ -385,7 +367,8 @@ window.setAttend = async (practiceId, status) => {
         member_id: state.currentMember, practice_id: practiceId, status: newStatus,
         note: cur.note, updated_at: new Date().toISOString()
     });
-    if (!error) await loadCloud();
+    if (error) alert(error.message);
+    else await loadCloud();
 };
 
 window.setNote = async (practiceId, note) => {
@@ -395,7 +378,8 @@ window.setNote = async (practiceId, note) => {
         member_id: state.currentMember, practice_id: practiceId, status: cur.status,
         note: note, updated_at: new Date().toISOString()
     });
-    if (!error) await loadCloud();
+    if (error) alert(error.message);
+    else await loadCloud();
 };
 
 function renderAdminPanel() {
@@ -436,41 +420,54 @@ function renderAdminDropdownSelect(practiceId, type, currentVal) {
     const isOther = currentVal && !items.includes(currentVal);
     let opts = `<option value="">選択してください</option>`;
     items.forEach(item => { opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`; });
-    opts += `<option value="OTHER_VAL" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
+    opts += `<option value="other" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
+    
     const selectId = `sel-${practiceId}-${type}`;
     const inputId = `inp-${practiceId}-${type}`;
+    
     return `
         <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
+            <select id="${selectId}" class="cute-input flex-fill-input" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
                 ${opts}
             </select>
-            <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">
-                <input id="${inputId}" type="text" class="cute-input flex-fill-input" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="updatePractice('${practiceId}', '${type === 'location' ? 'place' : 'menu'}', this.value)">
-            </div>
+            <input id="${inputId}" type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" 
+                   value="${isOther ? currentVal : ''}" placeholder="自由入力" 
+                   onchange="handleAdminManualInput('${practiceId}', '${type}', this.value)">
         </div>
     `;
 }
 
 window.handleAdminDropdownChange = async (practiceId, type, val) => {
-    const sel = $(`sel-${practiceId}-${type}`);
-    const wrapper = $(`inp-${practiceId}-${type}-wrapper`);
     const input = $(`inp-${practiceId}-${type}`);
-    if (val === 'OTHER_VAL') { sel.classList.add('hidden'); wrapper.classList.remove('hidden'); input.focus(); }
-    else { await updatePractice(practiceId, type === 'location' ? 'place' : 'menu', val); }
+    if (val === 'other') {
+        input.classList.remove('hidden');
+        input.focus();
+    } else {
+        input.classList.add('hidden');
+        const k = (type === 'location' ? 'place' : 'menu');
+        await updatePractice(practiceId, k, val);
+    }
+};
+
+window.handleAdminManualInput = async (practiceId, type, val) => {
+    const k = (type === 'location' ? 'place' : 'menu');
+    await updatePractice(practiceId, k, val);
 };
 
 window.updatePractice = async (id, k, v) => {
     if (!db) return;
     const payload = {}; payload[k] = v;
     const { error } = await db.from('practices').update(payload).eq('id', id);
-    if (!error) await loadCloud();
+    if (error) alert(error.message);
+    else await loadCloud();
 };
 
 window.delPractice = async (id) => {
     if(!db) return;
     if(confirm('削除しますか？')) {
         const { error } = await db.from('practices').delete().eq('id', id);
-        if (!error) await loadCloud();
+        if (error) alert(error.message);
+        else await loadCloud();
     }
 };
 
