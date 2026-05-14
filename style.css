@@ -7,21 +7,21 @@
     --lavender-light: #F3E5F5;
     --mint: #B2DFDB;
     --mint-dark: #4DB6AC;
-    --mint-soft: #C8E6C9; /* やわらかい緑 */
-    --blue-soft: #E3F2FD; /* やわらかい青 */
-    --red-soft: #FFEBEE;  /* やわらかい赤/ピンク */
-    --bg: #FFF9FA;
+    --mint-soft: #C8E6C9; 
+    --blue-soft: #E3F2FD; 
+    --red-soft: #FFEBEE;  
+    --bg: #F2F4F6; /* 白飛び対策：少しグレーを強める */
     --card-bg: #FFFFFF;
-    --text: #5A5A5A;
+    --text: #4A4A4A; /* 文字色を少し濃く */
     --text-tab-inactive: #555555; 
-    --muted: #C0C0C0;
+    --muted: #9E9E9E; /* mutedを少し濃く */
     --danger: #FFAB91;
     --danger-dark: #e57373;
     --info: #64B5F6;
     --notice-bg: #FFF9E6;
     --notice-border: #FFE082;
-    --tab-inactive-bg: #f3f4f6; 
-    --shadow: 0 8px 20px rgba(255, 183, 197, 0.15);
+    --tab-inactive-bg: #E5E7EB; /* タブの未選択時を少し暗く */
+    --shadow: 0 4px 15px rgba(0, 0, 0, 0.08); /* 影を少し強めて立体感を出す */
     --radius-lg: 20px;
     --radius-md: 12px;
 }
@@ -79,7 +79,7 @@ body {
 
 /* Header & Title */
 header {
-    background-color: white; padding: 10px 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    background-color: white; padding: 10px 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 .header-content {
     display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px 10px 20px;
@@ -91,7 +91,7 @@ header {
 nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 
 .nav-tab {
-    flex: 1; padding: 10px 5px; border: none; 
+    flex: 1; padding: 10px 5px; border: 1px solid #E5E7EB; /* 枠線追加 */
     background: var(--tab-inactive-bg); 
     color: var(--text-tab-inactive);
     font-size: 0.7rem; border-radius: var(--radius-md); transition: 0.3s;
@@ -99,6 +99,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .nav-tab.active {
     background: var(--pink-accent); 
     color: white; 
+    border-color: var(--pink-accent);
     font-weight: 700;
     box-shadow: 0 4px 12px rgba(244, 114, 182, 0.4); 
     transform: translateY(-2px);
@@ -106,10 +107,11 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .lock-icon { color: #facc15; margin-left: 3px; font-size: 0.8rem; }
 
 .admin-menu-tabs, .month-tab-container { 
-    display: flex; gap: 8px; margin-bottom: 20px; background: white; padding: 5px; border-radius: 15px; box-shadow: var(--shadow); 
+    display: flex; gap: 8px; margin-bottom: 20px; background: white; padding: 5px; border-radius: 15px; 
+    border: 1px solid #E5E7EB; /* 枠線追加 */
 }
 .menu-tab, .month-btn { 
-    flex: 1; padding: 10px; border: none; 
+    flex: 1; padding: 10px; border: 1px solid #E5E7EB; 
     background: var(--tab-inactive-bg); 
     color: var(--text-tab-inactive); 
     font-size: 0.85rem; border-radius: 10px; transition: 0.3s; 
@@ -118,6 +120,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .menu-tab.active, .month-btn.active { 
     background: var(--pink-accent); 
     color: white; 
+    border-color: var(--pink-accent);
     font-weight: 700; 
     box-shadow: 0 4px 10px rgba(244, 114, 182, 0.3);
 }
@@ -133,14 +136,15 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
     line-height: 1.4;
 }
 
-.absent-section { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #EEE; }
-.absent-title { font-size: 0.8rem; font-weight: 700; color: #AAA; margin-bottom: 6px; }
-.absent-row { font-size: 0.8rem; color: #888; margin-bottom: 4px; cursor: pointer; }
-.absent-name { font-weight: 700; color: #999; margin-right: 8px; }
-.absent-note { color: #BBB; font-style: italic; }
+.absent-section { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #DDD; }
+.absent-title { font-size: 0.8rem; font-weight: 700; color: #999; margin-bottom: 6px; }
+.absent-row { font-size: 0.8rem; color: #777; margin-bottom: 4px; cursor: pointer; }
+.absent-name { font-weight: 700; color: #888; margin-right: 8px; }
+.absent-note { color: #AAA; font-style: italic; }
 
 .pills-edit {
     background: var(--pink-light); color: var(--pink-dark); padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;
+    border: 1px solid var(--pink); /* 枠線追加 */
 }
 
 .past-checkbox { 
@@ -153,7 +157,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .input-group-full .cute-input { width: 100%; padding: 12px; }
 
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.admin-line.slots { background: #FFF; border-radius: 12px; padding: 5px; }
+.admin-line.slots { background: #FFF; border-radius: 12px; padding: 5px; border: 1px solid #EEE; }
 
 .date-input-fixed { flex: 0 0 135px; width: 135px; }
 .time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; }
@@ -163,63 +167,50 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 8px; }
 .member-select-row { display: flex; flex-direction: column; gap: 12px; }
 .select-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
 .select-wrapper i { position: absolute; left: 12px; color: var(--pink); font-size: 1rem; pointer-events: none; }
-.select-wrapper select { padding-left: 35px; width: 100%; border-radius: 15px; }
+.select-wrapper select { padding-left: 35px; width: 100%; border-radius: 15px; border: 1px solid #DDD; }
 
-/* 氏名操作ボタンのスタイル改善（やわらかパステル） */
+/* 氏名操作ボタン（枠線追加で視認性UP） */
 .member-action-grid {
     display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;
 }
 .action-btn-styled {
-    flex: 1; border: none; border-radius: 20px; padding: 12px 5px; font-weight: 700; font-size: 0.8rem;
+    flex: 1; border: 1px solid rgba(0,0,0,0.05); border-radius: 20px; padding: 12px 5px; font-weight: 700; font-size: 0.8rem;
     display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-.action-btn-styled:active { transform: translateY(1px); box-shadow: none; }
-
-/* 各ボタンのパステルカラー設定 */
-.action-btn-styled.add { 
-    background-color: var(--mint-soft); 
-    color: #2E7D32; 
-    flex: 1.2; /* 追加ボタンを少し大きく */
-    font-size: 0.85rem;
-}
-.action-btn-styled.edit { 
-    background-color: var(--blue-soft); 
-    color: #1976D2; 
-}
-.action-btn-styled.delete { 
-    background-color: var(--red-soft); 
-    color: #C62828; 
-}
+.action-btn-styled.add { background-color: var(--mint-soft); color: #2E7D32; flex: 1.2; font-size: 0.85rem; border-color: #A5D6A7; }
+.action-btn-styled.edit { background-color: var(--blue-soft); color: #1976D2; border-color: #BBDEFB; }
+.action-btn-styled.delete { background-color: var(--red-soft); color: #C62828; border-color: #FFCDD2; }
 
 .icon-btn-sm { 
-    background: #F5F5F5; border: none; color: #AAA; width: 36px; height: 36px; border-radius: 12px; 
+    background: #F5F5F5; border: 1px solid #E5E7EB; color: #777; width: 36px; height: 36px; border-radius: 12px; 
     display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
 }
 
 main { max-width: 600px; margin: 0 auto; padding: 15px; }
-.card { background: var(--card-bg); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 15px; box-shadow: var(--shadow); }
+.card { 
+    background: var(--card-bg); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 15px; 
+    box-shadow: var(--shadow); 
+    border: 1px solid #E5E7EB; /* カード全体に薄い枠線を追加 */
+}
 
 .toggle-btn { 
-    flex: 1; padding: 14px; border-radius: 15px; background: #FDFDFD; border: 2px solid #F8F8F8; color: #CCC; font-weight: 700; transition: all 0.2s ease; cursor: pointer;
+    flex: 1; padding: 14px; border-radius: 15px; background: #FDFDFD; border: 1px solid #DDD; color: #AAA; font-weight: 700; transition: all 0.2s ease; cursor: pointer;
 }
 .toggle-btn.present.active { background: #E8F5E9; border-color: var(--mint); color: #2E7D32; }
 .toggle-btn.absent.active { background: var(--lavender-light); border-color: var(--lavender); color: #7B1FA2; }
 
 .cute-input {
-    border: 1px solid #F0F0F0; border-radius: 12px; padding: 10px; background: #FCFCFC; font-size: 0.85rem; color: var(--text); font-family: inherit; transition: 0.3s;
+    border: 1px solid #DDD; border-radius: 12px; padding: 10px; background: #FCFCFC; font-size: 0.85rem; color: var(--text); font-family: inherit; transition: 0.3s;
 }
 .puffy-btn {
     border: none; border-radius: 25px; padding: 12px 24px; font-weight: 700; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.puffy-btn:active { transform: scale(0.95); }
 .puffy-btn.pink { background: var(--pink); color: white; }
-.puffy-btn.gray { background: #F0F0F0; color: #AAA; box-shadow: none; }
+.puffy-btn.gray { background: #DDD; color: #777; box-shadow: none; }
 .puffy-btn.danger { background: var(--danger); color: white; }
-.puffy-btn-sm { padding: 8px 16px; font-size: 0.75rem; border-radius: 15px; }
 
-.admin-card-inner { background: #FCFCFC; border: 1px solid #F0F0F0; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
-.del-icon-btn { color: #DDD; background: none; border: none; cursor: pointer; transition: 0.2s; }
+.admin-card-inner { background: #FCFCFC; border: 1px solid #DDD; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+.del-icon-btn { color: #BBB; background: none; border: none; cursor: pointer; transition: 0.2s; }
 
 /* 日程編集のプルダウン/手入力切替用 */
 .dropdown-toggle-container {

@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>出欠管理サイト</title>
-    <!-- キャッシュ対策のためバージョンを付与 -->
-    <link rel="stylesheet" href="style.css?v=1.3">
+    <!-- キャッシュ対策のためバージョンを更新 -->
+    <link rel="stylesheet" href="style.css?v=1.4">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
@@ -76,11 +76,9 @@
                                 <option value="">メンバーを選択</option>
                             </select>
                         </div>
-                        <div id="member-action-container" class="member-action-grid">
-                            <!-- JSでパステル調のボタンを生成 -->
-                        </div>
+                        <div id="member-action-container" class="member-action-grid"></div>
                     </div>
-                    <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #EEE; padding-top:15px;">
+                    <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #DDD; padding-top:15px;">
                         <input type="text" id="new-member-name" class="cute-input" placeholder="新しい氏名を入力" style="width:100%; margin-bottom:10px;">
                         <div style="display:flex; gap:10px;">
                             <button id="confirm-member-btn" class="puffy-btn pink puffy-btn-sm" style="flex:1">登録する</button>
@@ -91,7 +89,6 @@
 
                 <div id="month-tab-bar" class="month-tab-container"></div>
                 <div id="attendance-list-container"></div>
-                <!-- 下部年月タブ -->
                 <div id="month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
             </div>
 
@@ -99,7 +96,6 @@
             <div id="overall-status" class="tab-content">
                 <div id="status-month-tab-bar" class="month-tab-container"></div>
                 <div id="overall-status-container"></div>
-                <!-- 下部年月タブ -->
                 <div id="status-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
             </div>
 
@@ -111,7 +107,6 @@
                 </div>
                 <div id="past-month-tab-bar" class="month-tab-container"></div>
                 <div id="past-records-container"></div>
-                <!-- 下部年月タブ -->
                 <div id="past-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
             </div>
 
@@ -158,7 +153,6 @@
         </main>
     </div>
 
-    <!-- キャッシュ対策のためバージョンを更新 -->
-    <script src="app.js?v=1.3"></script>
+    <script src="app.js?v=1.4"></script>
 </body>
 </html>
