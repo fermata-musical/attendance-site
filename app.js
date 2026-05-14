@@ -317,7 +317,7 @@ function renderAdminRehearsals() {
                     <span>-</span>
                     <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','end',this.value)">${getTimeOpts(s.end)}</select>
                     ${renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu)}
-                    <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-xmark"></i></button>
+                    <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
                 </div>`;
         });
         card.innerHTML = `
@@ -354,7 +354,6 @@ function renderAdminDropdownSelect(rid, sid, type, currentVal) {
             </select>
             <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">
                 <input id="${inputId}" type="text" class="cute-input flex-fill-input" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="handleAdminOtherInputChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value)">
-                <button class="icon-btn-sm" onclick="revertToDropdown('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}')" title="一覧に戻る"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
     `;
