@@ -1,9 +1,8 @@
-// --- Supabase 接続設定 ---
+// --- 接続設定 ---
 const SUPABASE_URL = 'https://cwepoklweabvpmyfizto.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_3M_jMfBkVJdZNVypnV51ig_oYsn6-0n'; // ★ここに実際のanon keyを貼り付けてください
+const SUPABASE_ANON_KEY = 'sb_publishable_3M_jMfBkVJdZNVypnV51ig_oYsn6-0n';
 
-const { createClient } = window.supabase;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let db; // Supabase接続用インスタンス (名前をsupabaseからdbに変更して衝突を回避)
 
 const CONFIG = {
     COMMON_PW: 'kuma',
@@ -13,10 +12,10 @@ const CONFIG = {
 
 let state = {
     auth: { isLoggedIn: false, type: null },
-    members: [], // {id, name} の配列に変更
+    members: [],
     currentMember: '',
     rehearsals: [], 
-    attendance: {}, // {member_id: {practice_id: {status, note}}}
+    attendance: {}, 
     settings: {
         locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
         menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
@@ -36,55 +35,35 @@ let state = {
     }
 };
 
-let isInitialLoaded = false;
-
 // --- ユーティリティ ---
 const $ = (id) => document.getElementById(id);
-const generateId = () => Math.random().toString(36).substr(2, 9);
 const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
-
-const getInputStateClass = (val) => (!val || val === 'OTHER_VAL') ? 'input-empty' : 'input-filled';
-
-window.refreshInputStyle = (el) => {
-    if (!el) return;
-    const isEmp = (!el.value || el.value === 'OTHER_VAL');
-    if (isEmp) {
-        el.classList.add('input-empty'); el.classList.remove('input-filled');
-    } else {
-        el.classList.add('input-filled'); el.classList.remove('input-empty');
-    }
-};
 
 // --- クラウド同期ロジック (Supabase版) ---
 
 async function loadCloud() {
+    if (!db) return;
     try {
         $('sync-indicator').classList.remove('hidden');
+        console.log("Supabaseからデータを取得中...");
         
-        // 1. メンバー取得
-        const { data: members, error: mErr } = await supabase.from('members').select('*').order('name');
+        const { data: members, error: mErr } = await db.from('members').select('*').order('name');
         if (mErr) throw mErr;
 
-        // 2. 稽古(練習枠)取得
-        const { data: practices, error: pErr } = await supabase.from('practices').select('*').order('date');
+        const { data: practices, error: pErr } = await db.from('practices').select('*').order('date');
         if (pErr) throw pErr;
 
-        // 3. 出欠データ取得
-        const { data: attendance, error: aErr } = await supabase.from('attendance').select('*');
+        const { data: attendance, error: aErr } = await db.from('attendance').select('*');
         if (aErr) throw aErr;
 
-        // --- 既存データがない場合の移行処理 (スプレッドシートやLocalから) ---
         if (members.length === 0 && practices.length === 0) {
-            console.log("Supabaseが空のため、既存データから移行を試みます...");
+            console.log("Supabaseが空のため、既存データから移行を開始します");
             await migrateToSupabase();
-            return loadCloud(); // 移行後に再読み込み
+            return loadCloud();
         }
 
-        // --- state オブジェクトの再構築 ---
         state.members = members;
-        
-        // rehearsalsを組み立てる (dateとplaceでグルーピング)
         const groups = {};
         practices.forEach(p => {
             const key = `${p.date}_${p.place}`;
@@ -95,7 +74,6 @@ async function loadCloud() {
         });
         state.rehearsals = Object.values(groups);
 
-        // attendanceを組み立てる
         state.attendance = {};
         attendance.forEach(a => {
             if (!state.attendance[a.member_id]) state.attendance[a.member_id] = {};
@@ -104,8 +82,9 @@ async function loadCloud() {
 
         if (state.auth.isLoggedIn) { 
             refreshAdminViewList();
-            renderTab('attendance-input'); 
+            renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input'); 
         }
+        console.log("Supabase読み込み成功");
     } catch (error) {
         console.error("Supabase読み込みエラー:", error);
     } finally {
@@ -113,35 +92,31 @@ async function loadCloud() {
     }
 }
 
-// 既存のJSONデータからSupabaseへ引っ越しする関数
 async function migrateToSupabase() {
+    if (!db) return;
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (!localSaved) return;
     const oldState = JSON.parse(localSaved);
     
-    // 1. メンバー移行
-    const memberMap = {}; // oldName -> newUuid
+    console.log("メンバー移行中...");
+    const memberMap = {}; 
     for (const name of oldState.members) {
-        const { data, error } = await supabase.from('members').insert({ name }).select().single();
+        const { data, error } = await db.from('members').insert({ name }).select().single();
         if (!error) memberMap[name] = data.id;
     }
 
-    // 2. 稽古 & スロット移行
-    const slotMap = {}; // oldSlotId -> newUuid
+    console.log("稽古日移行中...");
+    const slotMap = {}; 
     for (const r of oldState.rehearsals) {
         for (const s of r.slots) {
-            const { data, error } = await supabase.from('practices').insert({
-                date: r.date,
-                place: r.location,
-                start_time: s.start,
-                end_time: s.end,
-                menu: s.menu
+            const { data, error } = await db.from('practices').insert({
+                date: r.date, place: r.location, start_time: s.start, end_time: s.end, menu: s.menu
             }).select().single();
             if (!error) slotMap[s.id] = data.id;
         }
     }
 
-    // 3. 出欠移行
+    console.log("出欠データ移行中...");
     for (const name in oldState.attendance) {
         const memberId = memberMap[name];
         if (!memberId) continue;
@@ -150,24 +125,22 @@ async function migrateToSupabase() {
             const practiceId = slotMap[sid];
             if (!practiceId) continue;
             const att = oldState.attendance[name][oldKey];
-            await supabase.from('attendance').insert({
-                member_id: memberId,
-                practice_id: practiceId,
+            await db.from('attendance').insert({
+                member_id: memberId, practice_id: practiceId,
                 status: att.status === '出席' ? 'attend' : (att.status === '欠席' ? 'absent' : null),
                 note: att.note
             });
         }
     }
-    console.log("移行完了！");
+    console.log("移行処理完了");
 }
 
-// 保存処理は各アクション時にSupabaseを叩くように変更するため、localStorageへの控えのみにする
 function saveLocal() {
     const json = JSON.stringify(state);
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
 }
 
-// --- 認証初期化 ---
+// --- 認証 ---
 
 function initAuth() {
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
@@ -177,26 +150,39 @@ function initAuth() {
         state.currentMember = parsed.currentMember || '';
     }
 
-    $('login-btn').onclick = () => {
-        const pw = ($('password-input').value || '').trim();
-        if (pw === CONFIG.ADMIN_PW) { state.auth = { isLoggedIn: true, type: 'admin' }; }
-        else if (pw === CONFIG.COMMON_PW) { state.auth = { isLoggedIn: true, type: 'common' }; }
-        else { $('login-error').classList.remove('hidden'); return; }
-        saveLocal(); location.reload();
-    };
+    const loginBtn = $('login-btn');
+    if (loginBtn) {
+        loginBtn.onclick = () => {
+            const pw = ($('password-input').value || '').trim();
+            if (pw === CONFIG.ADMIN_PW) {
+                state.auth = { isLoggedIn: true, type: 'admin' };
+            } else if (pw === CONFIG.COMMON_PW) {
+                state.auth = { isLoggedIn: true, type: 'common' };
+            } else {
+                $('login-error').classList.remove('hidden');
+                return;
+            }
+            saveLocal();
+            location.reload();
+        };
+    }
 
-    $('logout-btn').onclick = () => {
-        if (confirm('ログアウトしますか？')) {
-            state.auth = { isLoggedIn: false, type: null };
-            saveLocal(); location.reload();
-        }
-    };
+    const logoutBtn = $('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.onclick = () => {
+            if (confirm('ログアウトしますか？')) {
+                state.auth = { isLoggedIn: false, type: null };
+                saveLocal();
+                location.reload();
+            }
+        };
+    }
 
     if (state.auth.isLoggedIn) {
         $('login-overlay').classList.add('hidden');
         $('app').classList.remove('hidden');
         updateLockIcons();
-        loadCloud(); // ここで読み込み開始
+        loadCloud(); 
     } else {
         $('login-overlay').classList.remove('hidden');
         $('app').classList.add('hidden');
@@ -209,8 +195,8 @@ function updateLockIcons() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const id = tab.dataset.tab;
         const icon = tab.querySelector('.lock-icon');
-        if (state.settings.visibility[id] === 'protected') icon.classList.remove('hidden');
-        else icon.classList.add('hidden');
+        if (state.settings.visibility[id] === 'protected') icon?.classList.remove('hidden');
+        else icon?.classList.add('hidden');
     });
 }
 
@@ -239,12 +225,10 @@ function initTabs() {
     const addRehearsalBtn = $('add-rehearsal-btn');
     if (addRehearsalBtn) {
         addRehearsalBtn.onclick = async () => {
-            const { data, error } = await supabase.from('practices').insert({
+            const { error } = await db.from('practices').insert({
                 date: '', place: '', start_time: '', end_time: '', menu: ''
-            }).select().single();
-            if (!error) {
-                await loadCloud();
-            }
+            });
+            if (!error) await loadCloud();
         };
     }
 }
@@ -277,27 +261,29 @@ function renderAttendanceInput() {
     select.onchange = (e) => { state.currentMember = e.target.value; saveLocal(); renderAttendanceInput(); };
 
     const actionContainer = $('member-action-container');
-    actionContainer.innerHTML = `
-        <button id="show-add-member-btn" class="action-btn-styled add"><i class="fa-solid fa-plus"></i> 追加</button>
-        <button id="edit-current-member-btn" class="action-btn-styled edit ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-user-pen"></i> 編集</button>
-        <button id="delete-current-member-btn" class="action-btn-styled delete ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-trash-can"></i> 削除</button>
-    `;
-    $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
-    $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
-    $('confirm-member-btn').onclick = async () => {
-        const name = $('new-member-name').value.trim();
-        if (name) {
-            const { data, error } = await supabase.from('members').insert({ name }).select().single();
-            if (!error) {
-                state.currentMember = data.id;
-                $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
-                saveLocal(); await loadCloud();
+    if (actionContainer) {
+        actionContainer.innerHTML = `
+            <button id="show-add-member-btn" class="action-btn-styled add"><i class="fa-solid fa-plus"></i> 追加</button>
+            <button id="edit-current-member-btn" class="action-btn-styled edit ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-user-pen"></i> 編集</button>
+            <button id="delete-current-member-btn" class="action-btn-styled delete ${!state.currentMember ? 'hidden' : ''}"><i class="fa-solid fa-trash-can"></i> 削除</button>
+        `;
+        $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
+        $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
+        $('confirm-member-btn').onclick = async () => {
+            const name = $('new-member-name').value.trim();
+            if (name) {
+                const { data, error } = await db.from('members').insert({ name }).select().single();
+                if (!error) {
+                    state.currentMember = data.id;
+                    $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
+                    saveLocal(); await loadCloud();
+                }
             }
+        };
+        if (state.currentMember) {
+            $('edit-current-member-btn').onclick = () => startEditCurrentMember();
+            $('delete-current-member-btn').onclick = () => deleteCurrentMember();
         }
-    };
-    if (state.currentMember) {
-        $('edit-current-member-btn').onclick = () => startEditCurrentMember();
-        $('delete-current-member-btn').onclick = () => deleteCurrentMember();
     }
     renderAttendanceList();
 }
@@ -306,14 +292,14 @@ async function startEditCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     const newName = prompt('氏名を編集:', member.name);
     if (newName && newName.trim() !== member.name) {
-        await supabase.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
+        await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
         await loadCloud();
     }
 }
 async function deleteCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     if (confirm(`${member.name}さんを削除しますか？`)) {
-        await supabase.from('members').delete().eq('id', state.currentMember);
+        await db.from('members').delete().eq('id', state.currentMember);
         state.currentMember = ''; saveLocal(); await loadCloud();
     }
 }
@@ -374,13 +360,9 @@ window.setAttend = async (practiceId, status) => {
     if (!state.currentMember) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
-    
-    const { error } = await supabase.from('attendance').upsert({
-        member_id: state.currentMember,
-        practice_id: practiceId,
-        status: newStatus,
-        note: cur.note,
-        updated_at: new Date().toISOString()
+    const { error } = await db.from('attendance').upsert({
+        member_id: state.currentMember, practice_id: practiceId, status: newStatus,
+        note: cur.note, updated_at: new Date().toISOString()
     });
     if (!error) await loadCloud();
 };
@@ -388,18 +370,15 @@ window.setAttend = async (practiceId, status) => {
 window.setNote = async (practiceId, note) => {
     if (!state.currentMember) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
-    const { error } = await supabase.from('attendance').upsert({
-        member_id: state.currentMember,
-        practice_id: practiceId,
-        status: cur.status,
-        note: note,
-        updated_at: new Date().toISOString()
+    const { error } = await db.from('attendance').upsert({
+        member_id: state.currentMember, practice_id: practiceId, status: cur.status,
+        note: note, updated_at: new Date().toISOString()
     });
     if (!error) await loadCloud();
 };
 
 function renderAdminPanel() {
-    const activeSub = document.querySelector('.menu-tab.active').dataset.menu;
+    const activeSub = document.querySelector('.menu-tab.active')?.dataset.menu || 'rehearsal-edit';
     if (activeSub === 'rehearsal-edit') renderAdminRehearsals();
     if (activeSub === 'dropdown-edit') renderAdminDropdowns();
     if (activeSub === 'tab-visibility') renderAdminVisibility();
@@ -409,7 +388,6 @@ function renderAdminRehearsals() {
     const list = $('admin-rehearsal-list');
     if (!list) return;
     list.innerHTML = '';
-    // 管理画面では1スロット1行で表示
     state.rehearsals.forEach(r => {
         r.slots.forEach(s => {
             const card = document.createElement('div'); card.className = 'admin-card-inner';
@@ -438,10 +416,8 @@ function renderAdminDropdownSelect(practiceId, type, currentVal) {
     let opts = `<option value="">選択してください</option>`;
     items.forEach(item => { opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`; });
     opts += `<option value="OTHER_VAL" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
-
     const selectId = `sel-${practiceId}-${type}`;
     const inputId = `inp-${practiceId}-${type}`;
-
     return `
         <div class="dropdown-toggle-container">
             <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
@@ -464,13 +440,13 @@ window.handleAdminDropdownChange = async (practiceId, type, val) => {
 
 window.updatePractice = async (id, k, v) => {
     const payload = {}; payload[k] = v;
-    await supabase.from('practices').update(payload).eq('id', id);
+    await db.from('practices').update(payload).eq('id', id);
     await loadCloud();
 };
 
 window.delPractice = async (id) => {
     if(confirm('削除しますか？')) {
-        await supabase.from('practices').delete().eq('id', id);
+        await db.from('practices').delete().eq('id', id);
         await loadCloud();
     }
 };
@@ -495,7 +471,6 @@ function renderOverallStatus() {
     if (months.length === 0) { $('status-month-tab-bar').innerHTML = ''; $('status-month-tab-bar-bottom').innerHTML = ''; return; }
     if (!state.ui.statusMonth || !months.includes(state.ui.statusMonth)) state.ui.statusMonth = months[0];
     renderMonthTabs(months, state.ui.statusMonth, 'status-month-tab-bar', 'status-month-tab-bar-bottom', (m) => { state.ui.statusMonth = m; renderOverallStatus(); });
-    
     future.filter(r => getMonthStr(r.date) === state.ui.statusMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
         let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}　${r.location}</h2></div>`;
@@ -578,4 +553,18 @@ function renderPastRecords() {
     });
 }
 
-window.onload = async () => { initAuth(); initTabs(); };
+// --- 起動時の初期化 ---
+window.onload = () => {
+    console.log("window.onload 開始");
+    
+    if (window.supabase) {
+        const { createClient } = window.supabase;
+        db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("Supabase クライアント初期化完了 (dbインスタンス)");
+    } else {
+        console.error("Supabase SDKが読み込まれていません");
+    }
+
+    initAuth(); 
+    initTabs(); 
+};
