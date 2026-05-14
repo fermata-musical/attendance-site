@@ -365,7 +365,7 @@ function renderAdminDropdownSelect(rid, sid, type, currentVal) {
 
     return `
         <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input ${getInputStateClass(currentVal)}" onchange="handleAdminDropdownChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
+            <select id="${selectId}" class="cute-input flex-fill-input ${getInputStateClass(currentVal)} ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
                 ${opts}
             </select>
             <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">

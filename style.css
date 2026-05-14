@@ -22,6 +22,9 @@
     --shadow-md: 0 4px 12px rgba(0,0,0,0.05);
     --shadow-pink: 0 4px 12px rgba(229, 140, 171, 0.2);
     
+    --radius-lg: 30px;        /* タブ用（ピル型） */
+    --radius-md: 16px;        /* カード用 */
+
     /* 未入力状態カラー */
     --bg-empty: #F3F0F3;
     --text-empty: #8B8591;
@@ -101,13 +104,13 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 
 /* 上部メインタブ（ボタンっぽいカード） */
 .nav-tab {
-    flex: 1; padding: 12px 5px; 
+    flex: 1; padding: 10px 18px; 
     border: 1px solid var(--border-dusty);
     background: var(--bg-soft); 
     color: var(--text-sub);
     font-size: 0.8rem; border-radius: var(--radius-lg); transition: 0.3s;
     font-weight: 700;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
 }
 .nav-tab:hover {
     transform: translateY(-1px);
@@ -237,8 +240,9 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 
 main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .card { 
-    background: var(--bg-card); border-radius: var(--radius-lg); padding: 25px; margin-bottom: 20px; 
-    box-shadow: var(--shadow-md); 
+    background: var(--bg-filled) !important; /* カード内は確実に白 */
+    border-radius: var(--radius-md); padding: 25px; margin-bottom: 20px; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
     border: 1px solid var(--border-dusty); 
 }
 
@@ -280,7 +284,13 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .puffy-btn.gray { background: var(--bg-soft); color: var(--text-main); border: 1px solid var(--border-dusty); box-shadow: none; }
 .puffy-btn.danger { background: var(--bg-soft); color: var(--text-sub); border: 1px solid var(--border-dusty); }
 
-.admin-card-inner { background: var(--bg-soft); border: 1px solid var(--border-dusty); border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+.admin-card-inner { 
+    background: var(--bg-filled); 
+    border: 1px solid var(--border-dusty); 
+    border-radius: var(--radius-md); 
+    padding: 15px; margin-bottom: 15px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
+}
 .del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; }
 .del-icon-btn:hover { color: var(--absent-dark); }
 
