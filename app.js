@@ -41,13 +41,23 @@ const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
+// 未入力チェック用
+function checkEmpty(id, value) {
+    const el = $(id);
+    if (!el) return;
+    if (!value || value.trim() === '') {
+        el.classList.add('error');
+    } else {
+        el.classList.remove('error');
+    }
+}
+
 // --- クラウド同期ロジック (Supabase版) ---
 
 async function loadCloud() {
     if (!db) return;
     try {
         $('sync-indicator').classList.remove('hidden');
-        console.log("Supabaseからデータを取得中...");
         
         const { data: members, error: mErr } = await db.from('members').select('*').order('name');
         if (mErr) throw mErr;
@@ -59,7 +69,6 @@ async function loadCloud() {
         if (aErr) throw aErr;
 
         if (members.length === 0 && practices.length === 0) {
-            console.log("Supabaseが空のため、既存データから移行を開始します");
             await migrateToSupabase();
             return loadCloud();
         }
@@ -85,7 +94,6 @@ async function loadCloud() {
             refreshAdminViewList();
             renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input'); 
         }
-        console.log("Supabase読み込み成功");
     } catch (error) {
         console.error("Supabase読み込みエラー:", error);
     } finally {
@@ -98,25 +106,14 @@ async function migrateToSupabase() {
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
     if (!localSaved) return;
     const oldState = JSON.parse(localSaved);
-    
-    console.log("メンバー移行中...");
-    for (const name of oldState.members) {
-        await db.from('members').insert({ name });
-    }
-
-    console.log("稽古日移行中...");
+    for (const name of oldState.members) { await db.from('members').insert({ name }); }
     for (const r of oldState.rehearsals) {
         for (const s of r.slots) {
             await db.from('practices').insert({
-                date: r.date, 
-                place: r.location, 
-                start_time: s.start, 
-                end_time: s.end, 
-                menu: s.menu
+                date: r.date, place: r.location, start_time: s.start, end_time: s.end, menu: s.menu
             });
         }
     }
-    console.log("移行処理完了");
 }
 
 function saveLocal() {
@@ -137,18 +134,11 @@ function initAuth() {
     const loginBtn = $('login-btn');
     if (loginBtn) {
         loginBtn.onclick = () => {
-            const pwInput = $('password-input');
-            const pw = (pwInput.value || '').trim();
-            if (pw === CONFIG.ADMIN_PW) {
-                state.auth = { isLoggedIn: true, type: 'admin' };
-            } else if (pw === CONFIG.COMMON_PW) {
-                state.auth = { isLoggedIn: true, type: 'common' };
-            } else {
-                $('login-error').classList.remove('hidden');
-                return;
-            }
-            saveLocal();
-            location.reload();
+            const pw = ($('password-input').value || '').trim();
+            if (pw === CONFIG.ADMIN_PW) { state.auth = { isLoggedIn: true, type: 'admin' }; }
+            else if (pw === CONFIG.COMMON_PW) { state.auth = { isLoggedIn: true, type: 'common' }; }
+            else { $('login-error').classList.remove('hidden'); return; }
+            saveLocal(); location.reload();
         };
     }
 
@@ -157,8 +147,7 @@ function initAuth() {
         logoutBtn.onclick = () => {
             if (confirm('ログアウトしますか？')) {
                 state.auth = { isLoggedIn: false, type: null };
-                saveLocal();
-                location.reload();
+                saveLocal(); location.reload();
             }
         };
     }
@@ -207,24 +196,14 @@ function initTabs() {
         };
     });
 
-    const addRehearsalBtn = $('add-rehearsal-btn');
-    if (addRehearsalBtn) {
-        addRehearsalBtn.onclick = async () => {
-            const date = getTodayStr();
-            const place = '段原公民館'; // デフォルト値
-            const start_time = '09:00';
-            const end_time = '12:00';
-            const menu = '';
-
+    const addBtn = $('add-rehearsal-btn');
+    if (addBtn) {
+        addBtn.onclick = async () => {
             const { error } = await db.from('practices').insert({
-                date, place, start_time, end_time, menu
+                date: getTodayStr(), place: '段原公民館', start_time: '09:00', end_time: '12:00', menu: ''
             });
-
-            if (error) {
-                alert("登録に失敗しました:\n" + error.message);
-            } else {
-                await loadCloud();
-            }
+            if (error) alert(error.message);
+            else await loadCloud();
         };
     }
 }
@@ -266,17 +245,11 @@ function renderAttendanceInput() {
         $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
         $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
         $('confirm-member-btn').onclick = async () => {
-            const nameInput = $('new-member-name');
-            const name = nameInput.value.trim();
+            const name = $('new-member-name').value.trim();
             if (name) {
                 const { data, error } = await db.from('members').insert({ name }).select().single();
-                if (error) {
-                    alert("登録に失敗しました:\n" + error.message);
-                } else {
-                    state.currentMember = data.id;
-                    nameInput.value = ''; $('add-member-form').classList.add('hidden');
-                    saveLocal(); await loadCloud();
-                }
+                if (error) alert(error.message);
+                else { state.currentMember = data.id; saveLocal(); await loadCloud(); }
             }
         };
         if (state.currentMember) {
@@ -291,19 +264,15 @@ async function startEditCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     const newName = prompt('氏名を編集:', member.name);
     if (newName && newName.trim() !== member.name) {
-        const { error } = await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
-        if (error) alert(error.message);
-        else await loadCloud();
+        await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
+        await loadCloud();
     }
 }
 async function deleteCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     if (confirm(`${member.name}さんを削除しますか？`)) {
-        const { error } = await db.from('members').delete().eq('id', state.currentMember);
-        if (error) alert(error.message);
-        else {
-            state.currentMember = ''; saveLocal(); await loadCloud();
-        }
+        await db.from('members').delete().eq('id', state.currentMember);
+        state.currentMember = ''; saveLocal(); await loadCloud();
     }
 }
 
@@ -363,10 +332,15 @@ window.setAttend = async (practiceId, status) => {
     if (!state.currentMember || !db) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
+    // 重複エラーを避けるために upsert を使用し、プライマリキーを指定
     const { error } = await db.from('attendance').upsert({
-        member_id: state.currentMember, practice_id: practiceId, status: newStatus,
-        note: cur.note, updated_at: new Date().toISOString()
-    });
+        member_id: state.currentMember, 
+        practice_id: practiceId, 
+        status: newStatus,
+        note: cur.note, // 既存の備考を維持
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'member_id, practice_id' });
+    
     if (error) alert(error.message);
     else await loadCloud();
 };
@@ -375,9 +349,13 @@ window.setNote = async (practiceId, note) => {
     if (!state.currentMember || !db) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const { error } = await db.from('attendance').upsert({
-        member_id: state.currentMember, practice_id: practiceId, status: cur.status,
-        note: note, updated_at: new Date().toISOString()
-    });
+        member_id: state.currentMember, 
+        practice_id: practiceId, 
+        status: cur.status, // 既存の出欠を維持
+        note: note,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'member_id, practice_id' });
+    
     if (error) alert(error.message);
     else await loadCloud();
 };
@@ -396,9 +374,10 @@ function renderAdminRehearsals() {
     state.rehearsals.forEach(r => {
         r.slots.forEach(s => {
             const card = document.createElement('div'); card.className = 'admin-card-inner';
+            const dateId = `date-${s.id}`;
             card.innerHTML = `
                 <div class="admin-line">
-                    <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updatePractice('${s.id}','date',this.value)">
+                    <input type="date" id="${dateId}" class="cute-input date-input-fixed" value="${r.date}" onchange="updatePractice('${s.id}','date',this.value)">
                     ${renderAdminDropdownSelect(s.id, 'location', r.location)}
                     <button class="del-icon-btn" onclick="delPractice('${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
@@ -410,6 +389,7 @@ function renderAdminRehearsals() {
                 </div>
             `;
             list.appendChild(card);
+            checkEmpty(dateId, r.date);
         });
     });
 }
@@ -427,7 +407,7 @@ function renderAdminDropdownSelect(practiceId, type, currentVal) {
     
     return `
         <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
+            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
                 ${opts}
             </select>
             <input id="${inputId}" type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" 
@@ -438,8 +418,10 @@ function renderAdminDropdownSelect(practiceId, type, currentVal) {
 }
 
 window.handleAdminDropdownChange = async (practiceId, type, val) => {
+    const sel = $(`sel-${practiceId}-${type}`);
     const input = $(`inp-${practiceId}-${type}`);
     if (val === 'other') {
+        sel.classList.add('hidden'); // プルダウンを隠す
         input.classList.remove('hidden');
         input.focus();
     } else {
@@ -527,7 +509,18 @@ function renderList(key, listId, inputId, btnId) {
         li.innerHTML = `<span>${item}</span><div style="display:flex; gap:5px; align-items:center;"><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, -1)" ${i===0?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-up"></i></button><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, 1)" ${i===state.settings[key].length-1?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-down"></i></button><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="editItem('${key}', ${i})"><i class="fa-solid fa-pen"></i></button><button class="del-icon-btn" style="margin-left:8px;" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button></div>`;
         list.appendChild(li);
     });
-    if ($(btnId)) { $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; saveLocal(); renderAdminDropdowns(); } }; }
+    const addBtn = $(btnId);
+    if (addBtn) {
+        addBtn.onclick = () => {
+            const v = $(inputId).value.trim();
+            if(v) {
+                state.settings[key].push(v);
+                $(inputId).value = '';
+                saveLocal();
+                renderAdminDropdowns();
+            }
+        };
+    }
 }
 
 window.editItem = (key, i) => { const oldVal = state.settings[key][i]; const newVal = prompt('項目を編集:', oldVal); if (newVal !== null && newVal.trim() !== '' && newVal !== oldVal) { state.settings[key][i] = newVal.trim(); saveLocal(); renderAdminDropdowns(); } };
@@ -575,16 +568,10 @@ function renderPastRecords() {
 
 // --- 起動時の初期化 ---
 window.onload = () => {
-    console.log("window.onload 開始");
-    
     if (window.supabase) {
         const { createClient } = window.supabase;
         db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("Supabase クライアント初期化完了 (dbインスタンス)");
-    } else {
-        console.error("Supabase SDKが読み込まれていません");
     }
-
     initAuth(); 
     initTabs(); 
 };
