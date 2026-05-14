@@ -2,7 +2,7 @@
 const SUPABASE_URL = 'https://cwepoklweabvpmyfizto.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3M_jMfBkVJdZNVypnV51ig_oYsn6-0n';
 
-let db; // Supabase接続用インスタンス (名前をsupabaseからdbに変更して衝突を回避)
+let db; 
 
 const CONFIG = {
     COMMON_PW: 'kuma',
@@ -39,6 +39,7 @@ let state = {
 const $ = (id) => document.getElementById(id);
 const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
+const getTodayStr = () => new Date().toISOString().split('T')[0];
 
 // --- クラウド同期ロジック (Supabase版) ---
 
@@ -153,7 +154,8 @@ function initAuth() {
     const loginBtn = $('login-btn');
     if (loginBtn) {
         loginBtn.onclick = () => {
-            const pw = ($('password-input').value || '').trim();
+            const pwInput = $('password-input');
+            const pw = (pwInput.value || '').trim();
             if (pw === CONFIG.ADMIN_PW) {
                 state.auth = { isLoggedIn: true, type: 'admin' };
             } else if (pw === CONFIG.COMMON_PW) {
@@ -225,10 +227,21 @@ function initTabs() {
     const addRehearsalBtn = $('add-rehearsal-btn');
     if (addRehearsalBtn) {
         addRehearsalBtn.onclick = async () => {
+            console.log("稽古日追加ボタンが押されました");
             const { error } = await db.from('practices').insert({
-                date: '', place: '', start_time: '', end_time: '', menu: ''
+                date: getTodayStr(), // 空文字ではなく今日の日付を入れる（DBエラー回避）
+                place: '未設定', 
+                start_time: '09:00', 
+                end_time: '12:00', 
+                menu: ''
             });
-            if (!error) await loadCloud();
+            if (error) {
+                console.error("稽古日追加エラー:", error);
+                alert("登録に失敗しました。");
+            } else {
+                console.log("稽古日追加成功");
+                await loadCloud();
+            }
         };
     }
 }
@@ -270,12 +283,18 @@ function renderAttendanceInput() {
         $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
         $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
         $('confirm-member-btn').onclick = async () => {
-            const name = $('new-member-name').value.trim();
+            const nameInput = $('new-member-name');
+            const name = nameInput.value.trim();
+            console.log("メンバー登録ボタンが押されました:", name);
             if (name) {
                 const { data, error } = await db.from('members').insert({ name }).select().single();
-                if (!error) {
+                if (error) {
+                    console.error("メンバー登録エラー:", error);
+                    alert("登録に失敗しました。");
+                } else {
+                    console.log("メンバー登録成功:", data);
                     state.currentMember = data.id;
-                    $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
+                    nameInput.value = ''; $('add-member-form').classList.add('hidden');
                     saveLocal(); await loadCloud();
                 }
             }
@@ -292,15 +311,17 @@ async function startEditCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     const newName = prompt('氏名を編集:', member.name);
     if (newName && newName.trim() !== member.name) {
-        await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
-        await loadCloud();
+        const { error } = await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
+        if (!error) await loadCloud();
     }
 }
 async function deleteCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     if (confirm(`${member.name}さんを削除しますか？`)) {
-        await db.from('members').delete().eq('id', state.currentMember);
-        state.currentMember = ''; saveLocal(); await loadCloud();
+        const { error } = await db.from('members').delete().eq('id', state.currentMember);
+        if (!error) {
+            state.currentMember = ''; saveLocal(); await loadCloud();
+        }
     }
 }
 
@@ -357,7 +378,7 @@ function renderAttendanceList() {
 }
 
 window.setAttend = async (practiceId, status) => {
-    if (!state.currentMember) return;
+    if (!state.currentMember || !db) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
     const { error } = await db.from('attendance').upsert({
@@ -368,7 +389,7 @@ window.setAttend = async (practiceId, status) => {
 };
 
 window.setNote = async (practiceId, note) => {
-    if (!state.currentMember) return;
+    if (!state.currentMember || !db) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const { error } = await db.from('attendance').upsert({
         member_id: state.currentMember, practice_id: practiceId, status: cur.status,
@@ -439,15 +460,17 @@ window.handleAdminDropdownChange = async (practiceId, type, val) => {
 };
 
 window.updatePractice = async (id, k, v) => {
+    if (!db) return;
     const payload = {}; payload[k] = v;
-    await db.from('practices').update(payload).eq('id', id);
-    await loadCloud();
+    const { error } = await db.from('practices').update(payload).eq('id', id);
+    if (!error) await loadCloud();
 };
 
 window.delPractice = async (id) => {
+    if(!db) return;
     if(confirm('削除しますか？')) {
-        await db.from('practices').delete().eq('id', id);
-        await loadCloud();
+        const { error } = await db.from('practices').delete().eq('id', id);
+        if (!error) await loadCloud();
     }
 };
 
