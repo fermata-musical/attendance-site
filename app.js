@@ -41,6 +41,22 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 
+// 入力状態（空かどうか）を判定してクラスを返す
+const getInputStateClass = (val) => (!val || val === 'OTHER_VAL') ? 'input-empty' : 'input-filled';
+
+// 入力時にスタイルをリアルタイム更新する
+window.refreshInputStyle = (el) => {
+    if (!el) return;
+    const isEmp = (!el.value || el.value === 'OTHER_VAL');
+    if (isEmp) {
+        el.classList.add('input-empty');
+        el.classList.remove('input-filled');
+    } else {
+        el.classList.add('input-filled');
+        el.classList.remove('input-empty');
+    }
+};
+
 // --- クラウド同期ロジック ---
 
 async function loadCloud() {
@@ -313,16 +329,16 @@ function renderAdminRehearsals() {
         let slotsH = '';
         r.slots.forEach(s => {
             slotsH += `<div class="admin-line slots">
-                    <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','start',this.value)">${getTimeOpts(s.start)}</select>
+                    <select class="cute-input time-sel ${getInputStateClass(s.start)}" onchange="updateS('${r.id}','${s.id}','start',this.value); refreshInputStyle(this)">${getTimeOpts(s.start)}</select>
                     <span>-</span>
-                    <select class="cute-input time-sel" onchange="updateS('${r.id}','${s.id}','end',this.value)">${getTimeOpts(s.end)}</select>
+                    <select class="cute-input time-sel ${getInputStateClass(s.end)}" onchange="updateS('${r.id}','${s.id}','end',this.value); refreshInputStyle(this)">${getTimeOpts(s.end)}</select>
                     ${renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu)}
                     <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
                 </div>`;
         });
         card.innerHTML = `
             <div class="admin-line">
-                <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR('${r.id}','date',this.value)">
+                <input type="date" class="cute-input date-input-fixed ${getInputStateClass(r.date)}" value="${r.date}" oninput="refreshInputStyle(this)" onchange="updateR('${r.id}','date',this.value); refreshInputStyle(this)">
                 ${renderAdminDropdownSelect(r.id, null, 'location', r.location)}
                 <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
             </div>
@@ -349,11 +365,11 @@ function renderAdminDropdownSelect(rid, sid, type, currentVal) {
 
     return `
         <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value)">
+            <select id="${selectId}" class="cute-input flex-fill-input ${getInputStateClass(currentVal)}" onchange="handleAdminDropdownChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
                 ${opts}
             </select>
             <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">
-                <input id="${inputId}" type="text" class="cute-input flex-fill-input" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="handleAdminOtherInputChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value)">
+                <input id="${inputId}" type="text" class="cute-input flex-fill-input ${getInputStateClass(currentVal)}" value="${isOther ? currentVal : ''}" placeholder="自由入力" oninput="refreshInputStyle(this)" onchange="handleAdminOtherInputChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
             </div>
         </div>
     `;
@@ -382,7 +398,7 @@ window.handleAdminOtherInputChange = (rid, sid, type, val) => {
 };
 
 function getTimeOpts(s) {
-    let h = `<option value="" ${s===''?'selected':''}>--</option>`;
+    let h = `<option value="" ${s===''?'selected':''}>選択..</option>`;
     for(let i=8; i<=22; i++) {
         ['00','15','30','45'].forEach(m => {
             const t = `${i.toString().padStart(2,'0')}:${m}`;

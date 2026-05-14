@@ -22,8 +22,11 @@
     --shadow-md: 0 4px 12px rgba(0,0,0,0.05);
     --shadow-pink: 0 4px 12px rgba(229, 140, 171, 0.2);
     
-    --radius-lg: 20px;
-    --radius-md: 12px;
+    /* 未入力状態カラー */
+    --bg-empty: #F3F0F3;
+    --text-empty: #8B8591;
+    --bg-filled: #FFFDFE;
+    --text-filled: #5B5560;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -204,7 +207,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .admin-line.slots { background: var(--bg-soft); border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
 
 .date-input-fixed { flex: 0 0 135px; width: 135px; }
-.time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; }
+.time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; }
 .time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); }
 .flex-fill-input { flex: 1; min-width: 0; }
 
@@ -250,7 +253,24 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .cute-input {
     border: 1px solid var(--border-dusty); border-radius: 12px; padding: 10px; background: var(--bg-card); font-size: 0.9rem; color: var(--text-main); font-family: inherit; transition: 0.3s;
 }
-.cute-input:focus { outline: none; border-color: var(--pink-accent); }
+.cute-input:focus { 
+    outline: none; 
+    border-color: var(--pink-accent) !important; 
+    background-color: var(--bg-filled) !important;
+    box-shadow: 0 0 0 2px rgba(229, 140, 171, 0.1);
+}
+
+/* 未入力状態（グレー背景） */
+.input-empty {
+    background-color: var(--bg-empty) !important;
+    color: var(--text-empty) !important;
+}
+
+/* 入力済み状態（白背景） */
+.input-filled {
+    background-color: var(--bg-filled) !important;
+    color: var(--text-filled) !important;
+}
 
 .puffy-btn {
     border: none; border-radius: 40px; padding: 14px 28px; font-weight: 700; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: center; gap: 8px;
