@@ -41,14 +41,14 @@ const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-// 未入力チェック用
-function checkEmpty(id, value) {
-    const el = $(id);
-    if (!el) return;
+function validateInput(el, value) {
+    if (!el) return true;
     if (!value || value.trim() === '') {
         el.classList.add('error');
+        return false;
     } else {
         el.classList.remove('error');
+        return true;
     }
 }
 
@@ -78,7 +78,7 @@ async function loadCloud() {
         practices.forEach(p => {
             const key = `${p.date}_${p.place}`;
             if (!groups[key]) {
-                groups[key] = { id: p.id, date: p.date, location: p.place, slots: [] };
+                groups[key] = { date: p.date, location: p.place, slots: [] };
             }
             groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
         });
@@ -178,7 +178,10 @@ function initTabs() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.onclick = () => {
             const id = tab.dataset.tab;
-            if (state.settings.visibility[id] === 'protected' && state.auth.type !== 'admin') { alert('管理者のみアクセス可能です。'); return; }
+            if (state.settings.visibility[id] === 'protected' && state.auth.type !== 'admin') {
+                alert('このタブは管理者のみ閲覧可能です。');
+                return;
+            }
             sortScheduleByDate(); refreshAdminViewList();
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -332,14 +335,13 @@ window.setAttend = async (practiceId, status) => {
     if (!state.currentMember || !db) return;
     const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
-    // 重複エラーを避けるために upsert を使用し、プライマリキーを指定
     const { error } = await db.from('attendance').upsert({
         member_id: state.currentMember, 
         practice_id: practiceId, 
         status: newStatus,
-        note: cur.note, // 既存の備考を維持
+        note: cur.note, // 既存の備考を確実に送る
         updated_at: new Date().toISOString()
-    }, { onConflict: 'member_id, practice_id' });
+    }, { onConflict: 'member_id, practice_id' }); // 重複キーエラー回避
     
     if (error) alert(error.message);
     else await loadCloud();
@@ -351,10 +353,10 @@ window.setNote = async (practiceId, note) => {
     const { error } = await db.from('attendance').upsert({
         member_id: state.currentMember, 
         practice_id: practiceId, 
-        status: cur.status, // 既存の出欠を維持
+        status: cur.status, // 既存の出欠を確実に送る
         note: note,
         updated_at: new Date().toISOString()
-    }, { onConflict: 'member_id, practice_id' });
+    }, { onConflict: 'member_id, practice_id' }); // 重複キーエラー回避
     
     if (error) alert(error.message);
     else await loadCloud();
@@ -371,75 +373,133 @@ function renderAdminRehearsals() {
     const list = $('admin-rehearsal-list');
     if (!list) return;
     list.innerHTML = '';
+    
+    // 日付ごとにグループ化して表示
     state.rehearsals.forEach(r => {
+        const card = document.createElement('div'); 
+        card.className = 'admin-card-inner';
+        
+        // 日付・場所エリア（グループ全体）
+        let html = `
+            <div class="admin-line">
+                <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateGroupPractices('${r.date}', '${r.location}', 'date', this.value)">
+                ${renderAdminGroupDropdown(r.date, r.location, 'location', r.location)}
+            </div>
+            <div id="slots-container-${r.date}-${r.location}">
+        `;
+        
+        // 各時間枠（スロット）を表示
         r.slots.forEach(s => {
-            const card = document.createElement('div'); card.className = 'admin-card-inner';
-            const dateId = `date-${s.id}`;
-            card.innerHTML = `
-                <div class="admin-line">
-                    <input type="date" id="${dateId}" class="cute-input date-input-fixed" value="${r.date}" onchange="updatePractice('${s.id}','date',this.value)">
-                    ${renderAdminDropdownSelect(s.id, 'location', r.location)}
-                    <button class="del-icon-btn" onclick="delPractice('${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
-                </div>
-                <div class="admin-line slots">
+            html += `
+                <div class="menu-row">
                     <select class="cute-input time-sel" onchange="updatePractice('${s.id}','start_time',this.value)">${getTimeOpts(s.start)}</select>
-                    <span>-</span>
+                    <span>〜</span>
                     <select class="cute-input time-sel" onchange="updatePractice('${s.id}','end_time',this.value)">${getTimeOpts(s.end)}</select>
                     ${renderAdminDropdownSelect(s.id, 'menu', s.menu)}
+                    <button class="del-icon-btn" onclick="delPractice('${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             `;
-            list.appendChild(card);
-            checkEmpty(dateId, r.date);
         });
+        
+        html += `
+            </div>
+            <button class="action-btn-styled add" style="margin-top:15px; width:100%;" onclick="addTimeSlot('${r.date}', '${r.location}')">
+                <i class="fa-solid fa-plus"></i> 時間枠を追加（同日の別メニュー）
+            </button>
+        `;
+        
+        card.innerHTML = html;
+        list.appendChild(card);
     });
 }
 
-function renderAdminDropdownSelect(practiceId, type, currentVal) {
-    const listKey = type === 'location' ? 'locations' : 'menus';
+window.addTimeSlot = async (date, place) => {
+    const { error } = await db.from('practices').insert({
+        date, place, start_time: '09:00', end_time: '12:00', menu: ''
+    });
+    if (error) alert(error.message);
+    else await loadCloud();
+};
+
+async function updateGroupPractices(oldDate, oldPlace, key, newVal) {
+    if (!db) return;
+    // 同じグループ（日・場所）の全レコードを更新
+    const { error } = await db.from('practices')
+        .update({ [key]: newVal })
+        .eq('date', oldDate)
+        .eq('place', oldPlace);
+        
+    if (error) alert(error.message);
+    else await loadCloud();
+}
+
+function renderAdminGroupDropdown(date, place, type, currentVal) {
+    const listKey = 'locations';
     const items = state.settings[listKey];
     const isOther = currentVal && !items.includes(currentVal);
     let opts = `<option value="">選択してください</option>`;
     items.forEach(item => { opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`; });
     opts += `<option value="other" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
     
-    const selectId = `sel-${practiceId}-${type}`;
-    const inputId = `inp-${practiceId}-${type}`;
-    
     return `
-        <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
+        <div class="dropdown-toggle-container" style="flex:1;">
+            <select class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleGroupDropdownChange('${date}', '${place}', this)">
                 ${opts}
             </select>
-            <input id="${inputId}" type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" 
+            <input type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" 
                    value="${isOther ? currentVal : ''}" placeholder="自由入力" 
-                   onchange="handleAdminManualInput('${practiceId}', '${type}', this.value)">
+                   onchange="updateGroupPractices('${date}', '${place}', 'place', this.value)">
         </div>
     `;
 }
 
-window.handleAdminDropdownChange = async (practiceId, type, val) => {
-    const sel = $(`sel-${practiceId}-${type}`);
-    const input = $(`inp-${practiceId}-${type}`);
+window.handleGroupDropdownChange = async (date, place, sel) => {
+    const val = sel.value;
+    const input = sel.nextElementSibling;
     if (val === 'other') {
-        sel.classList.add('hidden'); // プルダウンを隠す
+        sel.classList.add('hidden');
         input.classList.remove('hidden');
         input.focus();
     } else {
-        input.classList.add('hidden');
-        const k = (type === 'location' ? 'place' : 'menu');
-        await updatePractice(practiceId, k, val);
+        await updateGroupPractices(date, place, 'place', val);
     }
 };
 
-window.handleAdminManualInput = async (practiceId, type, val) => {
-    const k = (type === 'location' ? 'place' : 'menu');
-    await updatePractice(practiceId, k, val);
+function renderAdminDropdownSelect(practiceId, type, currentVal) {
+    const listKey = 'menus';
+    const items = state.settings[listKey];
+    const isOther = currentVal && !items.includes(currentVal);
+    let opts = `<option value="">選択してください</option>`;
+    items.forEach(item => { opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`; });
+    opts += `<option value="other" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
+    
+    return `
+        <div class="dropdown-toggle-container" style="flex:1;">
+            <select class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this)">
+                ${opts}
+            </select>
+            <input type="text" class="cute-input flex-fill-input ${isOther ? '' : 'hidden'}" 
+                   value="${isOther ? currentVal : ''}" placeholder="自由入力" 
+                   onchange="updatePractice('${practiceId}', 'menu', this.value)">
+        </div>
+    `;
+}
+
+window.handleAdminDropdownChange = async (practiceId, type, sel) => {
+    const val = sel.value;
+    const input = sel.nextElementSibling;
+    if (val === 'other') {
+        sel.classList.add('hidden');
+        input.classList.remove('hidden');
+        input.focus();
+    } else {
+        await updatePractice(practiceId, type === 'location' ? 'place' : 'menu', val);
+    }
 };
 
 window.updatePractice = async (id, k, v) => {
     if (!db) return;
-    const payload = {}; payload[k] = v;
-    const { error } = await db.from('practices').update(payload).eq('id', id);
+    const { error } = await db.from('practices').update({ [k]: v }).eq('id', id);
     if (error) alert(error.message);
     else await loadCloud();
 };

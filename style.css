@@ -211,6 +211,47 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
 
+.admin-card-inner {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #FFF;
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+.menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  background: #F9FAFB;
+  border-radius: 10px;
+  border: 1px dashed #E5E7EB;
+}
+.menu-row input, .menu-row select {
+  flex: 1;
+  min-width: 80px;
+}
+.time-sel {
+    max-width: 100px;
+}
+@media (max-width: 600px) {
+    .menu-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .menu-row input, .menu-row select {
+        width: 100%;
+    }
+}
+
+/* エラー用スタイル */
+.error {
+  border: 2px solid #FF4D4D !important;
+  background-color: #FFF5F5 !important;
+}
+
 .date-input-fixed { flex: 0 0 135px; width: 135px; }
 .time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; }
 .time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); }
