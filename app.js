@@ -1,5 +1,9 @@
-// ★【重要】ここにGoogle Apps Scriptで発行した「ウェブアプリ URL」を貼り付けてください
-const SYNC_URL = 'https://script.google.com/macros/s/AKfycbzDhp0qsKCgZ3Inun4oaUZy0g_Ze7FIRndsnThYARpUTuInGDxAKZZWy5vsugJOBpui/exec'; 
+// --- Supabase 接続設定 ---
+const SUPABASE_URL = 'https://cwepoklweabvpmyfizto.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3M_jMfBkVJdZNVypnV51ig_oYsn6-0n'; // ★ここに実際のanon keyを貼り付けてください
+
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CONFIG = {
     COMMON_PW: 'kuma',
@@ -9,10 +13,10 @@ const CONFIG = {
 
 let state = {
     auth: { isLoggedIn: false, type: null },
-    members: [],
+    members: [], // {id, name} の配列に変更
     currentMember: '',
     rehearsals: [], 
-    attendance: {}, 
+    attendance: {}, // {member_id: {practice_id: {status, note}}}
     settings: {
         locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
         menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
@@ -33,7 +37,6 @@ let state = {
 };
 
 let isInitialLoaded = false;
-let saveTimeout = null;
 
 // --- ユーティリティ ---
 const $ = (id) => document.getElementById(id);
@@ -41,76 +44,151 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 
-// 入力状態（空かどうか）を判定してクラスを返す
 const getInputStateClass = (val) => (!val || val === 'OTHER_VAL') ? 'input-empty' : 'input-filled';
 
-// 入力時にスタイルをリアルタイム更新する
 window.refreshInputStyle = (el) => {
     if (!el) return;
     const isEmp = (!el.value || el.value === 'OTHER_VAL');
     if (isEmp) {
-        el.classList.add('input-empty');
-        el.classList.remove('input-filled');
+        el.classList.add('input-empty'); el.classList.remove('input-filled');
     } else {
-        el.classList.add('input-filled');
-        el.classList.remove('input-empty');
+        el.classList.add('input-filled'); el.classList.remove('input-empty');
     }
 };
 
-// --- クラウド同期ロジック ---
+// --- クラウド同期ロジック (Supabase版) ---
 
 async function loadCloud() {
-    if (!SYNC_URL) return;
-    const localAuth = { ...state.auth };
     try {
-        const response = await fetch(SYNC_URL);
-        if (response.ok) {
-            const cloudData = await response.json();
-            if (cloudData && Object.keys(cloudData).length > 0) {
-                state = { ...state, ...cloudData };
-                state.auth = localAuth; 
-                if (state.auth.isLoggedIn) { renderTab('attendance-input'); }
-            }
+        $('sync-indicator').classList.remove('hidden');
+        
+        // 1. メンバー取得
+        const { data: members, error: mErr } = await supabase.from('members').select('*').order('name');
+        if (mErr) throw mErr;
+
+        // 2. 稽古(練習枠)取得
+        const { data: practices, error: pErr } = await supabase.from('practices').select('*').order('date');
+        if (pErr) throw pErr;
+
+        // 3. 出欠データ取得
+        const { data: attendance, error: aErr } = await supabase.from('attendance').select('*');
+        if (aErr) throw aErr;
+
+        // --- 既存データがない場合の移行処理 (スプレッドシートやLocalから) ---
+        if (members.length === 0 && practices.length === 0) {
+            console.log("Supabaseが空のため、既存データから移行を試みます...");
+            await migrateToSupabase();
+            return loadCloud(); // 移行後に再読み込み
         }
-    } catch (error) { console.error("クラウド同期エラー:", error); }
+
+        // --- state オブジェクトの再構築 ---
+        state.members = members;
+        
+        // rehearsalsを組み立てる (dateとplaceでグルーピング)
+        const groups = {};
+        practices.forEach(p => {
+            const key = `${p.date}_${p.place}`;
+            if (!groups[key]) {
+                groups[key] = { id: p.id, date: p.date, location: p.place, slots: [] };
+            }
+            groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
+        });
+        state.rehearsals = Object.values(groups);
+
+        // attendanceを組み立てる
+        state.attendance = {};
+        attendance.forEach(a => {
+            if (!state.attendance[a.member_id]) state.attendance[a.member_id] = {};
+            state.attendance[a.member_id][a.practice_id] = { status: a.status, note: a.note };
+        });
+
+        if (state.auth.isLoggedIn) { 
+            refreshAdminViewList();
+            renderTab('attendance-input'); 
+        }
+    } catch (error) {
+        console.error("Supabase読み込みエラー:", error);
+    } finally {
+        $('sync-indicator').classList.add('hidden');
+    }
 }
 
-function save() {
-    state.members.sort((a, b) => a.localeCompare(b, 'ja'));
+// 既存のJSONデータからSupabaseへ引っ越しする関数
+async function migrateToSupabase() {
+    const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (!localSaved) return;
+    const oldState = JSON.parse(localSaved);
+    
+    // 1. メンバー移行
+    const memberMap = {}; // oldName -> newUuid
+    for (const name of oldState.members) {
+        const { data, error } = await supabase.from('members').insert({ name }).select().single();
+        if (!error) memberMap[name] = data.id;
+    }
+
+    // 2. 稽古 & スロット移行
+    const slotMap = {}; // oldSlotId -> newUuid
+    for (const r of oldState.rehearsals) {
+        for (const s of r.slots) {
+            const { data, error } = await supabase.from('practices').insert({
+                date: r.date,
+                place: r.location,
+                start_time: s.start,
+                end_time: s.end,
+                menu: s.menu
+            }).select().single();
+            if (!error) slotMap[s.id] = data.id;
+        }
+    }
+
+    // 3. 出欠移行
+    for (const name in oldState.attendance) {
+        const memberId = memberMap[name];
+        if (!memberId) continue;
+        for (const oldKey in oldState.attendance[name]) {
+            const [rid, sid] = oldKey.split('_');
+            const practiceId = slotMap[sid];
+            if (!practiceId) continue;
+            const att = oldState.attendance[name][oldKey];
+            await supabase.from('attendance').insert({
+                member_id: memberId,
+                practice_id: practiceId,
+                status: att.status === '出席' ? 'attend' : (att.status === '欠席' ? 'absent' : null),
+                note: att.note
+            });
+        }
+    }
+    console.log("移行完了！");
+}
+
+// 保存処理は各アクション時にSupabaseを叩くように変更するため、localStorageへの控えのみにする
+function saveLocal() {
     const json = JSON.stringify(state);
     localStorage.setItem(CONFIG.STORAGE_KEY, json);
-    if (!SYNC_URL) return;
-    if (saveTimeout) clearTimeout(saveTimeout);
-    $('sync-indicator').classList.remove('hidden');
-    saveTimeout = setTimeout(async () => {
-        try {
-            const syncData = { ...state };
-            delete syncData.auth; 
-            await fetch(SYNC_URL, { method: 'POST', body: JSON.stringify(syncData), mode: 'no-cors' });
-        } catch (error) { console.error("クラウド保存エラー:", error); }
-        finally { setTimeout(() => $('sync-indicator').classList.add('hidden'), 1000); }
-    }, 1500);
 }
 
 // --- 認証初期化 ---
 
 function initAuth() {
     const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
-    if (localSaved) { state = { ...state, ...JSON.parse(localSaved) }; }
+    if (localSaved) {
+        const parsed = JSON.parse(localSaved);
+        state.auth = parsed.auth || state.auth;
+        state.currentMember = parsed.currentMember || '';
+    }
 
     $('login-btn').onclick = () => {
         const pw = ($('password-input').value || '').trim();
         if (pw === CONFIG.ADMIN_PW) { state.auth = { isLoggedIn: true, type: 'admin' }; }
         else if (pw === CONFIG.COMMON_PW) { state.auth = { isLoggedIn: true, type: 'common' }; }
         else { $('login-error').classList.remove('hidden'); return; }
-        save(); location.reload();
+        saveLocal(); location.reload();
     };
 
     $('logout-btn').onclick = () => {
         if (confirm('ログアウトしますか？')) {
             state.auth = { isLoggedIn: false, type: null };
-            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
-            location.reload();
+            saveLocal(); location.reload();
         }
     };
 
@@ -118,7 +196,7 @@ function initAuth() {
         $('login-overlay').classList.add('hidden');
         $('app').classList.remove('hidden');
         updateLockIcons();
-        renderTab('attendance-input');
+        loadCloud(); // ここで読み込み開始
     } else {
         $('login-overlay').classList.remove('hidden');
         $('app').classList.add('hidden');
@@ -158,20 +236,15 @@ function initTabs() {
         };
     });
 
-    // 管理画面：新しい稽古日を追加ボタンのイベント
     const addRehearsalBtn = $('add-rehearsal-btn');
     if (addRehearsalBtn) {
-        addRehearsalBtn.onclick = () => {
-            const newR = {
-                id: generateId(),
-                date: '',
-                location: '',
-                slots: [{ id: generateId(), start: '', end: '', menu: '' }]
-            };
-            state.rehearsals.push(newR);
-            refreshAdminViewList();
-            save();
-            renderAdminRehearsals();
+        addRehearsalBtn.onclick = async () => {
+            const { data, error } = await supabase.from('practices').insert({
+                date: '', place: '', start_time: '', end_time: '', menu: ''
+            }).select().single();
+            if (!error) {
+                await loadCloud();
+            }
         };
     }
 }
@@ -195,13 +268,13 @@ function renderAttendanceInput() {
     const select = $('member-select');
     if (!select) return;
     select.innerHTML = '<option value="">メンバーを選択</option>';
-    state.members.forEach(name => {
+    state.members.forEach(m => {
         const opt = document.createElement('option');
-        opt.value = name; opt.textContent = name;
-        if (name === state.currentMember) opt.selected = true;
+        opt.value = m.id; opt.textContent = m.name;
+        if (m.id === state.currentMember) opt.selected = true;
         select.appendChild(opt);
     });
-    select.onchange = (e) => { state.currentMember = e.target.value; save(); renderAttendanceInput(); };
+    select.onchange = (e) => { state.currentMember = e.target.value; saveLocal(); renderAttendanceInput(); };
 
     const actionContainer = $('member-action-container');
     actionContainer.innerHTML = `
@@ -211,12 +284,15 @@ function renderAttendanceInput() {
     `;
     $('show-add-member-btn').onclick = () => { $('add-member-form').classList.toggle('hidden'); };
     $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
-    $('confirm-member-btn').onclick = () => {
+    $('confirm-member-btn').onclick = async () => {
         const name = $('new-member-name').value.trim();
-        if (name && !state.members.includes(name)) {
-            state.members.push(name); state.currentMember = name;
-            $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
-            save(); renderAttendanceInput();
+        if (name) {
+            const { data, error } = await supabase.from('members').insert({ name }).select().single();
+            if (!error) {
+                state.currentMember = data.id;
+                $('new-member-name').value = ''; $('add-member-form').classList.add('hidden');
+                saveLocal(); await loadCloud();
+            }
         }
     };
     if (state.currentMember) {
@@ -226,23 +302,19 @@ function renderAttendanceInput() {
     renderAttendanceList();
 }
 
-function startEditCurrentMember() {
-    const i = state.members.indexOf(state.currentMember);
-    const newName = prompt('氏名を編集:', state.currentMember);
-    if (newName && newName.trim() !== state.currentMember) {
-        const oldName = state.currentMember;
-        state.members[i] = newName.trim();
-        state.currentMember = newName.trim();
-        if (state.attendance[oldName]) { state.attendance[newName.trim()] = state.attendance[oldName]; delete state.attendance[oldName]; }
-        save(); renderAttendanceInput();
+async function startEditCurrentMember() {
+    const member = state.members.find(m => m.id === state.currentMember);
+    const newName = prompt('氏名を編集:', member.name);
+    if (newName && newName.trim() !== member.name) {
+        await supabase.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
+        await loadCloud();
     }
 }
-function deleteCurrentMember() {
-    if (confirm(`${state.currentMember}さんを削除しますか？`)) {
-        const i = state.members.indexOf(state.currentMember);
-        const name = state.currentMember;
-        state.members.splice(i, 1); delete state.attendance[name];
-        state.currentMember = ''; save(); renderAttendanceInput();
+async function deleteCurrentMember() {
+    const member = state.members.find(m => m.id === state.currentMember);
+    if (confirm(`${member.name}さんを削除しますか？`)) {
+        await supabase.from('members').delete().eq('id', state.currentMember);
+        state.currentMember = ''; saveLocal(); await loadCloud();
     }
 }
 
@@ -256,7 +328,6 @@ function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId
         btnTop.textContent = m.replace('-', '/');
         btnTop.onclick = () => { callback(m); };
         top.appendChild(btnTop);
-
         const btnBottom = document.createElement('button');
         btnBottom.className = `month-btn ${m === currentMonth ? 'active' : ''}`;
         btnBottom.textContent = m.replace('-', '/');
@@ -269,25 +340,29 @@ function renderAttendanceList() {
     const container = $('attendance-list-container');
     if (!container) return;
     container.innerHTML = '';
-    if (!state.currentMember) { container.innerHTML = '<p class="admin-hint">メンバーを選択してください</p>'; $('month-tab-bar').innerHTML = ''; $('month-tab-bar-bottom').innerHTML = ''; return; }
+    if (!state.currentMember) { 
+        container.innerHTML = '<p class="admin-hint">メンバーを選択してください</p>'; 
+        $('month-tab-bar').innerHTML = ''; $('month-tab-bar-bottom').innerHTML = ''; return; 
+    }
     const future = state.rehearsals.filter(r => r.date && new Date(r.date) >= getToday());
     const months = [...new Set(future.map(r => getMonthStr(r.date)))].sort();
     if (months.length === 0) { $('month-tab-bar').innerHTML = ''; $('month-tab-bar-bottom').innerHTML = ''; return; }
     if (!state.ui.currentMonth || !months.includes(state.ui.currentMonth)) { state.ui.currentMonth = months[0]; }
     renderMonthTabs(months, state.ui.currentMonth, 'month-tab-bar', 'month-tab-bar-bottom', (m) => { state.ui.currentMonth = m; renderAttendanceList(); });
+    
     future.filter(r => getMonthStr(r.date) === state.ui.currentMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
         let slotsHtml = '';
         r.slots.forEach(s => {
-            const key = `${r.id}_${s.id}`;
-            const data = state.attendance[state.currentMember]?.[key] || {status: null, note: ''};
+            const data = state.attendance[state.currentMember]?.[s.id] || {status: null, note: ''};
+            const statusStr = data.status === 'attend' ? '出席' : (data.status === 'absent' ? '欠席' : null);
             slotsHtml += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #DDD; padding-bottom:15px;">
                     <div style="font-size:0.9rem; margin-bottom:8px;"><strong>${s.start}〜${s.end}</strong> [${s.menu}]</div>
                     <div class="attendance-toggle">
-                        <button class="toggle-btn present ${data.status==='出席'?'active':''}" onclick="setAttend('${r.id}','${s.id}','出席')">出席</button>
-                        <button class="toggle-btn absent ${data.status==='欠席'?'active':''}" onclick="setAttend('${r.id}','${s.id}','欠席')">欠席</button>
+                        <button class="toggle-btn present ${statusStr==='出席'?'active':''}" onclick="setAttend('${s.id}','attend')">出席</button>
+                        <button class="toggle-btn absent ${statusStr==='欠席'?'active':''}" onclick="setAttend('${s.id}','absent')">欠席</button>
                     </div>
-                    <input type="text" class="cute-input note-area" placeholder="備考があれば" value="${data.note}" onchange="setNote('${r.id}','${s.id}',this.value)">
+                    <input type="text" class="cute-input note-area" placeholder="備考があれば" value="${data.note || ''}" onchange="setNote('${s.id}',this.value)">
                 </div>`;
         });
         card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div>${slotsHtml}`;
@@ -295,23 +370,33 @@ function renderAttendanceList() {
     });
 }
 
-window.setAnyAttend = (name, rid, sid, status) => {
-    const key = `${rid}_${sid}`;
-    if (!state.attendance[name]) state.attendance[name] = {};
-    const cur = state.attendance[name][key] || {status:null, note:''};
+window.setAttend = async (practiceId, status) => {
+    if (!state.currentMember) return;
+    const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
     const newStatus = cur.status === status ? null : status;
-    state.attendance[name][key] = { ...cur, status: newStatus };
-    save();
+    
+    const { error } = await supabase.from('attendance').upsert({
+        member_id: state.currentMember,
+        practice_id: practiceId,
+        status: newStatus,
+        note: cur.note,
+        updated_at: new Date().toISOString()
+    });
+    if (!error) await loadCloud();
 };
-window.setAnyNote = (name, rid, sid, note) => {
-    const key = `${rid}_${sid}`;
-    if (!state.attendance[name]) state.attendance[name] = {};
-    const cur = state.attendance[name][key] || {status:null, note:''};
-    state.attendance[name][key] = { ...cur, note };
-    save();
+
+window.setNote = async (practiceId, note) => {
+    if (!state.currentMember) return;
+    const cur = state.attendance[state.currentMember]?.[practiceId] || {status:null, note:''};
+    const { error } = await supabase.from('attendance').upsert({
+        member_id: state.currentMember,
+        practice_id: practiceId,
+        status: cur.status,
+        note: note,
+        updated_at: new Date().toISOString()
+    });
+    if (!error) await loadCloud();
 };
-window.setAttend = (rid, sid, status) => { setAnyAttend(state.currentMember, rid, sid, status); renderAttendanceList(); };
-window.setNote = (rid, sid, note) => { setAnyNote(state.currentMember, rid, sid, note); };
 
 function renderAdminPanel() {
     const activeSub = document.querySelector('.menu-tab.active').dataset.menu;
@@ -324,77 +409,70 @@ function renderAdminRehearsals() {
     const list = $('admin-rehearsal-list');
     if (!list) return;
     list.innerHTML = '';
-    state.ui.adminViewList.forEach(r => {
-        const card = document.createElement('div'); card.className = 'admin-card-inner';
-        let slotsH = '';
+    // 管理画面では1スロット1行で表示
+    state.rehearsals.forEach(r => {
         r.slots.forEach(s => {
-            slotsH += `<div class="admin-line slots">
-                    <select class="cute-input time-sel ${getInputStateClass(s.start)}" onchange="updateS('${r.id}','${s.id}','start',this.value); refreshInputStyle(this)">${getTimeOpts(s.start)}</select>
+            const card = document.createElement('div'); card.className = 'admin-card-inner';
+            card.innerHTML = `
+                <div class="admin-line">
+                    <input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updatePractice('${s.id}','date',this.value)">
+                    ${renderAdminDropdownSelect(s.id, 'location', r.location)}
+                    <button class="del-icon-btn" onclick="delPractice('${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <div class="admin-line slots">
+                    <select class="cute-input time-sel" onchange="updatePractice('${s.id}','start_time',this.value)">${getTimeOpts(s.start)}</select>
                     <span>-</span>
-                    <select class="cute-input time-sel ${getInputStateClass(s.end)}" onchange="updateS('${r.id}','${s.id}','end',this.value); refreshInputStyle(this)">${getTimeOpts(s.end)}</select>
-                    ${renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu)}
-                    <button class="del-icon-btn" onclick="delS('${r.id}','${s.id}')"><i class="fa-solid fa-trash-can"></i></button>
-                </div>`;
+                    <select class="cute-input time-sel" onchange="updatePractice('${s.id}','end_time',this.value)">${getTimeOpts(s.end)}</select>
+                    ${renderAdminDropdownSelect(s.id, 'menu', s.menu)}
+                </div>
+            `;
+            list.appendChild(card);
         });
-        card.innerHTML = `
-            <div class="admin-line">
-                <input type="date" class="cute-input date-input-fixed ${getInputStateClass(r.date)}" value="${r.date}" oninput="refreshInputStyle(this)" onchange="updateR('${r.id}','date',this.value); refreshInputStyle(this)">
-                ${renderAdminDropdownSelect(r.id, null, 'location', r.location)}
-                <button class="del-icon-btn" onclick="delR('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
-            </div>
-            ${slotsH}
-            <div style="margin-top:10px;"><button class="puffy-btn gray puffy-btn-sm" style="width:100%" onclick="addS('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button></div>
-        `;
-        list.appendChild(card);
     });
 }
 
-function renderAdminDropdownSelect(rid, sid, type, currentVal) {
+function renderAdminDropdownSelect(practiceId, type, currentVal) {
     const listKey = type === 'location' ? 'locations' : 'menus';
     const items = state.settings[listKey];
     const isOther = currentVal && !items.includes(currentVal);
-    
     let opts = `<option value="">選択してください</option>`;
     items.forEach(item => { opts += `<option value="${item}" ${item === currentVal ? 'selected' : ''}>${item}</option>`; });
     opts += `<option value="OTHER_VAL" ${isOther ? 'selected' : ''}>その他 (手入力)</option>`;
 
-    // sidがnullの場合は'base'という文字列で扱う
-    const sidKey = (sid === null || sid === undefined) ? 'base' : sid;
-    const selectId = `sel-${rid}-${sidKey}-${type}`;
-    const inputId = `inp-${rid}-${sidKey}-${type}`;
+    const selectId = `sel-${practiceId}-${type}`;
+    const inputId = `inp-${practiceId}-${type}`;
 
     return `
         <div class="dropdown-toggle-container">
-            <select id="${selectId}" class="cute-input flex-fill-input ${getInputStateClass(currentVal)} ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
+            <select id="${selectId}" class="cute-input flex-fill-input ${isOther ? 'hidden' : ''}" onchange="handleAdminDropdownChange('${practiceId}', '${type}', this.value)">
                 ${opts}
             </select>
             <div id="${inputId}-wrapper" class="manual-input-wrapper ${isOther ? '' : 'hidden'}">
-                <input id="${inputId}" type="text" class="cute-input flex-fill-input ${getInputStateClass(currentVal)}" value="${isOther ? currentVal : ''}" placeholder="自由入力" oninput="refreshInputStyle(this)" onchange="handleAdminOtherInputChange('${rid}', ${sid ? "'" + sid + "'" : 'null'}, '${type}', this.value); refreshInputStyle(this)">
+                <input id="${inputId}" type="text" class="cute-input flex-fill-input" value="${isOther ? currentVal : ''}" placeholder="自由入力" onchange="updatePractice('${practiceId}', '${type === 'location' ? 'place' : 'menu'}', this.value)">
             </div>
         </div>
     `;
 }
 
-window.handleAdminDropdownChange = (rid, sid, type, val) => {
-    const sidKey = (sid === 'null' || !sid) ? 'base' : sid;
-    const sel = $(`sel-${rid}-${sidKey}-${type}`);
-    const wrapper = $(`inp-${rid}-${sidKey}-${type}-wrapper`);
-    const input = $(`inp-${rid}-${sidKey}-${type}`);
+window.handleAdminDropdownChange = async (practiceId, type, val) => {
+    const sel = $(`sel-${practiceId}-${type}`);
+    const wrapper = $(`inp-${practiceId}-${type}-wrapper`);
+    const input = $(`inp-${practiceId}-${type}`);
     if (val === 'OTHER_VAL') { sel.classList.add('hidden'); wrapper.classList.remove('hidden'); input.focus(); }
-    else { if (sid && sid !== 'null') updateS(rid, sid, type, val); else updateR(rid, type, val); }
+    else { await updatePractice(practiceId, type === 'location' ? 'place' : 'menu', val); }
 };
 
-window.revertToDropdown = (rid, sid, type) => {
-    const sidKey = (sid === 'null' || !sid) ? 'base' : sid;
-    const sel = $(`sel-${rid}-${sidKey}-${type}`);
-    const wrapper = $(`inp-${rid}-${sidKey}-${type}-wrapper`);
-    const input = $(`inp-${rid}-${sidKey}-${type}`);
-    sel.value = ""; sel.classList.remove('hidden'); wrapper.classList.add('hidden'); input.value = "";
-    if (sid && sid !== 'null') updateS(rid, sid, type, ""); else updateR(rid, type, "");
+window.updatePractice = async (id, k, v) => {
+    const payload = {}; payload[k] = v;
+    await supabase.from('practices').update(payload).eq('id', id);
+    await loadCloud();
 };
 
-window.handleAdminOtherInputChange = (rid, sid, type, val) => {
-    if (sid && sid !== 'null') updateS(rid, sid, type, val); else updateR(rid, type, val);
+window.delPractice = async (id) => {
+    if(confirm('削除しますか？')) {
+        await supabase.from('practices').delete().eq('id', id);
+        await loadCloud();
+    }
 };
 
 function getTimeOpts(s) {
@@ -407,17 +485,6 @@ function getTimeOpts(s) {
     }
     return h;
 }
-window.updateR = (id, k, v) => { state.rehearsals.find(x => x.id === id)[k] = v; save(); };
-window.updateS = (rid, sid, k, v) => { state.rehearsals.find(x => x.id === rid).slots.find(y => y.id === sid)[k] = v; save(); };
-window.delR = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); state.ui.adminViewList = state.ui.adminViewList.filter(x => x.id !== id); save(); renderAdminRehearsals(); } };
-window.delS = (rid, sid) => { const r = state.rehearsals.find(x => x.id === rid); r.slots = r.slots.filter(y => y.id !== sid); save(); renderAdminRehearsals(); };
-
-window.addS = (id) => {
-    const r = state.rehearsals.find(x => x.id === id);
-    const last = r.slots[r.slots.length - 1];
-    r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' });
-    save(); renderAdminRehearsals();
-};
 
 function renderOverallStatus() {
     const container = $('overall-status-container');
@@ -428,17 +495,17 @@ function renderOverallStatus() {
     if (months.length === 0) { $('status-month-tab-bar').innerHTML = ''; $('status-month-tab-bar-bottom').innerHTML = ''; return; }
     if (!state.ui.statusMonth || !months.includes(state.ui.statusMonth)) state.ui.statusMonth = months[0];
     renderMonthTabs(months, state.ui.statusMonth, 'status-month-tab-bar', 'status-month-tab-bar-bottom', (m) => { state.ui.statusMonth = m; renderOverallStatus(); });
+    
     future.filter(r => getMonthStr(r.date) === state.ui.statusMonth).forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
         let h = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}　${r.location}</h2></div>`;
         r.slots.forEach(s => {
-            const key = `${r.id}_${s.id}`;
             const present = [], absent = [], notesOnly = [];
-            state.members.forEach(name => {
-                const att = state.attendance[name]?.[key];
-                const displayName = `${name}${att?.note ? '(' + att.note + ')' : ''}`;
-                if (att?.status === '出席') present.push(displayName);
-                else if (att?.status === '欠席') absent.push(displayName);
+            state.members.forEach(m => {
+                const att = state.attendance[m.id]?.[s.id];
+                const displayName = `${m.name}${att?.note ? '(' + att.note + ')' : ''}`;
+                if (att?.status === 'attend') present.push(displayName);
+                else if (att?.status === 'absent') absent.push(displayName);
                 else if (att?.note) notesOnly.push(displayName);
             });
             h += `<div class="slot-row" style="margin-bottom:20px; border-bottom:1px dashed #DDD; padding-bottom:15px;">
@@ -465,12 +532,12 @@ function renderList(key, listId, inputId, btnId) {
         li.innerHTML = `<span>${item}</span><div style="display:flex; gap:5px; align-items:center;"><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, -1)" ${i===0?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-up"></i></button><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="moveItem('${key}', ${i}, 1)" ${i===state.settings[key].length-1?'disabled style="opacity:0.3"':''}><i class="fa-solid fa-chevron-down"></i></button><button class="icon-btn-sm" style="width:30px; height:30px; font-size:0.7rem;" onclick="editItem('${key}', ${i})"><i class="fa-solid fa-pen"></i></button><button class="del-icon-btn" style="margin-left:8px;" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button></div>`;
         list.appendChild(li);
     });
-    if ($(btnId)) { $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; save(); renderAdminDropdowns(); } }; }
+    if ($(btnId)) { $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; saveLocal(); renderAdminDropdowns(); } }; }
 }
 
-window.editItem = (key, i) => { const oldVal = state.settings[key][i]; const newVal = prompt('項目を編集:', oldVal); if (newVal !== null && newVal.trim() !== '' && newVal !== oldVal) { state.settings[key][i] = newVal.trim(); save(); renderAdminDropdowns(); } };
-window.moveItem = (key, i, dir) => { const arr = state.settings[key]; const target = i + dir; if (target < 0 || target >= arr.length) return; [arr[i], arr[target]] = [arr[target], arr[i]]; save(); renderAdminDropdowns(); };
-window.delItem = (key, i) => { state.settings[key].splice(i, 1); save(); renderAdminDropdowns(); };
+window.editItem = (key, i) => { const oldVal = state.settings[key][i]; const newVal = prompt('項目を編集:', oldVal); if (newVal !== null && newVal.trim() !== '' && newVal !== oldVal) { state.settings[key][i] = newVal.trim(); saveLocal(); renderAdminDropdowns(); } };
+window.moveItem = (key, i, dir) => { const arr = state.settings[key]; const target = i + dir; if (target < 0 || target >= arr.length) return; [arr[i], arr[target]] = [arr[target], arr[i]]; saveLocal(); renderAdminDropdowns(); };
+window.delItem = (key, i) => { state.settings[key].splice(i, 1); saveLocal(); renderAdminDropdowns(); };
 
 function renderAdminVisibility() {
     const container = $('visibility-controls-container'); if (!container) return;
@@ -481,7 +548,7 @@ function renderAdminVisibility() {
         container.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:0.9rem;">${tab.label}</span><select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${tab.id}', this.value)"><option value="public" ${cur==='public'?'selected':''}>公開</option><option value="protected" ${cur==='protected'?'selected':''}>制限中</option></select></div>`;
     });
 }
-window.updateVis = (id, val) => { state.settings.visibility[id] = val; save(); updateLockIcons(); };
+window.updateVis = (id, val) => { state.settings.visibility[id] = val; saveLocal(); updateLockIcons(); };
 
 function renderPastRecords() {
     const container = $('past-records-container'); if (!container) return;
@@ -494,47 +561,21 @@ function renderPastRecords() {
     const past = pastAll.filter(r => getMonthStr(r.date) === state.ui.pastMonth).sort((a,b) => b.date.localeCompare(a.date));
     past.forEach(r => {
         const card = document.createElement('div'); card.className = 'card';
-        const isEditing = state.ui.editingId === r.id;
-        let headerH = isEditing 
-            ? `<div class="admin-line"><input type="date" class="cute-input date-input-fixed" value="${r.date}" onchange="updateR_Base_Past('${r.id}','date',this.value)">${renderAdminDropdownSelect(r.id, null, 'location', r.location)}<button class="icon-btn-sm" onclick="toggleEditPast(null)"><i class="fa-solid fa-check"></i></button></div>`
-            : `<div class="section-header" onclick="toggleEditPast('${r.id}')"><div style="display:flex; align-items:center;"><input type="checkbox" class="past-checkbox" value="${r.id}" onclick="event.stopPropagation()"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div><i class="fa-solid fa-pen" style="font-size:0.8rem; color:#DDD;"></i></div>`;
         let slotsH = '';
         r.slots.forEach(s => {
-            const key = `${r.id}_${s.id}`;
             const pres = [], absWithNotes = [];
-            state.members.forEach(name => {
-                const att = state.attendance[name]?.[key];
-                if (att?.status === '出席') pres.push({name, note:att.note});
-                else if (att?.status === '欠席' && att.note) absWithNotes.push({ name, note: att.note });
+            state.members.forEach(m => {
+                const att = state.attendance[m.id]?.[s.id];
+                if (att?.status === 'attend') pres.push({name: m.name, id: m.id, note:att.note});
+                else if (att?.status === 'absent' && att.note) absWithNotes.push({ name: m.name, id: m.id, note: att.note });
             });
-            const timeStart = isEditing ? `<input type="time" class="cute-input time-sel" value="${s.start}" onchange="updateR_Past('${r.id}','${s.id}','start',this.value)">` : `<span class="time-sel-display" onclick="toggleEditPast('${r.id}')">${s.start}</span>`;
-            const timeEnd = isEditing ? `<input type="time" class="cute-input time-sel" value="${s.end}" onchange="updateR_Past('${r.id}','${s.id}','end',this.value)">` : `<span class="time-sel-display" onclick="toggleEditPast('${r.id}')">${s.end}</span>`;
-            const menuContent = isEditing ? renderAdminDropdownSelect(r.id, s.id, 'menu', s.menu) : `<span class="flex-fill-input" onclick="toggleEditPast('${r.id}')">${s.menu} <i class="fa-solid fa-pen" style="font-size:0.6rem; color:#EEE;"></i></span>`;
-            slotsH += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #EEE; padding-bottom:10px;"><div class="admin-line" style="margin-bottom:8px; font-size:0.85rem;"><strong>${timeStart}〜${timeEnd}</strong>${menuContent}</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">${pres.map(p => `<span class="pills-edit" onclick="editAnyAttend_UI('${p.name}','${r.id}','${s.id}')">${p.name}${p.note?'('+p.note+')':''}</span>`).join('') || '<span style="color:#CCC; font-size:0.7rem;">出席者なし</span>'}<button class="icon-btn-sm" style="width:auto; padding:0 8px; font-size:0.7rem;" onclick="showAddAnyAttend_UI('${r.id}','${s.id}')">+ 追加/修正</button></div>`;
-            if (absWithNotes.length > 0) { slotsH += `<div class="absent-section">${absWithNotes.map(a => `<div class="absent-row" onclick="editAnyAttend_UI('${a.name}','${r.id}','${s.id}')"><span class="absent-name">${a.name}</span><span class="absent-note">${a.note}</span></div>`).join('')}</div>`; }
+            slotsH += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #EEE; padding-bottom:10px;"><div class="admin-line" style="margin-bottom:8px; font-size:0.85rem;"><strong>${s.start}〜${s.end}</strong> ${s.menu}</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px;">${pres.map(p => `<span class="pills-edit">${p.name}${p.note?'('+p.note+')':''}</span>`).join('') || '<span style="color:#CCC; font-size:0.7rem;">出席者なし</span>'}</div>`;
+            if (absWithNotes.length > 0) { slotsH += `<div class="absent-section">${absWithNotes.map(a => `<div class="absent-row"><span class="absent-name">${a.name}</span><span class="absent-note">${a.note}</span></div>`).join('')}</div>`; }
             slotsH += `</div>`;
         });
-        h = headerH + slotsH;
-        h += `<button class="puffy-btn pink puffy-btn-sm" style="width:100%; margin-top:10px;" onclick="addS_Past('${r.id}')"><i class="fa-solid fa-plus"></i> メニュー追加</button>`;
-        card.innerHTML = h; container.appendChild(card);
+        card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div>` + slotsH;
+        container.appendChild(card);
     });
 }
 
-window.toggleEditPast = (id) => { state.ui.editingId = id; renderPastRecords(); };
-window.updateR_Base_Past = (id, k, v) => { updateR(id, k, v); renderPastRecords(); };
-window.updateR_Past = (rid, sid, k, v) => { updateS(rid, sid, k, v); renderPastRecords(); };
-window.editAnyAttend_UI = (name, rid, sid) => {
-    const att = state.attendance[name]?.[`${rid}_${sid}`] || {status:null, note:''};
-    const s = confirm(`${name}さんの出欠を切り替えますか？\n現在: ${att.status || '未入力'}`) ? (att.status==='出席'?'欠席':'出席') : att.status;
-    const n = prompt(`${name}さんの備考:`, att.note);
-    if(s !== att.status || n !== att.note) { setAnyAttend(name, rid, sid, s); setAnyNote(name, rid, sid, n || ''); renderPastRecords(); }
-};
-window.showAddAnyAttend_UI = (rid, sid) => {
-    const name = prompt("修正・追加するメンバーの名前を入力してください:");
-    if(name && state.members.includes(name)) editAnyAttend_UI(name, rid, sid);
-    else if(name) alert("メンバーが見つかりません。");
-};
-window.delR_Past = (id) => { if(confirm('削除しますか？')) { state.rehearsals = state.rehearsals.filter(x => x.id !== id); save(); renderPastRecords(); } };
-window.addS_Past = (id) => { const r = state.rehearsals.find(x => x.id === id); const last = r.slots[r.slots.length - 1]; r.slots.push({ id: generateId(), start: last ? last.end : '', end: '', menu: '' }); save(); renderPastRecords(); };
-
-window.onload = async () => { initAuth(); initTabs(); await loadCloud(); };
+window.onload = async () => { initAuth(); initTabs(); };
