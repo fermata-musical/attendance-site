@@ -42,12 +42,13 @@ const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 
 // 入力状態（空かどうか）を判定してクラスを返す
-const getInputStateClass = (val) => (!val || val === 'OTHER_VAL') ? 'input-empty' : 'input-filled';
+const getInputStateClass = (val) => (!val || val === 'OTHER_VAL' || val === '--' || val === '選択..') ? 'input-empty' : 'input-filled';
 
 // 入力時にスタイルをリアルタイム更新する
 window.refreshInputStyle = (el) => {
     if (!el) return;
-    const isEmp = (!el.value || el.value === 'OTHER_VAL');
+    const val = el.value;
+    const isEmp = (!val || val === 'OTHER_VAL' || val === '--' || val === '選択..');
     if (isEmp) {
         el.classList.add('input-empty');
         el.classList.remove('input-filled');
@@ -398,7 +399,7 @@ window.handleAdminOtherInputChange = (rid, sid, type, val) => {
 };
 
 function getTimeOpts(s) {
-    let h = `<option value="" ${s===''?'selected':''}>選択..</option>`;
+    let h = `<option value="--" ${(!s || s==='--')?'selected':''}>--</option>`;
     for(let i=8; i<=22; i++) {
         ['00','15','30','45'].forEach(m => {
             const t = `${i.toString().padStart(2,'0')}:${m}`;
