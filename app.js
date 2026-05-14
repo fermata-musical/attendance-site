@@ -411,9 +411,9 @@ function renderOverallStatus() {
             });
             h += `<div class="slot-row" style="margin-bottom:20px; border-bottom:1px dashed #DDD; padding-bottom:15px;">
                     <div style="font-size:0.9rem; margin-bottom:12px; color:var(--pink-dark);"><strong>${s.start}〜${s.end}</strong> [${s.menu}]</div>
-                    <div class="status-group"><div class="absent-title">【出席者】</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">${present.map(n => `<span class="pills-edit" style="cursor:default;">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
-                    <div class="status-group"><div class="absent-title">【欠席者】</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">${absent.map(n => `<span class="pills-edit" style="background:var(--lavender-light); color:#7B1FA2; cursor:default;">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
-                    <div class="status-group"><div class="absent-title">【備考のみ】</div><div style="display:flex; flex-wrap:wrap; gap:5px;">${notesOnly.map(n => `<span class="pills-edit" style="background:#F5F5F5; color:#888; cursor:default;">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
+                    <div class="status-group"><div class="absent-title">【出席者】</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">${present.map(n => `<span class="status-tag present">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
+                    <div class="status-group"><div class="absent-title">【欠席者】</div><div style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px;">${absent.map(n => `<span class="status-tag absent">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
+                    <div class="status-group"><div class="absent-title">【備考のみ】</div><div style="display:flex; flex-wrap:wrap; gap:5px;">${notesOnly.map(n => `<span class="status-tag note-only">${n}</span>`).join('') || '<span style="color:#CCC; font-size:0.75rem;">なし</span>'}</div></div>
                 </div>`;
         });
         card.innerHTML = h; container.appendChild(card);
