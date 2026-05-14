@@ -209,7 +209,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .input-group-full .cute-input { width: 100%; padding: 12px; }
 
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.admin-line.slots { background: var(--bg-soft); border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
+.admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
 
 .date-input-fixed { flex: 0 0 135px; width: 135px; }
 .time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; }
