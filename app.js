@@ -566,6 +566,9 @@ function savePracticesFromDOM() {
             const menuText = slot.querySelector('.menu-input-text');
             let menu = (menuSel && menuSel.value === 'other') ? (menuText?.value || '') : (menuSel?.value || '');
 
+            // すべて空の場合はデータに含めない
+            if (!start && !end && !menu) return;
+
             slots.push({ id, start, end, menu });
         });
 
@@ -599,7 +602,12 @@ function renderAdminRehearsals() {
         
         // 方針A: 1行（1稽古日）のHTMLをテンプレート文字列で一括生成
         let slotsHtml = '';
-        const slots = (r.slots && r.slots.length > 0) ? r.slots : [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }];
+        // 空のデータを除外して取得
+        let slots = (r.slots || []).filter(s => s.start || s.end || s.menu);
+        // 1件も有効なデータがない場合のみ、入力用の空行を1つ用意する
+        if (slots.length === 0) {
+            slots = [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }];
+        }
         
         slots.forEach(s => {
             slotsHtml += getSlotHtml(s.id, s.start, s.end, s.menu);
@@ -641,12 +649,20 @@ function getSlotHtml(id, start = '', end = '', menu = '') {
                 <div style="flex:1; min-width:0;">
                     ${renderAdminDropdownSelect(id, 'menu', menu)}
                 </div>
-                <button class="del-row-btn" type="button" onclick="this.closest('.menu-row').remove()" style="background:none; border:none; color:#ccc; padding:5px; font-size:1.2rem; cursor:pointer; flex-shrink:0;">
+                <button class="del-row-btn" type="button" onclick="deleteMenuRow(this)" style="background:none; border:none; color:#ccc; padding:5px; font-size:1.2rem; cursor:pointer; flex-shrink:0;">
                     &times;
                 </button>
             </div>
         </div>`;
 }
+
+window.deleteMenuRow = (btn) => {
+    const row = btn.closest('.menu-row');
+    if (!row) return;
+    row.remove();
+    // DOMから消した直後にstateも更新する
+    savePracticesFromDOM();
+};
 
 window.addNewRehearsal = () => {
     // 画面上の変更を一旦stateに回収（手動追加分も含む）
