@@ -116,6 +116,9 @@ async function loadCloud() {
         state.members = members;
         const groups = {};
         practices.forEach(p => {
+            // すべて空の場合はデータとして扱わない（バグ防止）
+            if (!p.start_time && !p.end_time && !p.menu) return;
+
             const key = `${p.date}_${p.place}`;
             if (!groups[key]) groups[key] = { date: p.date, location: p.place, slots: [] };
             groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
@@ -406,7 +409,11 @@ function renderAttendanceContent() {
         future.filter(r => getMonthStr(r.date) === m).forEach(r => {
             const card = document.createElement('div'); card.className = 'card';
             let slotsHtml = '';
-            r.slots.forEach(s => {
+            // 空のメニューを除外してループ
+            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
+            if (validSlots.length === 0) return; // 有効なメニューがない場合はカードごと表示しない
+
+            validSlots.forEach(s => {
                 const data = state.attendance[state.currentMember]?.[s.id] || {id:null, status: null, note: ''};
                 const statusStr = data.status === 'attend' ? '出席' : (data.status === 'absent' ? '欠席' : null);
                 slotsHtml += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #DDD; padding-bottom:15px;">
@@ -810,7 +817,11 @@ function renderOverallStatus() {
 
         future.filter(r => getMonthStr(r.date) === m).forEach(r => {
             let slotsHtml = '';
-            r.slots.forEach(s => {
+            // 有効なメニューのみを対象にする
+            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
+            if (validSlots.length === 0) return;
+
+            validSlots.forEach(s => {
                 const pres = [], abs = [], notesOnly = [];
                 state.members.forEach(member => {
                     const att = state.attendance[member.id]?.[s.id];
@@ -884,7 +895,10 @@ function renderPastRecords() {
         `;
         pastAll.filter(r => getMonthStr(r.date) === m).forEach(r => {
             let slotsHtml = '';
-            r.slots.forEach(s => {
+            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
+            if (validSlots.length === 0) return;
+
+            validSlots.forEach(s => {
                 const pres = [], abs = [];
                 state.members.forEach(member => {
                     const att = state.attendance[member.id]?.[s.id];
