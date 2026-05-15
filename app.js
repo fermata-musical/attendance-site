@@ -984,9 +984,17 @@ window.onload = () => {
             // 再描画を絶対に発生させない：DOMに直接追加
             const container = btn.closest('.admin-card-inner').querySelector('.menu-container');
             if (container) {
+                // 直前のメニューの終了時刻を取得して、次の開始時刻の初期値にする
+                const rows = container.querySelectorAll('.menu-row');
+                let lastEnd = '';
+                if (rows.length > 0) {
+                    const lastRow = rows[rows.length - 1];
+                    lastEnd = lastRow.querySelector('.end-time-input')?.value || '';
+                }
+
                 const newSlotId = crypto.randomUUID();
                 const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = getSlotHtml(newSlotId);
+                tempDiv.innerHTML = getSlotHtml(newSlotId, lastEnd);
                 const row = tempDiv.firstElementChild;
                 container.appendChild(row);
             }
