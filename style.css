@@ -211,6 +211,12 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; width: 100%; }
 .admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
 
+/* 入力欄とゴミ箱をニコイチで並べる */
+.input-with-delete { display: flex; align-items: center; flex: 1; min-width: 0; }
+.input-with-delete > *:first-child { flex: 1; min-width: 0; }
+.input-with-delete .del-icon-btn, 
+.input-with-delete .icon-delete { margin-left: 4px; flex-shrink: 0; }
+
 .date-input-fixed { flex: 0 0 135px; width: 135px; min-width: 0; }
 .time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; min-width: 0; }
 .time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); flex-shrink: 0; }
@@ -293,7 +299,7 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     padding: 15px; margin-bottom: 15px; 
     box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
 }
-.del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; margin-left: auto; flex-shrink: 0; }
+.del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .del-icon-btn:hover { color: var(--absent-dark); }
 
 /* ログイン画面 */
@@ -321,13 +327,14 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     color: #bbb;
     font-size: 1.1rem;
     cursor: pointer;
-    padding: 5px 10px;
+    padding: 5px;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: auto;
     flex-shrink: 0;
+    width: 32px;
+    height: 32px;
 }
 
 .icon-delete:hover {

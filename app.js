@@ -595,10 +595,12 @@ function renderAdminRehearsals() {
         card.innerHTML = `
             <div class="admin-line" style="margin-bottom:10px;">
                 <input type="date" class="cute-input date-input" value="${r.date || ''}">
-                ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
-                <button class="delete-practice-btn icon-delete" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" title="稽古日削除">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
+                <div class="input-with-delete flex-fill-input">
+                    ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
+                    <button class="delete-practice-btn icon-delete" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" title="稽古日削除">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             </div>
             <div class="menu-container">
                 ${slotsHtml}
@@ -621,8 +623,12 @@ function getSlotHtml(id, start = '', end = '', menu = '') {
                 <select class="cute-input start-time-input">${getTimeOpts(start)}</select>
                 <span style="margin:0 5px;">-</span>
                 <select class="cute-input end-time-input">${getTimeOpts(end)}</select>
-                ${renderAdminDropdownSelect(id, 'menu', menu)}
-                <button class="del-icon-btn" type="button" onclick="this.closest('.menu-row').remove()" title="メニュー削除"><i class="fa-solid fa-trash-can"></i></button>
+                <div class="input-with-delete flex-fill-input">
+                    ${renderAdminDropdownSelect(id, 'menu', menu)}
+                    <button class="del-icon-btn" type="button" onclick="this.closest('.menu-row').remove()" title="メニュー削除">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             </div>
         </div>`;
 }
@@ -735,7 +741,6 @@ function renderOverallStatus() {
     const mainContainer = $('overall-status-container'); 
     if (!mainContainer) return;
 
-    // 年月タブ（ボタン）を完全にクリア
     const topBar = $('status-month-tab-bar');
     const bottomBar = $('status-month-tab-bar-bottom');
     if (topBar) topBar.innerHTML = '';
@@ -755,7 +760,6 @@ function renderOverallStatus() {
     mainContainer.innerHTML = '';
 
     months.forEach(m => {
-        // 月ごとの見出しを追加（デザイン強化）
         const monthHeader = document.createElement('div');
         monthHeader.style = `
             background: var(--pink-light);
@@ -879,13 +883,15 @@ function renderAdminDropdownSelect(id, type, current, isGroup=false) {
     const manualHandler = isGroup ? 'handleAdminManualInputGroup' : 'handleAdminManualInput';
 
     return `
-        <div class="dropdown-toggle-container flex-fill-input">
-            <select class="cute-input flex-fill-input ${type}-input ${isOther?'hidden':''}" 
+        <div class="dropdown-toggle-container" style="display:flex; flex:1; min-width:0;">
+            <select class="cute-input ${type}-input ${isOther?'hidden':''}" 
+                    style="flex:1; min-width:0;"
                     onchange="${handler}('${id}','${type}', this)">
                 ${opts}
             </select>
             <input type="text" id="inp-${id}-${type}" 
-                   class="cute-input flex-fill-input ${type}-input-text ${isOther?'':'hidden'}" 
+                   class="cute-input ${type}-input-text ${isOther?'':'hidden'}" 
+                   style="flex:1; min-width:0;"
                    value="${isOther?current:''}" 
                    placeholder="直接入力">
         </div>
