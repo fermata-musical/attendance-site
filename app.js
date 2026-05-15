@@ -595,19 +595,19 @@ function renderAdminRehearsals() {
         card.innerHTML = `
             <div class="admin-line" style="margin-bottom:10px;">
                 <input type="date" class="cute-input date-input" value="${r.date || ''}">
-                <div class="input-row flex-fill-input">
+                <div class="dropdown-toggle-container flex:1">
                     ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
-                    <button class="delete-practice-btn icon-delete" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" title="稽古日削除">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
                 </div>
             </div>
             <div class="menu-container">
                 ${slotsHtml}
             </div>
-            <div style="text-align:right; margin-top:10px;">
-                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}">
-                    <i class="fa-solid fa-plus"></i> メニューを追加
+            <div class="card-footer" style="display:flex; gap:10px; margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-dusty);">
+                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:2;">
+                    <i class="fa-solid fa-plus"></i> メニュー追加
+                </button>
+                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:1; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
+                    <i class="fa-solid fa-trash-can"></i> 日付削除
                 </button>
             </div>
         `;
@@ -619,16 +619,16 @@ function renderAdminRehearsals() {
 function getSlotHtml(id, start = '', end = '', menu = '') {
     return `
         <div class="menu-row" style="margin-bottom:10px;">
-            <div class="admin-line slots" data-id="${id}" style="margin-bottom:5px;">
-                <select class="cute-input start-time-input">${getTimeOpts(start)}</select>
-                <span style="margin:0 5px;">-</span>
-                <select class="cute-input end-time-input">${getTimeOpts(end)}</select>
-                <div class="input-row flex-fill-input">
+            <div class="admin-line slots" data-id="${id}" style="margin-bottom:5px; display:flex; align-items:center; gap:6px;">
+                <select class="cute-input start-time-input" style="flex:0 0 85px;">${getTimeOpts(start)}</select>
+                <span style="color:#ccc;">-</span>
+                <select class="cute-input end-time-input" style="flex:0 0 85px;">${getTimeOpts(end)}</select>
+                <div style="flex:1; min-width:0;">
                     ${renderAdminDropdownSelect(id, 'menu', menu)}
-                    <button class="del-icon-btn" type="button" onclick="this.closest('.menu-row').remove()" title="メニュー削除">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
                 </div>
+                <button class="del-row-btn" type="button" onclick="this.closest('.menu-row').remove()" style="background:none; border:none; color:#ccc; padding:5px; font-size:1.2rem; cursor:pointer; flex-shrink:0;">
+                    &times;
+                </button>
             </div>
         </div>`;
 }
