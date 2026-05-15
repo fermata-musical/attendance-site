@@ -8,6 +8,7 @@ let allowUpdate = false;
 let isEditing = false; 
 let isLocked = true;   
 let allowSort = false; // 並び替え許可フラグ
+let isSaving = false;  // 保存中フラグ
 
 function isEditingNow() {
     const active = document.activeElement;
@@ -423,39 +424,73 @@ function renderAttendanceContent() {
 }
 
 window.setAttend = async (practiceId, status, btnElement) => {
-    if (!state.currentMember || !db) return;
-    if (!state.attendance[state.currentMember]) state.attendance[state.currentMember] = {};
-    const cur = state.attendance[state.currentMember][practiceId] || { id: null, status: null, note: '' };
-    const newStatus = cur.status === status ? null : status;
-    state.attendance[state.currentMember][practiceId] = { ...cur, status: newStatus };
-
+    if (!state.currentMember || !db || isSaving) return;
+    
+    // 楽観的UI：DBの返答を待たずにUIを更新
     if (btnElement) {
         const parent = btnElement.parentElement;
         parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        
+        if (!state.attendance[state.currentMember]) state.attendance[state.currentMember] = {};
+        const curStatus = state.attendance[state.currentMember][practiceId]?.status;
+        const newStatus = curStatus === status ? null : status;
+
         if (newStatus === 'attend') parent.querySelector('.present')?.classList.add('active');
         if (newStatus === 'absent') parent.querySelector('.absent')?.classList.add('active');
+        
+        // メモリ上のstateも即座に更新
+        state.attendance[state.currentMember][practiceId] = { 
+            ...state.attendance[state.currentMember][practiceId], 
+            status: newStatus 
+        };
     }
 
-    const record = { member_id: state.currentMember, practice_id: practiceId, status: newStatus, note: cur.note };
-    if (cur.id) record.id = cur.id;
+    isSaving = true;
+    const cur = state.attendance[state.currentMember][practiceId];
+    const record = { 
+        member_id: state.currentMember, 
+        practice_id: practiceId, 
+        status: cur.status, 
+        note: cur.note || '' 
+    };
 
-    const { data, error } = await db.from('attendance').upsert(record).select();
-    if (error) { console.error(error); alert('保存エラー: ' + error.message); } 
-    else if (data && data[0]) { state.attendance[state.currentMember][practiceId].id = data[0].id; }
+    const { data, error } = await db.from('attendance').upsert(record, { 
+        onConflict: 'member_id,practice_id' 
+    }).select();
+
+    if (error) { 
+        console.error("保存エラー:", error); 
+        // 失敗時のみ通知（UIは戻さない方針）
+    } else if (data && data[0]) { 
+        state.attendance[state.currentMember][practiceId].id = data[0].id; 
+    }
+    isSaving = false;
 };
 
 window.setNote = async (practiceId, val) => {
-    if (!state.currentMember || !db) return;
-    const cur = state.attendance[state.currentMember]?.[practiceId] || {id:null, status:null, note:''};
+    if (!state.currentMember || !db || isSaving) return;
+    
     if (!state.attendance[state.currentMember]) state.attendance[state.currentMember] = {};
+    const cur = state.attendance[state.currentMember][practiceId] || { id: null, status: null, note: '' };
+    
+    // メモリ上のstateを即座に更新
     state.attendance[state.currentMember][practiceId] = { ...cur, note: val };
     saveLocal();
 
-    const record = { member_id: state.currentMember, practice_id: practiceId, status: cur.status, note: val };
-    if (cur.id) record.id = cur.id;
+    isSaving = true;
+    const record = { 
+        member_id: state.currentMember, 
+        practice_id: practiceId, 
+        status: cur.status, 
+        note: val 
+    };
 
-    const { error } = await db.from('attendance').upsert(record);
+    const { error } = await db.from('attendance').upsert(record, { 
+        onConflict: 'member_id,practice_id' 
+    });
+    
     if (error) console.error('備考保存エラー:', error);
+    isSaving = false;
 };
 
 function refreshAdminViewList() {

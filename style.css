@@ -208,12 +208,12 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .input-group-full { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
 .input-group-full .cute-input { width: 100%; padding: 12px; }
 
-.admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; width: 100%; }
 .admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
 
-.date-input-fixed { flex: 0 0 135px; width: 135px; }
-.time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; }
-.time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); }
+.date-input-fixed { flex: 0 0 135px; width: 135px; min-width: 0; }
+.time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; min-width: 0; }
+.time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); flex-shrink: 0; }
 .flex-fill-input { flex: 1; min-width: 0; }
 
 .member-select-row { display: flex; flex-direction: column; gap: 12px; }
@@ -293,7 +293,7 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     padding: 15px; margin-bottom: 15px; 
     box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
 }
-.del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; }
+.del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; margin-left: auto; flex-shrink: 0; }
 .del-icon-btn:hover { color: var(--absent-dark); }
 
 /* ログイン画面 */
@@ -303,10 +303,16 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .login-card p { margin-bottom: 20px; font-size: 0.95rem; color: var(--text-main); font-weight: 700; }
 .error-text { color: #d32f2f; font-size: 0.85rem; margin-top: 10px; font-weight: 700; }
 
+@media (max-width: 600px) {
+    .admin-line { padding-right: 4px; gap: 6px; }
+    .date-input-fixed { flex: 0 0 110px; width: 110px; }
+    .time-sel { flex: 0 0 85px; width: 85px; }
+}
+
 @media (max-width: 480px) {
-    .admin-line.slots { gap: 4px; padding: 8px; }
-    .date-input-fixed { flex: 0 0 120px; width: 120px; }
-    .time-sel { flex: 0 0 88px; width: 88px; }
+    .admin-line.slots { gap: 4px; padding: 6px; }
+    .date-input-fixed { flex: 0 0 100px; width: 100px; }
+    .time-sel { flex: 0 0 80px; width: 80px; }
 }
 
 .icon-delete {
@@ -320,6 +326,8 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .icon-delete:hover {
