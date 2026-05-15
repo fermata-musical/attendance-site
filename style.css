@@ -214,7 +214,12 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .input-group-full .cute-input { width: 100%; padding: 12px; }
 
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; width: 100%; }
-.admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
+.admin-line.slots { 
+    background: #FFFFFF !important; 
+    border-radius: 12px; 
+    padding: 12px 10px; /* 少し広げてゆとりを持たせる */
+    border: 1px solid var(--border-dusty); 
+}
 
 /* 入力欄とゴミ箱をニコイチで並べる */
 .input-row { display: flex; align-items: center; flex: 1; min-width: 0; }
@@ -301,7 +306,8 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     background: var(--bg-filled); 
     border: 1px solid var(--border-dusty); 
     border-radius: var(--radius-md); 
-    padding: 15px; margin-bottom: 15px; 
+    padding: 18px 20px; /* .card と同じ余白に拡大 */
+    margin-bottom: 15px; 
     box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
 }
 .del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
@@ -315,9 +321,10 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .error-text { color: #d32f2f; font-size: 0.85rem; margin-top: 10px; font-weight: 700; }
 
 @media (max-width: 600px) {
-    .admin-line { padding-right: 4px; gap: 6px; }
-    .date-input-fixed { flex: 0 0 110px; width: 110px; }
-    .time-sel { flex: 0 0 85px; width: 85px; }
+    .admin-line { padding-right: 0px; gap: 10px; } /* 間隔を広げてゆとりを出す */
+    .admin-card-inner { padding: 15px; } /* スマホでは画面幅を有効活用するため少しだけ狭める（でも前よりは広い） */
+    .date-input-fixed { flex: 0 0 115px; width: 115px; }
+    .time-sel { flex: 0 0 90px; width: 90px; }
 }
 
 @media (max-width: 480px) {
