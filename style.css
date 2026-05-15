@@ -38,7 +38,17 @@ body {
     font-family: 'M PLUS Rounded 1c', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-main);
-    line-height: 1.5; /* 1.6から微縮小 */
+    line-height: 1.5;
+    font-size: 16px;
+}
+
+input, select, button, textarea {
+    font-size: 16px !important;
+}
+
+#admin-panel, #admin-panel * {
+    transform: none !important;
+    zoom: 1 !important;
 }
 
 .hidden { display: none !important; }
@@ -114,7 +124,6 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
     display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .nav-tab:hover {
-    transform: translateY(-1px);
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 .nav-tab.active {
@@ -122,10 +131,8 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
     color: #ffffff; 
     border-color: var(--pink-accent);
     box-shadow: 0 4px 10px rgba(229, 140, 171, 0.25); 
-    transform: translateY(-2px);
 }
 .nav-tab.active:hover {
-    transform: translateY(-3px);
 }
 .lock-icon { color: #facc15; margin-left: 3px; font-size: 0.8rem; }
 
@@ -139,7 +146,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
     border: 1px solid var(--border-dusty);
     background: var(--bg-card); 
     color: var(--text-sub); 
-    font-size: 0.85rem; border-radius: 25px; transition: 0.3s; 
+    font-size: 16px; border-radius: 25px; transition: 0.3s; 
     font-family: inherit; cursor: pointer; white-space: nowrap; text-align: center;
     font-weight: 700;
     box-shadow: var(--shadow-sm);
@@ -149,7 +156,6 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
     color: #ffffff; 
     border: none;
     box-shadow: var(--shadow-pink);
-    transform: translateY(-1px);
 }
 
 .section-header h2 {
@@ -238,7 +244,7 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 .action-btn-styled.edit { background-color: var(--bg-soft); color: var(--text-main); }
 .action-btn-styled.delete { background-color: var(--bg-soft); color: var(--text-sub); }
 
-.action-btn-styled:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.action-btn-styled:hover { box-shadow: var(--shadow-md); }
 
 .icon-btn-sm { 
     background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--pink-accent); width: 36px; height: 36px; border-radius: 12px; 
@@ -338,7 +344,6 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 
 .icon-delete:hover {
     color: #e57373;
-    transform: scale(1.1);
 }
 
 /* 未入力・未選択項目の視覚的フィードバック */
@@ -360,4 +365,14 @@ select.cute-input:not(:has(option[value=""]:checked)) {
 select.cute-input option {
   background-color: #ffffff !important;
   color: #333;
+}
+/* 手動並び替えボタン */
+.move-up-btn, .move-down-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    background: #f8f8f8 !important;
+    color: #888 !important;
+    border: 1px solid #ddd !important;
+    flex-shrink: 0;
 }

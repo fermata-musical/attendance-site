@@ -602,13 +602,15 @@ function renderAdminRehearsals() {
             <div class="menu-container">
                 ${slotsHtml}
             </div>
-            <div class="card-footer" style="display:flex; gap:10px; margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-dusty);">
-                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:2;">
-                    <i class="fa-solid fa-plus"></i> メニュー追加
+            <div class="card-footer" style="display:flex; gap:6px; margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-dusty); align-items:center;">
+                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1;">
+                    <i class="fa-solid fa-plus"></i> 追加
                 </button>
-                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:1; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
-                    <i class="fa-solid fa-trash-can"></i> 日付削除
+                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:0 0 auto; width:80px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
+                    <i class="fa-solid fa-trash-can"></i> 削除
                 </button>
+                <button class="action-btn-styled move-up-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-up"></i></button>
+                <button class="action-btn-styled move-down-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-down"></i></button>
             </div>
         `;
         list.appendChild(card);
@@ -997,6 +999,26 @@ window.onload = () => {
             isLocked = false;
             // 本来の処理が終わるのを少し待ってから再ロック
             setTimeout(() => { isLocked = true; }, 100);
+        }
+    });
+
+    // 手動並び替えボタン（↑ ↓）
+    document.addEventListener('click', (e) => {
+        const upBtn = e.target.closest('.move-up-btn');
+        const downBtn = e.target.closest('.move-down-btn');
+        if (upBtn || downBtn) {
+            const card = e.target.closest('.admin-card-inner');
+            if (!card) return;
+            const parent = card.parentNode;
+            if (upBtn) {
+                const prev = card.previousElementSibling;
+                if (prev) parent.insertBefore(card, prev);
+            } else {
+                const next = card.nextElementSibling;
+                if (next) parent.insertBefore(next, card);
+            }
+            // 並び替え後に状態を保存
+            savePracticesFromDOM();
         }
     });
 };
