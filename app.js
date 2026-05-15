@@ -595,7 +595,7 @@ function renderAdminRehearsals() {
         card.innerHTML = `
             <div class="admin-line" style="margin-bottom:10px;">
                 <input type="date" class="cute-input date-input" value="${r.date || ''}">
-                <div class="input-with-delete flex-fill-input">
+                <div class="input-row flex-fill-input">
                     ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
                     <button class="delete-practice-btn icon-delete" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" title="稽古日削除">
                         <i class="fa-solid fa-trash-can"></i>
@@ -623,7 +623,7 @@ function getSlotHtml(id, start = '', end = '', menu = '') {
                 <select class="cute-input start-time-input">${getTimeOpts(start)}</select>
                 <span style="margin:0 5px;">-</span>
                 <select class="cute-input end-time-input">${getTimeOpts(end)}</select>
-                <div class="input-with-delete flex-fill-input">
+                <div class="input-row flex-fill-input">
                     ${renderAdminDropdownSelect(id, 'menu', menu)}
                     <button class="del-icon-btn" type="button" onclick="this.closest('.menu-row').remove()" title="メニュー削除">
                         <i class="fa-solid fa-trash-can"></i>
