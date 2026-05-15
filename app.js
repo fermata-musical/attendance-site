@@ -116,9 +116,6 @@ async function loadCloud() {
         state.members = members;
         const groups = {};
         practices.forEach(p => {
-            // すべて空の場合はデータとして扱わない（バグ防止）
-            if (!p.start_time && !p.end_time && !p.menu) return;
-
             const key = `${p.date}_${p.place}`;
             if (!groups[key]) groups[key] = { date: p.date, location: p.place, slots: [] };
             groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
@@ -277,7 +274,13 @@ async function saveAllPractices(silent = false) {
         let place = locSel?.value || '';
         if (place === 'other') place = locText?.value || '';
 
-        card.querySelectorAll('.slots').forEach(slot => {
+        const slotDivs = card.querySelectorAll('.slots');
+        // スロットが1つもない場合でも、日付があれば1件空データを送る（日付の保持のため）
+        if (slotDivs.length === 0 && date) {
+            dataList.push({ id: crypto.randomUUID(), date, place, start_time: '', end_time: '', menu: '', sort_order: currentOrder++ });
+        }
+
+        slotDivs.forEach(slot => {
             const id = slot.dataset.id;
             const start = slot.querySelector('.start-time-input').value;
             const end = slot.querySelector('.end-time-input').value;
@@ -409,9 +412,9 @@ function renderAttendanceContent() {
         future.filter(r => getMonthStr(r.date) === m).forEach(r => {
             const card = document.createElement('div'); card.className = 'card';
             let slotsHtml = '';
-            // 空のメニューを除外してループ
+            // 描画時は、中身があるものだけを表示対象にする（日付のみのデータは出欠入力には出さない）
             const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
-            if (validSlots.length === 0) return; // 有効なメニューがない場合はカードごと表示しない
+            if (validSlots.length === 0) return;
 
             validSlots.forEach(s => {
                 const data = state.attendance[state.currentMember]?.[s.id] || {id:null, status: null, note: ''};
@@ -663,12 +666,25 @@ function getSlotHtml(id, start = '', end = '', menu = '') {
         </div>`;
 }
 
-window.deleteMenuRow = (btn) => {
+window.deleteMenuRow = async (btn) => {
     const row = btn.closest('.menu-row');
     if (!row) return;
+    
+    const slotId = row.querySelector('.slots')?.dataset.id;
     row.remove();
-    // DOMから消した直後にstateも更新する
+    
+    // 1. クラウドから物理削除（IDがある場合のみ）
+    if (slotId && db) {
+        try {
+            await db.from('practices').delete().eq('id', slotId);
+        } catch (err) {
+            console.error('削除失敗:', err);
+        }
+    }
+    
+    // 2. 状態を同期して保存
     savePracticesFromDOM();
+    saveAllPractices(true);
 };
 
 window.addNewRehearsal = () => {
