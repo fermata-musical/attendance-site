@@ -24,7 +24,7 @@
     
     --radius-lg: 30px;        /* タブ用（ピル型） */
     --radius-md: 16px;        /* カード用 */
-
+    
     /* 未入力状態カラー */
     --bg-empty: #F9F4F6;      /* 薄ピンク（未入力） */
     --text-empty: #8B8591;
@@ -38,7 +38,7 @@ body {
     font-family: 'M PLUS Rounded 1c', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-main);
-    line-height: 1.6;
+    line-height: 1.5; /* 1.6から微縮小 */
 }
 
 .hidden { display: none !important; }
@@ -164,8 +164,8 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
     line-height: 1.4;
 }
 
-.absent-section { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-dusty); }
-.absent-title { font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 6px; }
+.absent-section { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border-dusty); }
+.absent-title { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px; }
 .absent-row { font-size: 0.85rem; color: var(--text-main); margin-bottom: 4px; cursor: pointer; }
 .absent-name { font-weight: 700; color: var(--absent-dark); margin-right: 8px; }
 .absent-note { color: var(--text-sub); opacity: 0.8; font-style: italic; }
@@ -178,11 +178,11 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 /* 参加状況タグ（チップUI） */
 .status-tag {
     display: inline-block;
-    padding: 6px 12px;
+    padding: 4px 10px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 13px;
     font-weight: 700;
-    margin: 4px;
+    margin: 3px 6px 3px 0;
     border: none;
 }
 .status-tag.present {
@@ -210,47 +210,6 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 
 .admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .admin-line.slots { background: #FFFFFF !important; border-radius: 12px; padding: 10px; border: 1px solid var(--border-dusty); }
-
-.admin-card-inner {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #FFF;
-    border-radius: 15px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-.menu-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
-  padding: 10px;
-  background: #F9FAFB;
-  border-radius: 10px;
-  border: 1px dashed #E5E7EB;
-}
-.menu-row input, .menu-row select {
-  flex: 1;
-  min-width: 80px;
-}
-.time-sel {
-    max-width: 100px;
-}
-@media (max-width: 600px) {
-    .menu-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .menu-row input, .menu-row select {
-        width: 100%;
-    }
-}
-
-/* エラー用スタイル */
-.error {
-  border: 2px solid #FF4D4D !important;
-  background-color: #FFF5F5 !important;
-}
 
 .date-input-fixed { flex: 0 0 135px; width: 135px; }
 .time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; }
@@ -283,8 +242,8 @@ nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
 
 main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .card { 
-    background: var(--bg-filled) !important; /* カード内は確実に白 */
-    border-radius: var(--radius-md); padding: 25px; margin-bottom: 20px; 
+    background: var(--bg-filled) !important; 
+    border-radius: var(--radius-md); padding: 18px 20px; margin-bottom: 12px; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
     border: 1px solid var(--border-dusty); 
 }
@@ -308,8 +267,8 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 }
 
 /* 未入力状態（グレー背景） */
-.input-empty {
-    background-color: var(--bg-empty) !important;
+.input-empty, input:invalid {
+    background-color: #f6f6f6 !important;
     color: var(--text-empty) !important;
 }
 
@@ -348,4 +307,43 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
     .admin-line.slots { gap: 4px; padding: 8px; }
     .date-input-fixed { flex: 0 0 120px; width: 120px; }
     .time-sel { flex: 0 0 88px; width: 88px; }
+}
+
+.icon-delete {
+    background: none;
+    border: none;
+    color: #bbb;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 5px 10px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-delete:hover {
+    color: #e57373;
+    transform: scale(1.1);
+}
+
+/* 未入力・未選択項目の視覚的フィードバック */
+input.cute-input:placeholder-shown,
+select.cute-input:has(option[value=""]:checked) {
+  background-color: #f5f5f5 !important;
+  color: #999;
+}
+
+/* 選択済み、またはフォーカス時は白に戻す */
+input.cute-input:focus,
+select.cute-input:focus,
+select.cute-input:not(:has(option[value=""]:checked)) {
+  background-color: #ffffff !important;
+  color: #333;
+}
+
+/* プルダウンの中身（選択肢）は常に白背景にする */
+select.cute-input option {
+  background-color: #ffffff !important;
+  color: #333;
 }
