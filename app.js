@@ -412,15 +412,23 @@ function renderAttendanceContent() {
         future.filter(r => getMonthStr(r.date) === m).forEach(r => {
             const card = document.createElement('div'); card.className = 'card';
             let slotsHtml = '';
-            // 描画時は、中身があるものだけを表示対象にする（日付のみのデータは出欠入力には出さない）
-            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
-            if (validSlots.length === 0) return;
 
-            validSlots.forEach(s => {
+            // 有効なスロット（中身があるもの）だけを抽出
+            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
+            // 表示対象を決める：有効なものがあればそれら、なければ最初の一件（空データ）を1行だけ
+            const displaySlots = validSlots.length > 0 ? validSlots : [r.slots[0]];
+
+            displaySlots.forEach(s => {
+                if (!s) return;
                 const data = state.attendance[state.currentMember]?.[s.id] || {id:null, status: null, note: ''};
                 const statusStr = data.status === 'attend' ? '出席' : (data.status === 'absent' ? '欠席' : null);
+                
+                // メニューや時間が空の場合の表示
+                const displayTime = (s.start || s.end) ? `<strong>${s.start}〜${s.end}</strong>` : '';
+                const displayMenu = s.menu ? `[${s.menu}]` : (displayTime ? '' : '<span style="color:#AAA;">時間・メニュー未設定</span>');
+
                 slotsHtml += `<div class="slot-row" style="margin-bottom:15px; border-bottom:1px dashed #DDD; padding-bottom:15px;">
-                        <div style="font-size:0.9rem; margin-bottom:8px;"><strong>${s.start}〜${s.end}</strong> [${s.menu}]</div>
+                        <div style="font-size:0.9rem; margin-bottom:8px;">${displayTime} ${displayMenu}</div>
                         <div class="attendance-toggle">
                             <button class="toggle-btn present ${statusStr==='出席'?'active':''}" onclick="setAttend('${s.id}','attend', this)">出席</button>
                             <button class="toggle-btn absent ${statusStr==='欠席'?'active':''}" onclick="setAttend('${s.id}','absent', this)">欠席</button>
@@ -833,11 +841,12 @@ function renderOverallStatus() {
 
         future.filter(r => getMonthStr(r.date) === m).forEach(r => {
             let slotsHtml = '';
-            // 有効なメニューのみを対象にする
+            
             const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
-            if (validSlots.length === 0) return;
+            const displaySlots = validSlots.length > 0 ? validSlots : [r.slots[0]];
 
-            validSlots.forEach(s => {
+            displaySlots.forEach(s => {
+                if (!s) return;
                 const pres = [], abs = [], notesOnly = [];
                 state.members.forEach(member => {
                     const att = state.attendance[member.id]?.[s.id];
@@ -911,18 +920,24 @@ function renderPastRecords() {
         `;
         pastAll.filter(r => getMonthStr(r.date) === m).forEach(r => {
             let slotsHtml = '';
-            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
-            if (validSlots.length === 0) return;
 
-            validSlots.forEach(s => {
+            const validSlots = r.slots.filter(s => s.start || s.end || s.menu);
+            const displaySlots = validSlots.length > 0 ? validSlots : [r.slots[0]];
+
+            displaySlots.forEach(s => {
+                if (!s) return;
                 const pres = [], abs = [];
                 state.members.forEach(member => {
                     const att = state.attendance[member.id]?.[s.id];
                     if (att?.status === 'attend') pres.push(member.name); 
                     else if (att?.status === 'absent') abs.push(`${member.name}${att.note ? ':' + att.note : ''}`);
                 });
+
+                const displayTime = (s.start || s.end) ? `<strong>${s.start}〜${s.end}</strong>` : '';
+                const displayMenu = s.menu ? s.menu : (displayTime ? '' : '<span style="color:#AAA;">未設定</span>');
+
                 slotsHtml += `<div class="slot-row" style="margin-bottom:15px;">
-                        <strong>${s.start}〜${s.end}</strong> ${s.menu}
+                        ${displayTime} ${displayMenu}
                         <div style="font-size:0.85rem; margin-top:5px;">出席: ${pres.join(', ') || 'なし'}</div>
                         <div style="font-size:0.85rem; color:var(--muted);">欠席: ${abs.join(', ') || 'なし'}</div>
                     </div>`;
