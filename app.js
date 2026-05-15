@@ -495,7 +495,15 @@ window.setNote = async (practiceId, val) => {
 };
 
 function refreshAdminViewList() {
-    state.ui.adminViewList = state.rehearsals;
+    const showPastCheck = $('show-past-admin-check');
+    const showPast = showPastCheck ? showPastCheck.checked : false;
+    const today = getToday();
+
+    state.ui.adminViewList = state.rehearsals.filter(r => {
+        if (showPast) return true;
+        if (!r.date) return true; // 日付未入力（新規追加分など）は表示
+        return new Date(r.date) >= today;
+    });
 }
 
 function hidePastPractices() {
@@ -1029,6 +1037,13 @@ window.onload = () => {
             // 並び替え後に状態を保存 & クラウド同期
             savePracticesFromDOM();
             saveAllPractices(true);
+        }
+    });
+
+    // 管理タブ：過去分表示切り替えの連動
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'show-past-admin-check') {
+            renderAdminPanel();
         }
     });
 };
