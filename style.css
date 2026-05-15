@@ -315,15 +315,9 @@ main { max-width: 600px; margin: 0 auto; padding: 15px; }
 .error-text { color: #d32f2f; font-size: 0.85rem; margin-top: 10px; font-weight: 700; }
 
 @media (max-width: 600px) {
-    .admin-line { gap: 8px; }
-    .date-input-fixed { flex: 0 0 120px; width: 120px; }
-    .time-sel { flex: 0 0 90px; width: 90px; }
 }
 
 @media (max-width: 480px) {
-    .admin-line.slots { gap: 6px; padding: 10px; }
-    .date-input-fixed { flex: 0 0 110px; width: 110px; }
-    .time-sel { flex: 0 0 85px; width: 85px; }
 }
 
 .icon-delete {

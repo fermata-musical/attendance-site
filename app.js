@@ -582,35 +582,36 @@ function renderAdminRehearsals() {
     
     state.ui.adminViewList.forEach((r, idx) => {
         const card = document.createElement('div');
-        card.className = 'admin-card-inner';
+        card.className = 'card rehearsal-card';
+        card.style.padding = '18px 20px'; // 出欠タブと統一
         
-        // 方針A: 1行（1稽古日）のHTMLをテンプレート文字列で一括生成
         let slotsHtml = '';
         const slots = (r.slots && r.slots.length > 0) ? r.slots : [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }];
-        
         slots.forEach(s => {
             slotsHtml += getSlotHtml(s.id, s.start, s.end, s.menu);
         });
 
         card.innerHTML = `
-            <div class="admin-line" style="margin-bottom:10px;">
-                <input type="date" class="cute-input date-input" value="${r.date || ''}">
-                <div class="dropdown-toggle-container flex:1">
+            <div class="admin-top-row" style="display:flex; gap:10px; margin-bottom:15px; align-items:center; flex-wrap:wrap;">
+                <input type="date" class="cute-input date-input" style="flex:1; min-width:140px;" value="${r.date || ''}">
+                <div style="flex:1.5; min-width:160px;">
                     ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
                 </div>
             </div>
             <div class="menu-container">
                 ${slotsHtml}
             </div>
-            <div class="card-footer" style="display:flex; gap:6px; margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-dusty); align-items:center;">
-                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1;">
+            <div class="card-footer" style="display:flex; gap:8px; margin-top:20px; padding-top:15px; border-top:1px dashed var(--border-dusty); align-items:center; flex-wrap:wrap;">
+                <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1.5; min-width:100px;">
                     <i class="fa-solid fa-plus"></i> 追加
                 </button>
-                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:0 0 auto; width:80px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
+                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:1; min-width:80px; background:#f0f0f0; color:#888; border:none;">
                     <i class="fa-solid fa-trash-can"></i> 削除
                 </button>
-                <button class="action-btn-styled move-up-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-up"></i></button>
-                <button class="action-btn-styled move-down-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-down"></i></button>
+                <div style="display:flex; gap:6px; flex:1; justify-content:flex-end;">
+                    <button class="action-btn-styled move-up-btn" type="button" style="width:40px; flex:none;"><i class="fa-solid fa-arrow-up"></i></button>
+                    <button class="action-btn-styled move-down-btn" type="button" style="width:40px; flex:none;"><i class="fa-solid fa-arrow-down"></i></button>
+                </div>
             </div>
         `;
         list.appendChild(card);
@@ -620,17 +621,17 @@ function renderAdminRehearsals() {
 // 1つのスロット（時間枠）のHTMLを生成するヘルパー（一貫性のため）
 function getSlotHtml(id, start = '', end = '', menu = '') {
     return `
-        <div class="menu-row" style="margin-bottom:10px;">
-            <div class="admin-line slots" data-id="${id}" style="margin-bottom:5px; display:flex; align-items:center; gap:6px;">
-                <select class="cute-input start-time-input" style="flex:0 0 85px;">${getTimeOpts(start)}</select>
-                <span style="color:#ccc;">-</span>
-                <select class="cute-input end-time-input" style="flex:0 0 85px;">${getTimeOpts(end)}</select>
-                <div style="flex:1; min-width:0;">
-                    ${renderAdminDropdownSelect(id, 'menu', menu)}
+        <div class="menu-row card" style="padding:15px; margin-bottom:12px; background:var(--bg-soft) !important; box-shadow:none; border:1px dashed var(--border-dusty);">
+            <div class="admin-slot-header" style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; flex:1; gap:5px;">
+                    <select class="cute-input start-time-input" style="flex:1;">${getTimeOpts(start)}</select>
+                    <span style="color:#888;">〜</span>
+                    <select class="cute-input end-time-input" style="flex:1;">${getTimeOpts(end)}</select>
                 </div>
-                <button class="del-row-btn" type="button" onclick="this.closest('.menu-row').remove()" style="background:none; border:none; color:#ccc; padding:5px; font-size:1.2rem; cursor:pointer; flex-shrink:0;">
-                    &times;
-                </button>
+                <button class="del-row-btn" type="button" onclick="this.closest('.menu-row').remove()" style="background:none; border:none; color:#bbb; font-size:1.6rem; padding:0 5px; cursor:pointer;">&times;</button>
+            </div>
+            <div class="admin-slot-body">
+                ${renderAdminDropdownSelect(id, 'menu', menu)}
             </div>
         </div>`;
 }
