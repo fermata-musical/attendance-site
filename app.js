@@ -108,11 +108,13 @@ async function loadCloud() {
         $('sync-indicator').classList.remove('hidden');
         
         // 各種データの並列取得
-        const [mRes, pRes, aRes, vRes] = await Promise.all([
+        const [mRes, pRes, aRes, vRes, locRes, menuRes] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
             db.from('attendance').select('*'),
-            db.from('visibility_settings').select('*')
+            db.from('visibility_settings').select('*'),
+            db.from('places').select('*').order('sort_order', { ascending: true }),
+            db.from('menus').select('*').order('sort_order', { ascending: true })
         ]);
 
         if (mRes.error) throw mRes.error;
@@ -138,13 +140,23 @@ async function loadCloud() {
             state.attendance[a.member_id][a.practice_id] = { id: a.id, status: a.status, note: a.note };
         });
 
-        // 閲覧制限設定（DBから取得、なければデフォルト）
+        // 閲覧制限設定
         if (!vRes.error && vRes.data) {
             const vis = {};
             vRes.data.forEach(v => {
                 vis[v.tab_name] = v.is_locked ? 'protected' : 'public';
             });
             state.settings.visibility = vis;
+        }
+
+        // 場所リストの同期
+        if (locRes.data && locRes.data.length > 0) {
+            state.settings.locations = locRes.data.map(d => d.name);
+        }
+
+        // メニューリストの同期
+        if (menuRes.data && menuRes.data.length > 0) {
+            state.settings.menus = menuRes.data.map(d => d.name);
         }
 
         if (state.auth.isLoggedIn) { 
@@ -795,12 +807,78 @@ function renderList(key, listId, inputId, btnId) {
         li.innerHTML = `<span>${item}</span><div style="display:flex; gap:5px; align-items:center;"><button class="icon-btn-sm" onclick="moveItem('${key}', ${i}, -1)" ${i===0?'disabled':''}><i class="fa-solid fa-chevron-up"></i></button><button class="icon-btn-sm" onclick="moveItem('${key}', ${i}, 1)" ${i===state.settings[key].length-1?'disabled':''}><i class="fa-solid fa-chevron-down"></i></button><button class="icon-btn-sm" onclick="editItem('${key}', ${i})"><i class="fa-solid fa-pen"></i></button><button class="del-icon-btn" onclick="delItem('${key}', ${i})"><i class="fa-solid fa-xmark"></i></button></div>`;
         safeAppend(list, li);
     });
-    if ($(btnId)) $(btnId).onclick = () => { const v = $(inputId).value.trim(); if(v) { state.settings[key].push(v); $(inputId).value=''; saveLocal(); renderAdminDropdowns(); } };
+    if ($(btnId)) $(btnId).onclick = async () => { 
+        const v = $(inputId).value.trim(); 
+        if(v) { 
+            state.settings[key].push(v); 
+            $(inputId).value=''; 
+            await syncSettingsList(key);
+            
+            isLocked = false;
+            renderAdminDropdowns(); 
+            isLocked = true;
+        } 
+    };
 }
 
-window.editItem = (key, i) => { const oldVal = state.settings[key][i]; const newVal = prompt('項目を編集:', oldVal); if (newVal && newVal !== oldVal) { state.settings[key][i] = newVal.trim(); saveLocal(); renderAdminDropdowns(); } };
-window.moveItem = (key, i, dir) => { const arr = state.settings[key]; const target = i + dir; if (target >= 0 && target < arr.length) { [arr[i], arr[target]] = [arr[target], arr[i]]; saveLocal(); renderAdminDropdowns(); } };
-window.delItem = (key, i) => { state.settings[key].splice(i, 1); saveLocal(); renderAdminDropdowns(); };
+// DBへの同期保存
+async function syncSettingsList(key) {
+    if (!db) return;
+    const tableName = key === 'locations' ? 'places' : 'menus';
+    const dataArray = state.settings[key].map((name, index) => ({
+        name: name,
+        sort_order: index
+    }));
+
+    try {
+        $('sync-indicator').classList.remove('hidden');
+        // シンプルにするため、一旦全削除してから入れ直す（差分管理より確実）
+        await db.from(tableName).delete().neq('name', '___NON_EXISTENT___');
+        const { error } = await db.from(tableName).insert(dataArray);
+        if (error) throw error;
+        console.log(`[同期完了] ${tableName} がDBに保存されました`);
+    } catch (err) {
+        console.error(`[同期失敗] ${tableName}:`, err);
+        alert('項目の保存に失敗しました。');
+    } finally {
+        $('sync-indicator').classList.add('hidden');
+    }
+}
+
+window.editItem = async (key, i) => { 
+    const oldVal = state.settings[key][i]; 
+    const newVal = prompt('項目を編集:', oldVal); 
+    if (newVal && newVal !== oldVal) { 
+        state.settings[key][i] = newVal.trim(); 
+        await syncSettingsList(key);
+        
+        isLocked = false;
+        renderAdminDropdowns(); 
+        isLocked = true;
+    } 
+};
+window.moveItem = async (key, i, dir) => { 
+    const arr = state.settings[key]; 
+    const target = i + dir; 
+    if (target >= 0 && target < arr.length) { 
+        [arr[i], arr[target]] = [arr[target], arr[i]]; 
+        await syncSettingsList(key);
+        
+        isLocked = false;
+        renderAdminDropdowns(); 
+        isLocked = true;
+    } 
+};
+window.delItem = async (key, i) => { 
+    if (confirm('この項目を削除しますか？')) {
+        state.settings[key].splice(i, 1); 
+        await syncSettingsList(key);
+        
+        isLocked = false;
+        renderAdminDropdowns(); 
+        isLocked = true;
+    }
+};
 
 function renderAdminVisibility() {
     const container = $('visibility-controls-container'); if (!container) return;
@@ -1048,40 +1126,65 @@ function renderAdminDropdownSelect(id, type, current, isGroup=false) {
     const manualHandler = isGroup ? 'handleAdminManualInputGroup' : 'handleAdminManualInput';
 
     return `
-        <div class="dropdown-toggle-container" style="display:flex; flex:1; min-width:0;">
+        <div class="dropdown-toggle-container" style="display:flex; flex:1; min-width:0; position:relative;">
             <select class="cute-input ${type}-input ${isOther?'hidden':''}" 
+                    id="sel-${id}-${type}"
                     style="flex:1; min-width:0;"
                     onchange="${handler}('${id}','${type}', this)">
                 ${opts}
             </select>
-            <input type="text" id="inp-${id}-${type}" 
-                   class="cute-input ${type}-input-text ${isOther?'':'hidden'}" 
-                   style="flex:1; min-width:0;"
-                   value="${isOther?current:''}" 
-                   placeholder="直接入力">
+            <div id="wrapper-${id}-${type}" class="manual-input-wrapper ${isOther?'':'hidden'}" style="display:flex; flex:1; gap:4px; min-width:0;">
+                <input type="text" id="inp-${id}-${type}" 
+                       class="cute-input ${type}-input-text" 
+                       style="flex:1; min-width:0;"
+                       value="${isOther?current:''}" 
+                       placeholder="直接入力"
+                       onchange="saveAllPractices(true)">
+                <button type="button" class="icon-btn-sm" style="width:36px; height:44px; flex-shrink:0; border-radius:12px;" 
+                        onclick="toggleDropdownBack('${id}', '${type}', this)">
+                    <i class="fa-solid fa-list-ul"></i>
+                </button>
+            </div>
         </div>
     `;
 }
 
 window.handleAdminDropdownChange = (id, type, select) => {
-    const inp = $(`inp-${id}-${type}`);
+    const wrapper = $(`wrapper-${id}-${type}`);
     if (select.value === 'other') { 
         select.classList.add('hidden'); 
-        inp.classList.remove('hidden'); 
-        inp.focus(); 
+        wrapper.classList.remove('hidden'); 
+        const inp = $(`inp-${id}-${type}`);
+        if(inp) inp.focus(); 
     } else { 
         saveAllPractices(true); 
     }
 };
 
 window.handleAdminDropdownChangeGroup = (id, type, select) => {
-    const inp = $(`inp-${id}-${type}`);
+    const wrapper = $(`wrapper-${id}-${type}`);
     if (select.value === 'other') { 
         select.classList.add('hidden'); 
-        inp.classList.remove('hidden'); 
-        inp.focus(); 
+        wrapper.classList.remove('hidden'); 
+        const inp = $(`inp-${id}-${type}`);
+        if(inp) inp.focus(); 
     } else { 
         saveAllPractices(true); 
+    }
+};
+
+// 手入力からリストに戻る処理
+window.toggleDropdownBack = (id, type, btn) => {
+    const select = $(`sel-${id}-${type}`);
+    const wrapper = $(`wrapper-${id}-${type}`);
+    const input = $(`inp-${id}-${type}`);
+    
+    if (select && wrapper) {
+        if (input) input.value = ''; // 入力をクリア
+        select.value = ''; // 選択もクリア
+        wrapper.classList.add('hidden');
+        select.classList.remove('hidden');
+        saveAllPractices(true);
     }
 };
 
