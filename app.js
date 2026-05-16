@@ -142,7 +142,7 @@ async function loadCloud() {
         if (!vRes.error && vRes.data) {
             const vis = {};
             vRes.data.forEach(v => {
-                vis[v.tab_id] = v.is_locked ? 'protected' : 'public';
+                vis[v.tab_name] = v.is_locked ? 'protected' : 'public';
             });
             state.settings.visibility = vis;
         }
@@ -805,28 +805,61 @@ window.delItem = (key, i) => { state.settings[key].splice(i, 1); saveLocal(); re
 function renderAdminVisibility() {
     const container = $('visibility-controls-container'); if (!container) return;
     container.innerHTML = '';
-    const tabs = [{ id: 'attendance-input', label: '出欠入力' }, { id: 'overall-status', label: '参加状況' }, { id: 'past-records', label: '過去' }, { id: 'admin-panel', label: '管理' }];
+    const tabs = [
+        { id: 'attendance-input', label: '出欠入力' }, 
+        { id: 'overall-status', label: '参加状況' }, 
+        { id: 'past-records', label: '過去' }, 
+        { id: 'admin-panel', label: '管理' }
+    ];
+    
     tabs.forEach(tab => {
         const cur = state.settings.visibility[tab.id] || 'public';
-        container.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:0.9rem;">${tab.label}</span><select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${tab.id}', this.value)"><option value="public" ${cur==='public'?'selected':''}>公開</option><option value="protected" ${cur==='protected'?'selected':''}>制限中</option></select></div>`;
+        const div = document.createElement('div');
+        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;";
+        div.innerHTML = `
+            <span style="font-size:0.9rem;">${tab.label}</span>
+            <select class="cute-input visibility-select" data-tab-id="${tab.id}" style="width:100px; margin:0;">
+                <option value="public" ${cur==='public'?'selected':''}>公開</option>
+                <option value="protected" ${cur==='protected'?'selected':''}>制限中</option>
+            </select>
+        `;
+        
+        // セレクトボックスに変更イベントを設定
+        const select = div.querySelector('.visibility-select');
+        select.addEventListener('change', (e) => {
+            window.updateVis(e.target.dataset.tabId, e.target.value);
+        });
+        
+        container.appendChild(div);
     });
 }
+
 window.updateVis = async (id, val) => {
+    console.log(`[保存開始] タブ: ${id}, 状態: ${val}`);
     state.settings.visibility[id] = val;
     updateLockIcons();
     
     if (db) {
         try {
             $('sync-indicator').classList.remove('hidden');
-            await db.from('visibility_settings').upsert({
-                tab_id: id,
+            const { error } = await db.from('visibility_settings').upsert({
+                tab_name: id,
                 is_locked: (val === 'protected')
-            }, { onConflict: 'tab_id' });
+            }, { onConflict: 'tab_name' });
+            
+            if (error) {
+                console.error('[Supabase保存エラー]', error);
+                alert('保存に失敗しました: ' + error.message);
+            } else {
+                console.log('[保存完了] DBに反映されました');
+            }
         } catch (err) {
-            console.error('閲覧制限の保存に失敗:', err);
+            console.error('[例外発生]', err);
         } finally {
             $('sync-indicator').classList.add('hidden');
         }
+    } else {
+        console.warn('[警告] DB接続が確立されていません');
     }
 };
 
