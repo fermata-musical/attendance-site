@@ -106,40 +106,60 @@ async function loadCloud() {
     if (!db) return;
     try {
         $('sync-indicator').classList.remove('hidden');
-        const { data: members, error: mErr } = await db.from('members').select('*');
-        if (mErr) throw mErr;
-        const { data: practices, error: pErr } = await db.from('practices').select('*').order('sort_order', { ascending: true });
-        if (pErr) throw pErr;
-        const { data: attendance, error: aErr } = await db.from('attendance').select('*');
-        if (aErr) throw aErr;
+        
+        // 各種データの並列取得
+        const [mRes, pRes, aRes, vRes] = await Promise.all([
+            db.from('members').select('*'),
+            db.from('practices').select('*').order('sort_order', { ascending: true }),
+            db.from('attendance').select('*'),
+            db.from('visibility_settings').select('*')
+        ]);
 
-        state.members = members;
+        if (mRes.error) throw mRes.error;
+        if (pRes.error) throw pRes.error;
+        if (aRes.error) throw aRes.error;
+
+        // メンバー情報
+        state.members = mRes.data;
+
+        // 稽古日程
         const groups = {};
-        practices.forEach(p => {
+        pRes.data.forEach(p => {
             const key = `${p.date}_${p.place}`;
             if (!groups[key]) groups[key] = { date: p.date, location: p.place, slots: [] };
             groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
         });
         state.rehearsals = Object.values(groups);
 
+        // 出欠情報
         state.attendance = {};
-        attendance.forEach(a => {
+        aRes.data.forEach(a => {
             if (!state.attendance[a.member_id]) state.attendance[a.member_id] = {};
             state.attendance[a.member_id][a.practice_id] = { id: a.id, status: a.status, note: a.note };
         });
 
-        const savedVis = localStorage.getItem('visibilitySettings');
-        if (savedVis) state.settings.visibility = JSON.parse(savedVis);
+        // 閲覧制限設定（DBから取得、なければデフォルト）
+        if (!vRes.error && vRes.data) {
+            const vis = {};
+            vRes.data.forEach(v => {
+                vis[v.tab_id] = v.is_locked ? 'protected' : 'public';
+            });
+            state.settings.visibility = vis;
+        }
 
         if (state.auth.isLoggedIn) { 
             refreshAdminViewList();
             isLocked = false; 
             renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input'); 
+            updateLockIcons(); // 鍵アイコンを更新
             setupSelectEventListeners();
             isLocked = true;
         }
-    } catch (error) { console.error("Supabase読み込みエラー:", error); } 
-    finally { $('sync-indicator').classList.add('hidden'); }
+    } catch (error) { 
+        console.error("Supabase読み込みエラー:", error); 
+    } finally { 
+        $('sync-indicator').classList.add('hidden'); 
+    }
 }
 
 function saveLocal() {
@@ -159,8 +179,6 @@ function initAuth() {
         state.auth = parsed.auth || state.auth;
         state.currentMember = parsed.currentMember || '';
     }
-    const savedVis = localStorage.getItem('visibilitySettings');
-    if (savedVis) state.settings.visibility = JSON.parse(savedVis);
 
     const loginBtn = $('login-btn');
     if (loginBtn) {
@@ -726,8 +744,8 @@ window.addMenuToDate = (date, place) => {
     }
 };
 
-window.handleAdminDropdownChange = (practiceId, type, select) => {
-    const inp = $(`inp-${practiceId}-${type}`);
+window.handleAdminDropdownChange = (id, type, select) => {
+    const inp = $(`inp-${id}-${type}`);
     if (select.value === 'other') { 
         select.classList.add('hidden'); 
         inp.classList.remove('hidden'); 
@@ -736,8 +754,9 @@ window.handleAdminDropdownChange = (practiceId, type, select) => {
         saveAllPractices(true); 
     }
 };
-window.handleAdminDropdownChangeGroup = (practiceId, type, select) => {
-    const inp = $(`inp-${practiceId}-${type}`);
+
+window.handleAdminDropdownChangeGroup = (id, type, select) => {
+    const inp = $(`inp-${id}-${type}`);
     if (select.value === 'other') { 
         select.classList.add('hidden'); 
         inp.classList.remove('hidden'); 
@@ -746,6 +765,7 @@ window.handleAdminDropdownChangeGroup = (practiceId, type, select) => {
         saveAllPractices(true); 
     }
 };
+
 window.handleAdminManualInput = () => { saveAllPractices(true); };
 window.handleAdminManualInputGroup = () => { saveAllPractices(true); };
 
@@ -791,7 +811,24 @@ function renderAdminVisibility() {
         container.innerHTML += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:0.9rem;">${tab.label}</span><select class="cute-input" style="width:100px; margin:0;" onchange="updateVis('${tab.id}', this.value)"><option value="public" ${cur==='public'?'selected':''}>公開</option><option value="protected" ${cur==='protected'?'selected':''}>制限中</option></select></div>`;
     });
 }
-window.updateVis = (id, val) => { state.settings.visibility[id] = val; localStorage.setItem('visibilitySettings', JSON.stringify(state.settings.visibility)); updateLockIcons(); };
+window.updateVis = async (id, val) => {
+    state.settings.visibility[id] = val;
+    updateLockIcons();
+    
+    if (db) {
+        try {
+            $('sync-indicator').classList.remove('hidden');
+            await db.from('visibility_settings').upsert({
+                tab_id: id,
+                is_locked: (val === 'protected')
+            }, { onConflict: 'tab_id' });
+        } catch (err) {
+            console.error('閲覧制限の保存に失敗:', err);
+        } finally {
+            $('sync-indicator').classList.add('hidden');
+        }
+    }
+};
 
 function getTimeOpts(s) {
     let h = `<option value="" ${s===''?'selected':''}>選択..</option>`;
