@@ -372,14 +372,29 @@ function renderAttendanceInput() {
         $('cancel-member-btn').onclick = () => { $('add-member-form').classList.add('hidden'); };
         $('confirm-member-btn').onclick = async () => {
             const name = $('new-member-name').value.trim();
-            if (name) {
-                const { data, error } = await db.from('members').insert({ name }).select().single();
-                if (error) alert(error.message);
-                else { 
-                    state.currentMember = data.id;
-                    saveLocal(); 
-                    await loadCloud(); 
-                }
+            
+            if (!name) {
+                alert('氏名を入力してください');
+                return;
+            }
+
+            const normalized = name.replace(/\s+/g, '');
+            const exists = state.members.some(m => m.name.replace(/\s+/g, '') === normalized);
+
+            if (exists) {
+                alert('同じ名前はすでに登録されています');
+                return;
+            }
+
+            const { data, error } = await db.from('members').insert({ name }).select().single();
+            if (error) {
+                alert(error.message);
+            } else { 
+                state.currentMember = data.id;
+                saveLocal(); 
+                await loadCloud(); 
+                $('add-member-form').classList.add('hidden');
+                $('new-member-name').value = '';
             }
         };
         if (state.currentMember) {
@@ -395,7 +410,21 @@ async function startEditCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     const newName = prompt('氏名を編集:', member.name);
     if (newName && newName.trim() !== member.name) {
-        await db.from('members').update({ name: newName.trim() }).eq('id', state.currentMember);
+        const trimmedName = newName.trim();
+        if (!trimmedName) {
+            alert('氏名を入力してください');
+            return;
+        }
+
+        const normalized = trimmedName.replace(/\s+/g, '');
+        const exists = state.members.some(m => m.id !== state.currentMember && m.name.replace(/\s+/g, '') === normalized);
+
+        if (exists) {
+            alert('同じ名前はすでに登録されています');
+            return;
+        }
+
+        await db.from('members').update({ name: trimmedName }).eq('id', state.currentMember);
         await loadCloud();
     }
 }
