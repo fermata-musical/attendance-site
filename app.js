@@ -729,6 +729,8 @@ function getSlotHtml(id, start = '', end = '', menu = '') {
                 <button class="del-row-btn" type="button" onclick="deleteMenuRow(this)" style="background:none; border:none; color:#ccc; padding:5px; font-size:1.2rem; cursor:pointer; flex-shrink:0;">
                     &times;
                 </button>
+                <button class="menu-up-btn" type="button" style="background:none; border:none; color:#888; padding:5px; font-size:1rem; cursor:pointer; flex-shrink:0;">↑</button>
+                <button class="menu-down-btn" type="button" style="background:none; border:none; color:#888; padding:5px; font-size:1rem; cursor:pointer; flex-shrink:0;">↓</button>
             </div>
         </div>`;
 }
@@ -1321,6 +1323,26 @@ window.onload = () => {
                 if (next) parent.insertBefore(next, card);
             }
             // 並び替え後に状態を保存 & クラウド同期
+            savePracticesFromDOM();
+            saveAllPractices(true);
+        }
+    });
+
+    // メニュー行の手動並び替えボタン（↑ ↓）
+    document.addEventListener('click', (e) => {
+        const menuUpBtn = e.target.closest('.menu-up-btn');
+        const menuDownBtn = e.target.closest('.menu-down-btn');
+        if (menuUpBtn || menuDownBtn) {
+            const row = e.target.closest('.menu-row');
+            if (!row) return;
+            const container = row.parentElement;
+            if (menuUpBtn) {
+                const prev = row.previousElementSibling;
+                if (prev) container.insertBefore(row, prev);
+            } else {
+                const next = row.nextElementSibling;
+                if (next) container.insertBefore(next, row);
+            }
             savePracticesFromDOM();
             saveAllPractices(true);
         }
