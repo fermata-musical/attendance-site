@@ -284,16 +284,17 @@ function initTabs() {
 
     const addBtn = $('add-rehearsal-btn');
     if (addBtn) {
-        addBtn.addEventListener('click', () => {
+        addBtn.addEventListener('click', async () => {
             try {
                 savePracticesFromDOM();
                 state.rehearsals.push({
                     date: '',
                     location: '',
-                    slots: []
+                    slots: [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }]
                 });
                 refreshAdminViewList();
                 renderAdminRehearsals();
+                await saveAllPractices(true);
             } catch (e) {
                 console.error('[追加エラー]', e);
             }
@@ -307,8 +308,7 @@ async function saveAllPractices(silent = false) {
     const cards = document.querySelectorAll('.admin-card-inner');
     let currentOrder = 0;
     cards.forEach(card => {
-        const date = card.querySelector('.date-input').value;
-        if (!date) return;
+        let date = card.querySelector('.date-input')?.value || null;
         
         const locSel = card.querySelector('.location-input');
         const locText = card.querySelector('.location-input-text');
@@ -316,34 +316,37 @@ async function saveAllPractices(silent = false) {
         if (place === 'other') place = locText?.value || '';
 
         const slotDivs = card.querySelectorAll('.slots');
-        // スロットが1つもない場合でも、日付があれば1件空データを送る（日付の保持のため）
-        if (slotDivs.length === 0 && date) {
+        // スロットが1つもない場合でも1件空データを送る
+        if (slotDivs.length === 0) {
             dataList.push({ id: crypto.randomUUID(), date, place, start_time: '', end_time: '', menu: '', sort_order: currentOrder++ });
+        } else {
+            slotDivs.forEach(slot => {
+                const id = slot.dataset.id;
+                const start = slot.querySelector('.start-time-input')?.value || '';
+                const end = slot.querySelector('.end-time-input')?.value || '';
+                
+                const menuSel = slot.querySelector('.menu-input');
+                const menuText = slot.querySelector('.menu-input-text');
+                let menu = menuSel?.value || '';
+                if (menu === 'other') menu = menuText?.value || '';
+                
+                const record = { date, place, start_time: start, end_time: end, menu, sort_order: currentOrder++ };
+                if (id && id !== "undefined") record.id = id;
+                else record.id = crypto.randomUUID();
+
+                dataList.push(record);
+            });
         }
-
-        slotDivs.forEach(slot => {
-            const id = slot.dataset.id;
-            const start = slot.querySelector('.start-time-input').value;
-            const end = slot.querySelector('.end-time-input').value;
-            
-            const menuSel = slot.querySelector('.menu-input');
-            const menuText = slot.querySelector('.menu-input-text');
-            let menu = menuSel?.value || '';
-            if (menu === 'other') menu = menuText?.value || '';
-            
-            const record = { date, place, start_time: start, end_time: end, menu, sort_order: currentOrder++ };
-            if (id && id !== "undefined") record.id = id;
-            else record.id = crypto.randomUUID();
-
-            dataList.push(record);
-        });
     });
     if (dataList.length === 0) return;
-    const { error } = await db.from('practices').upsert(dataList);
-    if (error) { console.error(error); alert('保存エラー: ' + error.message); } 
-    else if (!silent) { 
-        // サイレント保存（入力中のchange等）でない場合のみ再描画
-        await loadCloud(); 
+    
+    const { error } = await db.from('practices').upsert(dataList, { onConflict: 'id' });
+    if (error) { 
+        console.error('[保存エラー]', error); 
+        alert('保存エラー: ' + error.message); 
+    } else { 
+        console.log('[保存成功]');
+        if (!silent) await loadCloud(); 
     }
 }
 
