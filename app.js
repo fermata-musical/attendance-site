@@ -681,7 +681,8 @@ function renderAdminRehearsals() {
                 <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1;">
                     <i class="fa-solid fa-plus"></i> 追加
                 </button>
-                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:0 0 auto; width:80px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
+                <button class="action-btn-styled sort-menu-btn" type="button" style="flex:0 0 auto; width:65px; background:#e8f0fe; color:#1a73e8; border:none; font-size:0.75rem; font-weight:bold;">時間順</button>
+                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:0 0 auto; width:65px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
                     <i class="fa-solid fa-trash-can"></i> 削除
                 </button>
                 <button class="action-btn-styled move-up-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-up"></i></button>
@@ -1320,6 +1321,44 @@ window.onload = () => {
                 const next = row.nextElementSibling;
                 if (next) container.insertBefore(next, row);
             }
+            savePracticesFromDOM();
+            saveAllPractices(true);
+        }
+    });
+
+    // ワンクリック自動並び替え：全体を日付順
+    document.addEventListener('click', (e) => {
+        const sortPracticeBtn = e.target.closest('.sort-practice-btn');
+        if (sortPracticeBtn) {
+            savePracticesFromDOM();
+            state.rehearsals.sort((a, b) => {
+                const da = a.date ? new Date(a.date) : new Date('9999-12-31');
+                const db = b.date ? new Date(b.date) : new Date('9999-12-31');
+                return da - db;
+            });
+            refreshAdminViewList();
+            renderAdminRehearsals();
+            saveAllPractices(true);
+        }
+    });
+
+    // ワンクリック自動並び替え：同日内のメニューを時間順
+    document.addEventListener('click', (e) => {
+        const sortMenuBtn = e.target.closest('.sort-menu-btn');
+        if (sortMenuBtn) {
+            const item = sortMenuBtn.closest('.admin-card-inner');
+            if (!item) return;
+            const container = item.querySelector('.menu-container');
+            if (!container) return;
+            const rows = Array.from(container.querySelectorAll('.menu-row'));
+            
+            rows.sort((a, b) => {
+                const ta = a.querySelector('.start-time-input')?.value || 'zz:zz';
+                const tb = b.querySelector('.start-time-input')?.value || 'zz:zz';
+                return ta.localeCompare(tb);
+            });
+            
+            rows.forEach(row => container.appendChild(row));
             savePracticesFromDOM();
             saveAllPractices(true);
         }

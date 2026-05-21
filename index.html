@@ -123,9 +123,12 @@
                 </div>
 
                 <div id="rehearsal-edit" class="sub-tab-content active">
-                    <div style="margin-bottom:15px; display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--text-sub);">
-                        <input type="checkbox" id="show-past-admin-check" style="width:16px; height:16px;">
-                        <label for="show-past-admin-check">過去の稽古も表示する</label>
+                    <div style="margin-bottom:15px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.85rem; color:var(--text-sub);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="show-past-admin-check" style="width:16px; height:16px;">
+                            <label for="show-past-admin-check">過去の稽古も表示する</label>
+                        </div>
+                        <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button"><i class="fa-solid fa-arrow-down-1-9"></i> 日付順に並べ替え</button>
                     </div>
                     <div id="admin-rehearsal-list"></div>
                     <button id="add-rehearsal-btn" class="puffy-btn pink" style="width:100%; margin-top:20px;"><i class="fa-solid fa-calendar-plus"></i> 新しい稽古日を追加</button>
