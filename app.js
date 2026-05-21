@@ -89,6 +89,14 @@ const getMonthStr = (date) => date ? date.substring(0, 7) : "";
 const getToday = () => new Date().setHours(0,0,0,0);
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
+function getWeekday(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    return days[d.getDay()];
+}
+
 function setupSelectEventListeners() {
     // プルダウンの挙動を正常化
     document.querySelectorAll('select').forEach(select => {
@@ -489,7 +497,9 @@ function renderAttendanceContent() {
                         <input type="text" class="cute-input note-area" placeholder="備考があれば" value="${data.note || ''}" onchange="setNote('${s.id}',this.value)">
                     </div>`;
             });
-            card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${r.date}　${r.location}</h2></div>${slotsHtml}`;
+            const weekday = getWeekday(r.date);
+            const dateDisplay = weekday ? `${r.date}（${weekday}）` : (r.date || '');
+            card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}　${r.location}</h2></div>${slotsHtml}`;
             mainContainer.appendChild(card);
         });
     });
@@ -667,10 +677,14 @@ function renderAdminRehearsals() {
             slotsHtml += getSlotHtml(s.id, s.start, s.end, s.menu);
         });
 
+        const weekday = getWeekday(r.date);
+        const displayWeekday = weekday ? `（${weekday}）` : '';
+
         card.innerHTML = `
-            <div class="admin-line" style="margin-bottom:10px;">
+            <div class="admin-line" style="margin-bottom:10px; align-items:center;">
                 <input type="date" class="cute-input date-input" value="${r.date || ''}">
-                <div class="dropdown-toggle-container flex:1">
+                <span class="weekday-label" style="font-size:0.85rem; color:#888; margin-left:4px;">${displayWeekday}</span>
+                <div class="dropdown-toggle-container flex:1" style="margin-left:8px;">
                     ${renderAdminDropdownSelect(idx, 'location', r.location, true)}
                 </div>
             </div>
@@ -1032,9 +1046,11 @@ function renderOverallStatus() {
                         <div class="status-group"><div class="absent-title" style="color:#888;">【備考のみ】</div><div style="display:flex; flex-wrap:wrap; gap:5px;">${notesOnly.map(n => `<span class="status-tag" style="background-color:#EEE; color:#666; border:1px solid #DDD;">${n}</span>`).join('') || 'なし'}</div></div>
                     </div>`;
             });
+            const weekday = getWeekday(r.date);
+            const dateDisplay = weekday ? `${r.date}（${weekday}）` : (r.date || '');
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${r.date}　${r.location}</h2></div>${slotsHtml}`;
+            card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-star"></i> ${dateDisplay}　${r.location}</h2></div>${slotsHtml}`;
             mainContainer.appendChild(card);
         });
     });
@@ -1099,13 +1115,15 @@ function renderPastRecords() {
                         <div style="font-size:0.85rem; color:var(--muted);">欠席: ${abs.join(', ') || 'なし'}</div>
                     </div>`;
             });
+            const weekday = getWeekday(r.date);
+            const dateDisplay = weekday ? `${r.date}（${weekday}）` : (r.date || '');
             contentHtml += `
                 <div class="card practice-item" data-date="${r.date}" data-place="${r.location}">
                     <div style="display:flex; align-items:flex-start; gap:12px;">
                         <input type="checkbox" class="select-checkbox" style="width:20px; height:20px; margin-top:4px; flex-shrink:0; cursor:pointer;">
                         <div style="flex:1;" class="past-card-content">
                             <div class="section-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
-                                <h2 style="flex:1;"><i class="fa-solid fa-calendar-day"></i> ${r.date} ${r.location}</h2>
+                                <h2 style="flex:1;"><i class="fa-solid fa-calendar-day"></i> ${dateDisplay} ${r.location}</h2>
                                 <button class="puffy-btn gray puffy-btn-sm" onclick="editPastCard('${r.date}', '${r.location}', this.closest('.practice-item'))" style="padding:4px 10px; font-size:0.75rem; margin-left:10px;">編集</button>
                             </div>
                             <div class="view-mode-content">
@@ -1368,6 +1386,17 @@ window.onload = () => {
     document.addEventListener('change', (e) => {
         if (e.target.id === 'show-past-admin-check') {
             renderAdminPanel();
+        }
+    });
+
+    // 管理タブ：日付入力変更時に曜日を連動表示
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('date-input')) {
+            const label = e.target.nextElementSibling;
+            if (label && label.classList.contains('weekday-label')) {
+                const w = getWeekday(e.target.value);
+                label.textContent = w ? `（${w}）` : '';
+            }
         }
     });
 
