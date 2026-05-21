@@ -284,11 +284,20 @@ function initTabs() {
 
     const addBtn = $('add-rehearsal-btn');
     if (addBtn) {
-        addBtn.onclick = () => {
-            if (typeof window.addNewRehearsal === 'function') {
-                window.addNewRehearsal();
+        addBtn.addEventListener('click', () => {
+            try {
+                savePracticesFromDOM();
+                state.rehearsals.push({
+                    date: '',
+                    location: '',
+                    slots: []
+                });
+                refreshAdminViewList();
+                renderAdminRehearsals();
+            } catch (e) {
+                console.error('[追加エラー]', e);
             }
-        };
+        });
     }
 }
 
@@ -612,6 +621,7 @@ function savePracticesFromDOM() {
     const newRehearsals = [];
 
     cards.forEach(card => {
+        if (!card) return;
         const date = card.querySelector('.date-input')?.value || '';
         
         // 場所の取得（プルダウン or 直接入力）
@@ -654,6 +664,7 @@ function renderAdminRehearsals() {
     const today = getToday();
     
     state.ui.adminViewList.forEach((r, idx) => {
+        if (!r) return;
         const card = document.createElement('div');
         card.className = 'admin-card-inner';
 
