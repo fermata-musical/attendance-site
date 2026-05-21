@@ -7,7 +7,6 @@ let db;
 let allowUpdate = false; 
 let isEditing = false; 
 let isLocked = true;   
-let allowSort = false; // 並び替え許可フラグ
 let isSaving = false;  // 保存中フラグ
 
 function isEditingNow() {
@@ -27,7 +26,6 @@ function safeAppend(parent, child) {
 function unlockAndUpdate() {
     isLocked = false;
     allowUpdate = true;
-    sortPractices();
     hidePastPractices();
 }
 
@@ -241,10 +239,8 @@ function initTabs() {
         tab.addEventListener('click', () => {
             const id = tab.dataset.tab;
             
-            // タブ切替前に今の入力を保存し、並び替えを許可
+            // タブ切替前に今の入力を保存
             savePracticesFromDOM();
-            allowSort = true;
-            sortPractices();
 
             if (state.settings.visibility[id] === 'protected' && state.auth.type !== 'admin') { 
                 alert('管理者のみアクセス可能です。'); return; 
@@ -262,10 +258,8 @@ function initTabs() {
 
     document.querySelectorAll('.menu-tab').forEach(tab => {
         tab.onclick = () => {
-            // サブタブ切替前にも保存・並び替え
+            // サブタブ切替前にも保存
             savePracticesFromDOM();
-            allowSort = true;
-            sortPractices();
 
             refreshAdminViewList();
             document.querySelectorAll('.menu-tab').forEach(t => t.classList.remove('active'));
@@ -586,23 +580,6 @@ function hidePastPractices() {
         if (new Date(dateVal) < today) item.style.display = 'none';
         else item.style.display = '';
     });
-}
-
-function sortPractices() {
-    if (!allowSort) return; // 許可されていない時は何もしない
-    const list = $('admin-rehearsal-list');
-    if (!list) return;
-    const items = Array.from(list.querySelectorAll('.admin-card-inner'));
-    items.sort((a, b) => {
-        const da = a.querySelector('.date-input').value;
-        const db = b.querySelector('.date-input').value;
-        if (!da && !db) return 0;
-        if (!da) return 1;
-        if (!db) return -1;
-        return da.localeCompare(db);
-    });
-    items.forEach(item => list.appendChild(item));
-    allowSort = false; // 実行後はフラグを戻す
 }
 
 function renderAdminPanel() {
