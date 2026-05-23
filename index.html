@@ -128,10 +128,20 @@
                             <input type="checkbox" id="show-past-admin-check" style="width:16px; height:16px;">
                             <label for="show-past-admin-check">過去の稽古も表示する</label>
                         </div>
-                        <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button"><i class="fa-solid fa-arrow-down-1-9"></i> 日付順に並べ替え</button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button" data-order="asc"><i class="fa-solid fa-arrow-down-1-9"></i> 古い順</button>
+                            <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button" data-order="desc"><i class="fa-solid fa-arrow-up-9-1"></i> 新しい順</button>
+                        </div>
                     </div>
+                    <button class="add-rehearsal-btn-class puffy-btn pink" style="width:100%; margin-bottom:10px; background:#fff; color:var(--pink-accent); border:2px solid var(--pink-accent);"><i class="fa-solid fa-calendar-plus"></i> 新しい稽古日を追加</button>
+                    <button class="save-practices-btn-class puffy-btn pink" style="width:100%; margin-bottom:20px; box-shadow: 0 4px 10px rgba(233,101,153,0.3);"><i class="fa-solid fa-cloud-arrow-up"></i> 変更を保存する</button>
                     <div id="admin-rehearsal-list"></div>
-                    <button id="add-rehearsal-btn" class="puffy-btn pink" style="width:100%; margin-top:20px;"><i class="fa-solid fa-calendar-plus"></i> 新しい稽古日を追加</button>
+                    <div style="margin-top:15px; display:flex; justify-content:flex-end; gap:6px;">
+                        <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button" data-order="asc"><i class="fa-solid fa-arrow-down-1-9"></i> 古い順</button>
+                        <button class="sort-practice-btn puffy-btn pink puffy-btn-sm" type="button" data-order="desc"><i class="fa-solid fa-arrow-up-9-1"></i> 新しい順</button>
+                    </div>
+                    <button class="add-rehearsal-btn-class puffy-btn pink" style="width:100%; margin-top:20px; background:#fff; color:var(--pink-accent); border:2px solid var(--pink-accent);"><i class="fa-solid fa-calendar-plus"></i> 新しい稽古日を追加</button>
+                    <button class="save-practices-btn-class puffy-btn pink" style="width:100%; margin-top:15px; box-shadow: 0 4px 10px rgba(233,101,153,0.3);"><i class="fa-solid fa-cloud-arrow-up"></i> 変更を保存する</button>
                 </div>
 
                 <div id="dropdown-edit" class="sub-tab-content">

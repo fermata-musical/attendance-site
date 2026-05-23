@@ -8,6 +8,7 @@ let allowUpdate = false;
 let isEditing = false; 
 let isLocked = true;   
 let isSaving = false;  // 保存中フラグ
+let isDirty = false;   // 未保存の変更があるかどうかのフラグ
 
 function isEditingNow() {
     const active = document.activeElement;
@@ -79,7 +80,8 @@ let state = {
         statusMonth: '',
         pastMonth: '',
         editingId: null,
-        adminViewList: []
+        adminViewList: [],
+        adminSortOrder: 'asc'
     }
 };
 
@@ -243,8 +245,35 @@ function updateLockIcons() {
 }
 
 function initTabs() {
+    // 未保存の変更警告（ページ遷移・リロード時）
+    window.addEventListener('beforeunload', (e) => {
+        if (isDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // 日程編集画面での変更をすべて検知
+    const rehearsalEdit = $('rehearsal-edit');
+    if (rehearsalEdit) {
+        rehearsalEdit.addEventListener('input', () => { isDirty = true; });
+        rehearsalEdit.addEventListener('change', () => { isDirty = true; });
+        rehearsalEdit.addEventListener('click', (e) => {
+            if (e.target.closest('button') && !e.target.closest('.save-practices-btn-class')) {
+                isDirty = true;
+            }
+        });
+    }
+
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', () => {
+            if (isDirty) {
+                if (!confirm('保存されていない変更があります。\nこのまま移動すると変更内容が失われますが、よろしいですか？')) {
+                    return;
+                }
+                isDirty = false; // 移動を許可した場合はフラグをリセット
+            }
+
             const id = tab.dataset.tab;
             
             // タブ切替前に今の入力を保存
@@ -266,6 +295,13 @@ function initTabs() {
 
     document.querySelectorAll('.menu-tab').forEach(tab => {
         tab.onclick = () => {
+            if (isDirty) {
+                if (!confirm('保存されていない変更があります。\nこのまま移動すると変更内容が失われますが、よろしいですか？')) {
+                    return;
+                }
+                isDirty = false;
+            }
+
             // サブタブ切替前にも保存
             savePracticesFromDOM();
 
@@ -282,71 +318,82 @@ function initTabs() {
         };
     });
 
-    const addBtn = $('add-rehearsal-btn');
-    if (addBtn) {
-        addBtn.addEventListener('click', async () => {
+    document.querySelectorAll('.add-rehearsal-btn-class').forEach(btn => {
+        btn.addEventListener('click', async () => {
             try {
                 savePracticesFromDOM();
-                state.rehearsals.push({
+                const newRow = {
                     date: '',
                     location: '',
                     slots: [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }]
-                });
+                };
+                state.rehearsals.unshift(newRow); // 常に一番上に追加
                 refreshAdminViewList();
                 renderAdminRehearsals();
-                await saveAllPractices(true);
             } catch (e) {
                 console.error('[追加エラー]', e);
             }
         });
-    }
+    });
+
+    document.querySelectorAll('.save-practices-btn-class').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 保存中...';
+            btn.disabled = true;
+            try {
+                savePracticesFromDOM();
+                await saveAllPractices(false);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        });
+    });
 }
 
 async function saveAllPractices(silent = false) {
     if (!db) return;
     const dataList = [];
-    const cards = document.querySelectorAll('.admin-card-inner');
     let currentOrder = 0;
-    cards.forEach(card => {
-        let date = card.querySelector('.date-input')?.value || null;
+    
+    // state.rehearsals から直接保存用データを生成する
+    // DBのNOT NULL制約エラーを防ぐため、未入力（空文字）は送信対象から除外（画面には残る）
+    const validRehearsals = state.rehearsals.filter(p => p.date && p.date.trim() !== '');
+
+    validRehearsals.forEach(r => {
         
-        const locSel = card.querySelector('.location-input');
-        const locText = card.querySelector('.location-input-text');
-        let place = locSel?.value || '';
-        if (place === 'other') place = locText?.value || '';
-
-        const slotDivs = card.querySelectorAll('.slots');
-        // スロットが1つもない場合でも1件空データを送る
-        if (slotDivs.length === 0) {
-            dataList.push({ id: crypto.randomUUID(), date, place, start_time: '', end_time: '', menu: '', sort_order: currentOrder++ });
+        if (!r.slots || r.slots.length === 0) {
+            dataList.push({ id: crypto.randomUUID(), date: r.date || null, place: r.location, start_time: '', end_time: '', menu: '', sort_order: currentOrder++ });
         } else {
-            slotDivs.forEach(slot => {
-                const id = slot.dataset.id;
-                const start = slot.querySelector('.start-time-input')?.value || '';
-                const end = slot.querySelector('.end-time-input')?.value || '';
-                
-                const menuSel = slot.querySelector('.menu-input');
-                const menuText = slot.querySelector('.menu-input-text');
-                let menu = menuSel?.value || '';
-                if (menu === 'other') menu = menuText?.value || '';
-                
-                const record = { date, place, start_time: start, end_time: end, menu, sort_order: currentOrder++ };
-                if (id && id !== "undefined") record.id = id;
-                else record.id = crypto.randomUUID();
-
-                dataList.push(record);
+            r.slots.forEach(s => {
+                dataList.push({
+                    id: s.id && s.id !== "undefined" ? s.id : crypto.randomUUID(),
+                    date: r.date || null,
+                    place: r.location,
+                    start_time: s.start || '',
+                    end_time: s.end || '',
+                    menu: s.menu || '',
+                    sort_order: currentOrder++
+                });
             });
         }
     });
+
     if (dataList.length === 0) return;
     
+    console.log('[upsert送信]', dataList);
     const { error } = await db.from('practices').upsert(dataList, { onConflict: 'id' });
     if (error) { 
         console.error('[保存エラー]', error); 
         alert('保存エラー: ' + error.message); 
     } else { 
         console.log('[保存成功]');
-        if (!silent) await loadCloud(); 
+        if (!silent) {
+            isDirty = false; // 保存成功でフラグをリセット
+            alert('変更を保存しました！');
+            await loadCloud(); 
+        }
     }
 }
 
@@ -621,7 +668,9 @@ function savePracticesFromDOM() {
     if (!list || list.offsetParent === null) return;
 
     const cards = list.querySelectorAll('.admin-card-inner');
-    const newRehearsals = [];
+    console.log('[対象数]', cards.length);
+
+    state.rehearsals = [];
 
     cards.forEach(card => {
         if (!card) return;
@@ -634,7 +683,7 @@ function savePracticesFromDOM() {
 
         const slots = [];
         card.querySelectorAll('.slots').forEach(slot => {
-            const id = slot.dataset.id || crypto.randomUUID();
+            const id = slot.dataset.id && slot.dataset.id !== "undefined" ? slot.dataset.id : crypto.randomUUID();
             const start = slot.querySelector('.start-time-input')?.value || '';
             const end = slot.querySelector('.end-time-input')?.value || '';
             
@@ -643,17 +692,13 @@ function savePracticesFromDOM() {
             const menuText = slot.querySelector('.menu-input-text');
             let menu = (menuSel && menuSel.value === 'other') ? (menuText?.value || '') : (menuSel?.value || '');
 
-            // すべて空の場合はデータに含めない
-            if (!start && !end && !menu) return;
-
             slots.push({ id, start, end, menu });
         });
 
-        newRehearsals.push({ date, location, slots });
+        state.rehearsals.push({ date, location, slots });
     });
 
-    // stateを更新
-    state.rehearsals = newRehearsals;
+    console.log('[保存データ]', state.rehearsals);
     refreshAdminViewList();
 }
 
@@ -709,8 +754,8 @@ function renderAdminRehearsals() {
                 <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1;">
                     <i class="fa-solid fa-plus"></i> 追加
                 </button>
-                <button class="action-btn-styled sort-menu-btn" type="button" style="flex:0 0 auto; width:65px; background:#e8f0fe; color:#1a73e8; border:none; font-size:0.75rem; font-weight:bold;">時間順</button>
-                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date}','${r.location}')" style="flex:0 0 auto; width:65px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
+                <button class="action-btn-styled sort-menu-btn" type="button" style="flex:0 0 auto; width:65px; background:#fff; color:var(--pink-accent); border:1px solid var(--pink-accent); font-size:0.75rem; font-weight:bold;">時間順</button>
+                <button class="action-btn-styled delete-day-btn" type="button" onclick="delPracticeGroup('${r.date || ''}','${r.location || ''}', this)" style="flex:0 0 auto; width:65px; background:#f0f0f0; color:#888; border:none; font-size:0.75rem;">
                     <i class="fa-solid fa-trash-can"></i> 削除
                 </button>
                 <button class="action-btn-styled move-up-btn" type="button" style="flex:0 0 36px;"><i class="fa-solid fa-arrow-up"></i></button>
@@ -719,6 +764,9 @@ function renderAdminRehearsals() {
         `;
         list.appendChild(card);
     });
+
+    // 追加された入力欄に対しても自動保存などのイベントをバインドする
+    setupSelectEventListeners();
 }
 
 // 1つのスロット（時間枠）のHTMLを生成するヘルパー（一貫性のため）
@@ -757,9 +805,13 @@ window.deleteMenuRow = async (btn) => {
         }
     }
     
-    // 2. 状態を同期して保存
+    // 2. 状態を同期
     savePracticesFromDOM();
-    saveAllPractices(true);
+};
+
+const handleAdminChange = () => {
+    if (isLocked) return;
+    savePracticesFromDOM();
 };
 
 window.addNewRehearsal = () => {
@@ -824,10 +876,23 @@ window.delPractice = async (id) => {
         if (error) alert(error.message); else await loadCloud(); 
     } 
 };
-window.delPracticeGroup = async (date, place) => { 
-    if(confirm(`${date} の稽古日をすべて削除しますか？`)) { 
-        const { error } = await db.from('practices').delete().eq('date', date).eq('place', place); 
-        if (error) alert(error.message); else await loadCloud(); 
+window.delPracticeGroup = async (date, place, btn) => { 
+    if(confirm(`${date ? date + ' の' : 'この'}稽古日をすべて削除しますか？\n（※登録済みのデータは即座に削除されます）`)) { 
+        if (date && db) {
+            const { error } = await db.from('practices').delete().eq('date', date).eq('place', place); 
+            if (error) {
+                alert(error.message);
+                return;
+            }
+        }
+        
+        // 画面全体のリロードはせず、対象の枠のみを削除して状態を同期
+        if (btn) {
+            const card = btn.closest('.admin-card-inner');
+            if (card) card.remove();
+        }
+        isDirty = true;
+        savePracticesFromDOM();
     } 
 };
 
@@ -1180,7 +1245,7 @@ function renderAdminDropdownSelect(id, type, current, isGroup=false) {
                        style="flex:1; min-width:0;"
                        value="${isOther?current:''}" 
                        placeholder="直接入力"
-                       onchange="saveAllPractices(true)">
+                       onchange="savePracticesFromDOM()">
                 <button type="button" class="icon-btn-sm" style="width:36px; height:44px; flex-shrink:0; border-radius:12px;" 
                         onclick="toggleDropdownBack('${id}', '${type}', this)">
                     <i class="fa-solid fa-list-ul"></i>
@@ -1198,7 +1263,7 @@ window.handleAdminDropdownChange = (id, type, select) => {
         const inp = $(`inp-${id}-${type}`);
         if(inp) inp.focus(); 
     } else { 
-        saveAllPractices(true); 
+        savePracticesFromDOM(); 
     }
 };
 
@@ -1210,7 +1275,7 @@ window.handleAdminDropdownChangeGroup = (id, type, select) => {
         const inp = $(`inp-${id}-${type}`);
         if(inp) inp.focus(); 
     } else { 
-        saveAllPractices(true); 
+        savePracticesFromDOM(); 
     }
 };
 
@@ -1225,12 +1290,12 @@ window.toggleDropdownBack = (id, type, btn) => {
         select.value = ''; // 選択もクリア
         wrapper.classList.add('hidden');
         select.classList.remove('hidden');
-        saveAllPractices(true);
+        savePracticesFromDOM();
     }
 };
 
-window.handleAdminManualInput = () => { saveAllPractices(true); };
-window.handleAdminManualInputGroup = () => { saveAllPractices(true); };
+window.handleAdminManualInput = () => { savePracticesFromDOM(); };
+window.handleAdminManualInputGroup = () => { savePracticesFromDOM(); };
 
 function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId, prefix) {
     const top = $(containerTopId), bottom = $(containerBottomId);
@@ -1332,9 +1397,8 @@ window.onload = () => {
                 const next = card.nextElementSibling;
                 if (next) parent.insertBefore(next, card);
             }
-            // 並び替え後に状態を保存 & クラウド同期
+            // 並び替え後に状態を保存
             savePracticesFromDOM();
-            saveAllPractices(true);
         }
     });
 
@@ -1354,7 +1418,6 @@ window.onload = () => {
                 if (next) container.insertBefore(next, row);
             }
             savePracticesFromDOM();
-            saveAllPractices(true);
         }
     });
 
@@ -1362,15 +1425,24 @@ window.onload = () => {
     document.addEventListener('click', (e) => {
         const sortPracticeBtn = e.target.closest('.sort-practice-btn');
         if (sortPracticeBtn) {
+            const order = sortPracticeBtn.dataset.order || 'asc';
+            state.ui.adminSortOrder = order;
             savePracticesFromDOM();
             state.rehearsals.sort((a, b) => {
-                const da = a.date ? new Date(a.date) : new Date('9999-12-31');
-                const db = b.date ? new Date(b.date) : new Date('9999-12-31');
-                return da - db;
+                if (order === 'desc') {
+                    // 降順の場合は、未入力を一番下にするため 0000-01-01 扱いにする
+                    const daDesc = a.date ? new Date(a.date) : new Date('0000-01-01');
+                    const dbDesc = b.date ? new Date(b.date) : new Date('0000-01-01');
+                    return dbDesc - daDesc;
+                } else {
+                    // 昇順の場合は、未入力を一番下にするため 9999-12-31 扱いにする
+                    const daAsc = a.date ? new Date(a.date) : new Date('9999-12-31');
+                    const dbAsc = b.date ? new Date(b.date) : new Date('9999-12-31');
+                    return daAsc - dbAsc;
+                }
             });
             refreshAdminViewList();
             renderAdminRehearsals();
-            saveAllPractices(true);
         }
     });
 
@@ -1392,7 +1464,6 @@ window.onload = () => {
             
             rows.forEach(row => container.appendChild(row));
             savePracticesFromDOM();
-            saveAllPractices(true);
         }
     });
 
