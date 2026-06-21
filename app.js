@@ -330,7 +330,7 @@ function initTabs() {
         });
     });
 
-    document.querySelectorAll('.menu-tab').forEach(tab => {
+    document.querySelectorAll('#admin-panel > .admin-menu-tabs > .menu-tab').forEach(tab => {
         tab.onclick = () => {
             if (isDirty) {
                 if (!confirm('保存されていない変更があります。\nこのまま移動すると変更内容が失われますが、よろしいですか？')) {
@@ -344,7 +344,7 @@ function initTabs() {
 
             refreshAdminViewList();
             document.querySelectorAll('.menu-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none');
+            document.querySelectorAll('#admin-panel > .sub-tab-content').forEach(c => c.style.display = 'none');
             tab.classList.add('active'); 
             const menuId = tab.dataset.menu;
             if ($(menuId)) $(menuId).style.display = 'block';
@@ -690,7 +690,7 @@ function hidePastPractices() {
 }
 
 function renderAdminPanel() {
-    const activeSub = document.querySelector('.menu-tab.active')?.dataset.menu || 'rehearsal-edit';
+    const activeSub = document.querySelector('#admin-panel > .admin-menu-tabs > .menu-tab.active')?.dataset.menu || 'rehearsal-edit';
     if (activeSub === 'rehearsal-edit') {
         // 描画前に最新のadminViewListをセット
         refreshAdminViewList();
