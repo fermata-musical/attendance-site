@@ -132,7 +132,7 @@
                         <div id="memo-form-container" style="margin-top: 15px;">
                             <input type="hidden" id="edit-memo-id">
                             <div class="input-group-full" style="gap: 10px;">
-                                <div class="memo-form-row">
+                                <div style="display: flex; gap: 10px;">
                                     <div style="flex: 1;">
                                         <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">区分 <span style="color:red;">*</span> <small>(複数選択可)</small></label>
                                         <div id="memo-category-checkboxes" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
@@ -150,7 +150,7 @@
                                 </div>
                                 <div>
                                     <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">内容 <span style="color:red;">*</span></label>
-                                    <textarea id="memo-content" class="cute-input" style="width: 100%; height: 60px; min-height: 60px; resize: none; overflow-y: hidden;" placeholder="具体的な指示内容を入力"></textarea>
+                                    <textarea id="memo-content" class="cute-input" rows="4" placeholder="具体的な指示内容を入力" style="width: 100%; resize: vertical;"></textarea>
                                 </div>
                                 <div style="display: flex; gap: 10px; margin-top: 5px;">
                                     <button id="save-memo-btn" class="puffy-btn pink" style="flex: 1;"><i class="fa-solid fa-paper-plane"></i> 登録する</button>

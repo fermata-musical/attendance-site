@@ -473,11 +473,3 @@ select.cute-input option {
 .memo-action-btn.delete:hover {
     color: #e57373;
 }
-
-/* スマホでのみ縦並びにする */
-@media (max-width: 600px) {
-    .memo-form-row {
-        flex-direction: column !important;
-        gap: 15px !important;
-    }
-}

@@ -1401,17 +1401,6 @@ window.onload = () => {
         }
     });
 
-    // テキストエリアの自動リサイズ
-    const memoContent = $('memo-content');
-    if (memoContent) {
-        memoContent.addEventListener('input', function() {
-            this.style.height = '60px'; // いったん最小の高さに戻す
-            if (this.scrollHeight > 60) {
-                this.style.height = this.scrollHeight + 'px'; // 内容に合わせて広げる
-            }
-        });
-    }
-
     initAuth(); initTabs(); 
 
     // イベント委譲：メニュー追加ボタン
@@ -1863,9 +1852,7 @@ window.resetMemoForm = () => {
     document.querySelectorAll('.memo-category-check').forEach(cb => cb.checked = false);
     $('memo-target-person').value = '';
     $('memo-target-range').value = '';
-    const memoContent = $('memo-content');
-    memoContent.value = '';
-    memoContent.style.height = '60px'; // 高さをリセット
+    $('memo-content').value = '';
     
     $('cancel-memo-btn').classList.add('hidden');
     $('save-memo-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> 登録する';
@@ -1886,14 +1873,7 @@ window.editMemo = (id) => {
     });
     $('memo-target-person').value = memo.target_person || '';
     $('memo-target-range').value = memo.target_range || '';
-    const memoContent = $('memo-content');
-    memoContent.value = memo.content || '';
-    
-    // 内容に応じて高さを調整
-    memoContent.style.height = '60px';
-    if (memoContent.scrollHeight > 60) {
-        memoContent.style.height = memoContent.scrollHeight + 'px';
-    }
+    $('memo-content').value = memo.content || '';
     
     $('cancel-memo-btn').classList.remove('hidden');
     $('save-memo-btn').innerHTML = '<i class="fa-solid fa-pen"></i> 更新する';
