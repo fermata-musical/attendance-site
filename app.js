@@ -70,9 +70,11 @@ let state = {
     currentMember: '',
     rehearsals: [], 
     attendance: {}, 
+    memos: [],
     settings: {
         locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
         menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
+        memoCategories: [],
         visibility: {} // localStorageから読み込む
     },
     ui: {
@@ -116,18 +118,32 @@ async function loadCloud() {
         $('sync-indicator').classList.remove('hidden');
         
         // 各種データの並列取得
-        const [mRes, pRes, aRes, vRes, locRes, menuRes] = await Promise.all([
+        const [mRes, pRes, aRes, vRes, locRes, menuRes, memoRes, catRes] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
             db.from('attendance').select('*'),
             db.from('visibility_settings').select('*'),
             db.from('places').select('*').order('sort_order', { ascending: true }),
-            db.from('menus').select('*').order('sort_order', { ascending: true })
+            db.from('menus').select('*').order('sort_order', { ascending: true }),
+            db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
+            db.from('memo_categories').select('*').order('sort_order', { ascending: true })
         ]);
 
         if (mRes.error) throw mRes.error;
         if (pRes.error) throw pRes.error;
         if (aRes.error) throw aRes.error;
+
+        if (memoRes && memoRes.data) {
+            state.memos = memoRes.data;
+        } else if (memoRes && memoRes.error) {
+            console.warn("memos取得エラー:", memoRes.error);
+        }
+
+        if (catRes && catRes.data) {
+            state.settings.memoCategories = catRes.data;
+        } else if (catRes && catRes.error) {
+            console.warn("memo_categories取得エラー:", catRes.error);
+        }
 
         // メンバー情報
         state.members = mRes.data;
@@ -139,7 +155,28 @@ async function loadCloud() {
             if (!groups[key]) groups[key] = { date: p.date, location: p.place, slots: [] };
             groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
         });
-        state.rehearsals = Object.values(groups);
+        state.rehearsals = Object.values(groups).map(group => {
+            const validSlots = group.slots.filter(s => s.start || s.end || s.menu);
+            const emptySlots = group.slots.filter(s => !(s.start || s.end || s.menu));
+
+            // 過去のバグで蓄積したゴーストデータを物理削除する処理
+            if (validSlots.length > 0 && emptySlots.length > 0) {
+                // 有効データがあるのに空データもある場合、空データは完全なゴミ
+                emptySlots.forEach(s => {
+                    db.from('practices').delete().eq('id', s.id).then();
+                });
+                group.slots = validSlots;
+            } else if (validSlots.length === 0 && emptySlots.length > 1) {
+                // 有効データがなく、空データが複数ある場合、1つ残して他はゴミ
+                const keep = emptySlots[0];
+                const trash = emptySlots.slice(1);
+                trash.forEach(s => {
+                    db.from('practices').delete().eq('id', s.id).then();
+                });
+                group.slots = [keep];
+            }
+            return group;
+        });
 
         // 出欠情報
         state.attendance = {};
@@ -400,6 +437,7 @@ async function saveAllPractices(silent = false) {
 function renderTab(id) {
     if (id === 'attendance-input') renderAttendanceInput();
     if (id === 'overall-status') renderOverallStatus();
+    if (id === 'rehearsal-memo') renderRehearsalMemos();
     if (id === 'admin-panel') renderAdminPanel();
     if (id === 'past-records') renderPastRecords();
 }
@@ -725,8 +763,8 @@ function renderAdminRehearsals() {
         
         // 方針A: 1行（1稽古日）のHTMLをテンプレート文字列で一括生成
         let slotsHtml = '';
-        // 空のデータを除外して取得
-        let slots = (r.slots || []).filter(s => s.start || s.end || s.menu);
+        // 空のデータを除外して取得する処理を廃止（ゴースト化を防ぐため、全スロットを表示する）
+        let slots = r.slots || [];
         // 1件も有効なデータがない場合のみ、入力用の空行を1つ用意する
         if (slots.length === 0) {
             slots = [{ id: crypto.randomUUID(), start: '', end: '', menu: '' }];
@@ -851,8 +889,6 @@ window.handleAdminDropdownChange = (id, type, select) => {
         select.classList.add('hidden'); 
         inp.classList.remove('hidden'); 
         inp.focus(); 
-    } else { 
-        saveAllPractices(true); 
     }
 };
 
@@ -862,13 +898,11 @@ window.handleAdminDropdownChangeGroup = (id, type, select) => {
         select.classList.add('hidden'); 
         inp.classList.remove('hidden'); 
         inp.focus(); 
-    } else { 
-        saveAllPractices(true); 
     }
 };
 
-window.handleAdminManualInput = () => { saveAllPractices(true); };
-window.handleAdminManualInputGroup = () => { saveAllPractices(true); };
+window.handleAdminManualInput = () => { /* 自動保存は廃止 */ };
+window.handleAdminManualInputGroup = () => { /* 自動保存は廃止 */ };
 
 window.delPractice = async (id) => { 
     if(confirm('この枠を削除しますか？')) { 
@@ -1325,7 +1359,27 @@ function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId
 
 window.onload = () => {
     if (window.supabase) { db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+
+    // 稽古メモ用イベントリスナー
+    const toggleMemoBtn = $('toggle-memo-form-btn');
+    if (toggleMemoBtn) {
+        toggleMemoBtn.addEventListener('click', () => {
+            const container = $('memo-form-container');
+            container.classList.toggle('hidden');
+            const icon = toggleMemoBtn.querySelector('i');
+            icon.className = container.classList.contains('hidden') ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
+        });
+    }
+
+    $('filter-memo-category')?.addEventListener('change', renderRehearsalMemos);
+    $('filter-memo-keyword')?.addEventListener('input', renderRehearsalMemos);
+    $('sort-memo-order')?.addEventListener('change', renderRehearsalMemos);
+    $('save-memo-btn')?.addEventListener('click', saveMemo);
+    $('cancel-memo-btn')?.addEventListener('click', resetMemoForm);
     
+    // 区分リスト管理用
+    $('add-memo-category-btn')?.addEventListener('click', addMemoCategory);
+
     // 入力中フラグの管理
     document.addEventListener('focusin', (e) => {
         if (e.target.matches('input') || e.target.matches('select') || e.target.matches('textarea')) {
@@ -1346,6 +1400,17 @@ window.onload = () => {
             setTimeout(() => { window.scrollTo(0, y); }, 0);
         }
     });
+
+    // テキストエリアの自動リサイズ
+    const memoContent = $('memo-content');
+    if (memoContent) {
+        memoContent.addEventListener('input', function() {
+            this.style.height = '60px'; // いったん最小の高さに戻す
+            if (this.scrollHeight > 60) {
+                this.style.height = this.scrollHeight + 'px'; // 内容に合わせて広げる
+            }
+        });
+    }
 
     initAuth(); initTabs(); 
 
@@ -1684,4 +1749,436 @@ window.savePastCard = async (oldDate, oldLoc, cardElement) => {
     } finally {
         $('sync-indicator').classList.add('hidden');
     }
+};
+
+// --- 稽古指示メモ機能 ---
+
+function parseTargetRange(rangeStr) {
+    if (!rangeStr) return { page: null, measure: null, scene: null };
+    
+    let page = null, measure = null, scene = null;
+    const str = rangeStr.replace(/\s+/g, ''); // スペース除去
+    
+    if (str.includes('全体')) {
+        page = 0; measure = 0;
+    } else if (str.includes('全曲')) {
+        measure = 0;
+    }
+    
+    // ページ抽出: p.15, p15, 15ページ 等
+    if (page === null) {
+        const pMatch = str.match(/(?:p\.?|P\.?|ページ)(\d+)/) || str.match(/(\d+)ページ/);
+        if (pMatch) page = parseInt(pMatch[1], 10);
+    }
+    
+    // 小節抽出: M32, m32, 32小節 等
+    if (measure === null) {
+        const mMatch = str.match(/(?:m|M|小節)(\d+)/) || str.match(/(\d+)小節/);
+        if (mMatch) measure = parseInt(mMatch[1], 10);
+    }
+    
+    // シーン抽出: シーン3, Scene3 等
+    if (scene === null) {
+        const sMatch = str.match(/(?:シーン|scene|Scene)(\d+)/);
+        if (sMatch) scene = parseInt(sMatch[1], 10);
+    }
+    
+    return { page, measure, scene };
+}
+
+window.saveMemo = async () => {
+    if (!db) {
+        alert('データベースに接続されていません。');
+        return;
+    }
+    
+    // メンバー未選択、または localStorage に不正な値が入っている場合はブロックする
+    if (!state.currentMember || state.currentMember === 'undefined' || state.currentMember === 'null') {
+        alert('投稿するには、先に「出欠入力」タブであなたの名前（メンバー）を選択してください。');
+        return;
+    }
+    
+    const categoryCheckboxes = document.querySelectorAll('.memo-category-check:checked');
+    const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
+    const category = categories.join(',');
+    
+    const content = $('memo-content').value.trim();
+    if (categories.length === 0 || !content) {
+        alert('区分と内容は必須です。');
+        return;
+    }
+    
+    const targetPerson = $('memo-target-person').value.trim();
+    const targetRange = $('memo-target-range').value.trim();
+    const editId = $('edit-memo-id').value;
+    
+    const parsed = parseTargetRange(targetRange);
+    const author = state.members.find(m => String(m.id) === String(state.currentMember))?.name || '不明';
+    
+    const memoData = {
+        author_id: state.currentMember || null,
+        author_name: author,
+        category: category,
+        target_person: targetPerson,
+        target_range: targetRange,
+        content: content,
+        sort_page: parsed.page,
+        sort_measure: parsed.measure,
+        sort_scene: parsed.scene,
+        updated_at: new Date().toISOString()
+    };
+    
+    try {
+        $('save-memo-btn').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 保存中...';
+        $('save-memo-btn').disabled = true;
+        
+        let error;
+        if (editId) {
+            const res = await db.from('rehearsal_memos').update(memoData).eq('id', editId);
+            error = res.error;
+        } else {
+            const res = await db.from('rehearsal_memos').insert([memoData]);
+            error = res.error;
+        }
+        
+        if (error) throw error;
+        
+        alert('メモを保存しました。');
+        resetMemoForm();
+        await loadCloud(); // 再取得して描画
+        if ($('rehearsal-memo').classList.contains('active')) {
+            renderRehearsalMemos();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('保存に失敗しました: ' + err.message);
+    } finally {
+        $('save-memo-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> 登録する';
+        $('save-memo-btn').disabled = false;
+    }
+};
+
+window.resetMemoForm = () => {
+    $('edit-memo-id').value = '';
+    document.querySelectorAll('.memo-category-check').forEach(cb => cb.checked = false);
+    $('memo-target-person').value = '';
+    $('memo-target-range').value = '';
+    const memoContent = $('memo-content');
+    memoContent.value = '';
+    memoContent.style.height = '60px'; // 高さをリセット
+    
+    $('cancel-memo-btn').classList.add('hidden');
+    $('save-memo-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> 登録する';
+    
+    // フォームを閉じる
+    $('memo-form-container').classList.add('hidden');
+    $('toggle-memo-form-btn').querySelector('i').className = 'fa-solid fa-chevron-down';
+};
+
+window.editMemo = (id) => {
+    const memo = state.memos.find(m => m.id === id);
+    if (!memo) return;
+    
+    $('edit-memo-id').value = memo.id;
+    const categoryList = (memo.category || '').split(',').map(c => c.trim());
+    document.querySelectorAll('.memo-category-check').forEach(cb => {
+        cb.checked = categoryList.includes(cb.value);
+    });
+    $('memo-target-person').value = memo.target_person || '';
+    $('memo-target-range').value = memo.target_range || '';
+    const memoContent = $('memo-content');
+    memoContent.value = memo.content || '';
+    
+    // 内容に応じて高さを調整
+    memoContent.style.height = '60px';
+    if (memoContent.scrollHeight > 60) {
+        memoContent.style.height = memoContent.scrollHeight + 'px';
+    }
+    
+    $('cancel-memo-btn').classList.remove('hidden');
+    $('save-memo-btn').innerHTML = '<i class="fa-solid fa-pen"></i> 更新する';
+    
+    // フォームを開く
+    $('memo-form-container').classList.remove('hidden');
+    $('toggle-memo-form-btn').querySelector('i').className = 'fa-solid fa-chevron-up';
+    
+    // フォームまでスクロール
+    $('rehearsal-memo').scrollIntoView({ behavior: 'smooth' });
+};
+
+window.deleteMemo = async (id) => {
+    if (!confirm('本当にこのメモを削除しますか？')) return;
+    
+    try {
+        const { error } = await db.from('rehearsal_memos').delete().eq('id', id);
+        if (error) throw error;
+        
+        alert('削除しました。');
+        await loadCloud();
+        renderRehearsalMemos();
+    } catch (err) {
+        console.error(err);
+        alert('削除に失敗しました: ' + err.message);
+    }
+};
+
+window.toggleMemoText = (btn) => {
+    const contentDiv = btn.previousElementSibling;
+    if (contentDiv.classList.contains('memo-content-short')) {
+        contentDiv.classList.remove('memo-content-short');
+        btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> 閉じる';
+    } else {
+        contentDiv.classList.add('memo-content-short');
+        btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> 続きを読む';
+    }
+};
+
+window.renderRehearsalMemos = () => {
+    const container = $('memo-list-container');
+    if (!container) return;
+    
+    const catFilter = $('filter-memo-category').value;
+    const keyword = $('filter-memo-keyword').value.toLowerCase();
+    const sortOrder = $('sort-memo-order').value;
+    
+    let filtered = state.memos.filter(m => {
+        if (catFilter) {
+            const memoCategories = (m.category || '').split(',').map(c => c.trim());
+            if (!memoCategories.includes(catFilter)) return false;
+        }
+        if (keyword) {
+            const range = (m.target_range || '').toLowerCase();
+            const person = (m.target_person || '').toLowerCase();
+            const content = (m.content || '').toLowerCase();
+            if (!range.includes(keyword) && !person.includes(keyword) && !content.includes(keyword)) {
+                return false;
+            }
+        }
+        return true;
+    });
+    
+    filtered.sort((a, b) => {
+        if (sortOrder === 'updated_desc') {
+            return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+        } else if (sortOrder === 'updated_asc') {
+            return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
+        } else if (sortOrder === 'page') {
+            const pa = a.sort_page !== null ? a.sort_page : 999999;
+            const pb = b.sort_page !== null ? b.sort_page : 999999;
+            return pa - pb;
+        } else if (sortOrder === 'measure') {
+            const ma = a.sort_measure !== null ? a.sort_measure : 999999;
+            const mb = b.sort_measure !== null ? b.sort_measure : 999999;
+            return ma - mb;
+        } else if (sortOrder === 'scene') {
+            const sa = a.sort_scene !== null ? a.sort_scene : 999999;
+            const sb = b.sort_scene !== null ? b.sort_scene : 999999;
+            return sa - sb;
+        }
+        return 0;
+    });
+    
+    container.innerHTML = '';
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sub);">メモが見つかりません。</div>';
+        return;
+    }
+    
+    filtered.forEach(m => {
+        const d = new Date(m.updated_at || m.created_at);
+        const dateStr = `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        
+        let rangeStr = m.target_range ? `<i class="fa-solid fa-map-pin"></i> ${m.target_range}` : '';
+        let personStr = m.target_person ? `<i class="fa-solid fa-user"></i> ${m.target_person}` : '';
+        
+        const isMine = m.author_id === state.currentMember || state.auth.type === 'admin';
+        const actionsHtml = isMine ? `
+            <div class="memo-actions">
+                <button class="memo-action-btn" onclick="editMemo('${m.id}')"><i class="fa-solid fa-pen"></i> 編集</button>
+                <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')"><i class="fa-solid fa-trash-can"></i> 削除</button>
+            </div>
+        ` : '';
+
+        // 改行を判定して省略ボタンを出すか決める（文字数や行数で簡易判定）
+        const lines = (m.content || '').split('\n').length;
+        const isLong = lines > 3 || (m.content || '').length > 100;
+        
+        const contentHtml = `
+            <div class="memo-content-box">
+                <div class="${isLong ? 'memo-content-short' : ''}">${m.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                ${isLong ? `<button class="memo-toggle-btn" onclick="toggleMemoText(this)"><i class="fa-solid fa-chevron-down"></i> 続きを読む</button>` : ''}
+            </div>
+        `;
+        
+        const categories = (m.category || '').split(',').map(c => c.trim()).filter(c => c);
+        const badgesHtml = categories.map(c => `<span class="memo-category-badge">${c}</span>`).join('');
+        
+        const card = document.createElement('div');
+        card.className = 'memo-card';
+        card.innerHTML = `
+            <div class="memo-header">
+                <div style="display: flex; flex-wrap: wrap; gap: 5px;">${badgesHtml}</div>
+                <span style="font-size: 0.75rem; color: var(--text-sub);"><i class="fa-regular fa-clock"></i> ${dateStr}</span>
+            </div>
+            <div class="memo-meta">
+                ${rangeStr ? `<span>${rangeStr}</span>` : ''}
+                ${personStr ? `<span>${personStr}</span>` : ''}
+                <span style="margin-left: auto; font-weight: bold;"><i class="fa-solid fa-pen-nib"></i> ${m.author_name || '不明'}</span>
+            </div>
+            ${contentHtml}
+            ${actionsHtml}
+        `;
+        container.appendChild(card);
+    });
+};
+
+// 区分リストのプルダウン・チェックボックスを更新
+window.updateMemoCategoryDropdowns = () => {
+    const cats = state.settings.memoCategories || [];
+    
+    const checkboxesContainer = $('memo-category-checkboxes');
+    if (checkboxesContainer) {
+        const checkedValues = Array.from(checkboxesContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+        
+        checkboxesContainer.innerHTML = '';
+        cats.forEach((c, index) => {
+            const id = 'memo-cat-' + index;
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.gap = '4px';
+            label.style.fontSize = '0.85rem';
+            label.style.cursor = 'pointer';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'memo-category-check';
+            checkbox.value = c.name;
+            checkbox.id = id;
+            if (checkedValues.includes(c.name)) checkbox.checked = true;
+            
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(c.name));
+            checkboxesContainer.appendChild(label);
+        });
+    }
+    
+    const filterSelect = $('filter-memo-category');
+    if (filterSelect) {
+        const currentFilter = filterSelect.value;
+        filterSelect.innerHTML = '<option value="">全ての区分</option>';
+        cats.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.name;
+            opt.textContent = c.name;
+            filterSelect.appendChild(opt);
+        });
+        filterSelect.value = currentFilter;
+    }
+};
+
+// 区分リスト管理用UI描画
+window.renderMemoSettings = () => {
+    const ul = $('memo-category-list');
+    if (!ul) return;
+    ul.innerHTML = '';
+    
+    const cats = state.settings.memoCategories || [];
+    cats.forEach((cat, index) => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.alignItems = 'center';
+        li.style.padding = '8px 0';
+        li.style.borderBottom = '1px solid #f0e6ea';
+        
+        li.innerHTML = `
+            <span style="font-weight:bold; color:var(--text-main);"><i class="fa-solid fa-tag"></i> ${cat.name}</span>
+            <div style="display:flex; gap:5px;">
+                <button class="icon-btn-sm" onclick="moveMemoCategory(${index}, -1)" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                <button class="icon-btn-sm" onclick="moveMemoCategory(${index}, 1)" ${index === cats.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                <button class="icon-btn-sm" style="color:var(--danger);" onclick="deleteMemoCategory('${cat.id}')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `;
+        ul.appendChild(li);
+    });
+};
+
+// 区分を追加
+window.addMemoCategory = async () => {
+    const input = $('new-memo-category-input');
+    const name = input.value.trim();
+    if (!name) return;
+    
+    const sortOrder = state.settings.memoCategories ? state.settings.memoCategories.length : 0;
+    
+    try {
+        $('add-memo-category-btn').disabled = true;
+        const { error } = await db.from('memo_categories').insert([{ name, sort_order: sortOrder }]);
+        if (error) throw error;
+        
+        input.value = '';
+        await loadCloud();
+        renderMemoSettings();
+        updateMemoCategoryDropdowns();
+    } catch (err) {
+        console.error(err);
+        alert('追加に失敗しました。');
+    } finally {
+        $('add-memo-category-btn').disabled = false;
+    }
+};
+
+// 区分を削除
+window.deleteMemoCategory = async (id) => {
+    if (!confirm('この区分を削除しますか？\n（すでにこの区分が設定されているメモの区分名はそのまま残ります）')) return;
+    try {
+        const { error } = await db.from('memo_categories').delete().eq('id', id);
+        if (error) throw error;
+        
+        await loadCloud();
+        renderMemoSettings();
+        updateMemoCategoryDropdowns();
+    } catch (err) {
+        console.error(err);
+        alert('削除に失敗しました。');
+    }
+};
+
+// 区分の並び替え
+window.moveMemoCategory = async (index, direction) => {
+    const cats = [...state.settings.memoCategories];
+    if (index + direction < 0 || index + direction >= cats.length) return;
+    
+    const temp = cats[index];
+    cats[index] = cats[index + direction];
+    cats[index + direction] = temp;
+    
+    try {
+        const updates = cats.map((cat, i) => ({
+            id: cat.id,
+            name: cat.name,
+            sort_order: i
+        }));
+        
+        const { error } = await db.from('memo_categories').upsert(updates);
+        if (error) throw error;
+        
+        await loadCloud();
+        renderMemoSettings();
+        updateMemoCategoryDropdowns();
+    } catch (err) {
+        console.error(err);
+        alert('並び替えに失敗しました。');
+    }
+};
+
+// アプリの起動時・データロード後にプルダウンを更新するようにフックを追加
+const originalRenderRehearsalMemos = window.renderRehearsalMemos;
+window.renderRehearsalMemos = () => {
+    // タブが切り替わった時などにプルダウンも最新化する
+    updateMemoCategoryDropdowns();
+    renderMemoSettings();
+    originalRenderRehearsalMemos();
 };

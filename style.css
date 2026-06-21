@@ -383,3 +383,101 @@ select.cute-input option {
     border: 1px solid #ddd !important;
     flex-shrink: 0;
 }
+
+/* 稽古メモ用スタイル */
+.memo-card {
+    background: var(--bg-filled) !important;
+    border-radius: var(--radius-md);
+    padding: 15px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-dusty);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.memo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.memo-meta {
+    font-size: 0.75rem;
+    color: var(--text-sub);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.memo-category-badge {
+    background: var(--pink-accent);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.75rem;
+}
+.memo-content-box {
+    background: var(--bg-soft);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid #f0e6ea;
+}
+.memo-content-short {
+    max-height: 4.5em; /* 約3行分 */
+    overflow: hidden;
+    position: relative;
+}
+.memo-content-short::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2em;
+    background: linear-gradient(transparent, var(--bg-soft));
+}
+.memo-toggle-btn {
+    background: none;
+    border: none;
+    color: var(--pink-accent);
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    padding: 5px;
+    width: 100%;
+}
+.memo-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 5px;
+}
+.memo-action-btn {
+    background: none;
+    border: none;
+    color: var(--text-sub);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.memo-action-btn:hover {
+    color: var(--pink-accent);
+}
+.memo-action-btn.delete:hover {
+    color: #e57373;
+}
+
+/* スマホでのみ縦並びにする */
+@media (max-width: 600px) {
+    .memo-form-row {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+}
