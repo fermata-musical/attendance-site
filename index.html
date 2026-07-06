@@ -56,6 +56,7 @@
             <nav>
                 <button class="nav-tab active" data-tab="attendance-input"><i class="fa-solid fa-pen-to-square"></i><br>出欠入力<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
                 <button class="nav-tab" data-tab="overall-status"><i class="fa-solid fa-users"></i><br>参加状況<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
+                <button class="nav-tab" data-tab="cast-master-edit-tab"><i class="fa-solid fa-users-gear"></i><br>配役<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
                 <button class="nav-tab" data-tab="rehearsal-memo"><i class="fa-solid fa-clipboard-list"></i><br>稽古メモ<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
                 <button class="nav-tab" data-tab="past-records"><i class="fa-solid fa-clock-rotate-left"></i><br>過去<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
                 <button class="nav-tab" data-tab="admin-panel"><i class="fa-solid fa-gear"></i><br>管理<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
@@ -251,7 +252,64 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 配役マスターメインタブ -->
+            <div id="cast-master-edit-tab" class="tab-content">
+                <div class="card">
+                    <div class="section-header"><h2><i class="fa-solid fa-users-gear"></i> 配役マスター管理</h2></div>
+                    <p style="font-size:0.75rem; color:var(--muted); margin-bottom:15px;">「美女と野獣」のキャスト、組（A/B/C/未定）、役名、表示順を管理します。<br>リストの並び順（↑↓ボタンでの変更）が本番表示の順序になります。</p>
+                    <button id="add-cast-btn" class="puffy-btn pink" style="width:100%; margin-bottom:15px; background:#fff; color:var(--pink-accent); border:2px solid var(--pink-accent);"><i class="fa-solid fa-user-plus"></i> 新しい配役を追加</button>
+                    <button id="save-casts-btn" class="puffy-btn pink" style="width:100%; margin-bottom:20px; box-shadow: 0 4px 10px rgba(233,101,153,0.3);"><i class="fa-solid fa-cloud-arrow-up"></i> 配役マスターの変更を保存</button>
+                    <div id="admin-cast-list"></div>
+                </div>
+            </div>
         </main>
+    </div>
+
+    <!-- キャスト成立状況モーダル -->
+    <div id="cast-status-overlay" class="overlay hidden" style="z-index: 1800;">
+        <div class="card" style="width: 95%; max-width: 550px; max-height: 85vh; overflow-y: auto; background: var(--bg-card); position: relative; padding: 25px 20px;">
+            <button id="close-cast-status-btn" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; color: var(--text-sub); cursor: pointer; padding: 5px;">&times;</button>
+            <div class="section-header" style="margin-bottom: 15px;">
+                <h2 style="font-size: 1.1rem;"><i class="fa-solid fa-users-viewfinder"></i> キャスト成立状況</h2>
+            </div>
+            <p id="cast-status-date-info" style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 15px; font-weight: bold;"></p>
+            
+            <div style="overflow-x: auto; margin-bottom: 20px; border: 1px solid var(--border-dusty); border-radius: 12px;">
+                <table class="cast-status-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: center;">
+                    <thead>
+                        <tr style="background: var(--bg-soft); border-bottom: 1px solid var(--border-dusty);">
+                            <th style="padding: 10px; font-weight: bold; color: var(--text-main); border-right: 1px solid var(--border-dusty);">役</th>
+                            <th style="padding: 10px; font-weight: bold; color: var(--text-main); border-right: 1px solid var(--border-dusty);">A</th>
+                            <th style="padding: 10px; font-weight: bold; color: var(--text-main); border-right: 1px solid var(--border-dusty);">B</th>
+                            <th style="padding: 10px; font-weight: bold; color: var(--text-main);">C</th>
+                            <th style="padding: 10px; font-weight: bold; color: var(--text-main);">未定</th>
+
+                        </tr>
+                    </thead>
+                    <tbody id="cast-status-table-body">
+                        <!-- 動的に生成 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="border-top: 1px dashed var(--border-dusty); padding-top: 15px;">
+                <h3 style="font-size: 0.9rem; font-weight: bold; color: var(--pink-accent); margin-bottom: 10px;"><i class="fa-solid fa-clipboard-check"></i> 組の成立判定</h3>
+                <div style="background: var(--bg-soft); padding: 12px; border-radius: 12px; border: 1px solid var(--border-dusty);">
+                    <table style="width: 100%; font-size: 0.85rem; text-align: left; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-dusty); color: var(--text-sub);">
+                                <th style="padding: 5px 10px; font-weight: bold;">組</th>
+                                <th style="padding: 5px 10px; font-weight: bold; text-align: right;">成立人数 / 必要人数</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cast-group-status-body">
+                            <!-- 動的に生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

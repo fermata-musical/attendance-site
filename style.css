@@ -473,3 +473,54 @@ select.cute-input option {
 .memo-action-btn.delete:hover {
     color: #e57373;
 }
+
+/* キャスト成立状況用スタイル */
+.cast-status-table {
+    background: var(--bg-card);
+    border-radius: 12px;
+}
+.cast-status-table th, .cast-status-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--border-dusty);
+    border-right: 1px solid var(--border-dusty);
+    vertical-align: middle;
+}
+.cast-status-table th:last-child, .cast-status-table td:last-child {
+    border-right: none;
+}
+.cast-status-cell {
+    font-weight: bold;
+    font-size: 0.85rem;
+    transition: background-color 0.2s ease;
+    white-space: pre-line; /* 改行を有効にする */
+    line-height: 1.3;
+}
+/* 出席セル：ピンク背景、白文字 */
+.cast-status-cell.attend {
+    background-color: var(--present-bg) !important;
+    color: var(--present-text) !important;
+}
+/* 欠席セル：暗グレー背景、白文字 */
+.cast-status-cell.absent {
+    background-color: var(--absent-bg) !important;
+    color: var(--absent-text) !important;
+}
+/* 未入力セル：薄ピンク（あるいは標準背景） */
+.cast-status-cell.none {
+    background-color: #EAE3E6 !important;
+    color: var(--text-sub) !important;
+}
+
+/* 稽古メニュー（スロット）をクリック可能にするスタイル */
+.overall-slot-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+.overall-slot-clickable:hover {
+    background-color: var(--bg-soft) !important;
+    border: 1px solid var(--pink-accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
