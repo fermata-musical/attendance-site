@@ -223,6 +223,16 @@ async function loadCloud() {
             state.settings.menus = menuRes.data.map(d => d.name);
         }
 
+        // 稽古メモ
+        if (memoRes.data) {
+            state.memos = memoRes.data;
+        }
+
+        // メモ区分
+        if (catRes.data) {
+            state.settings.memoCategories = catRes.data;
+        }
+
         if (state.auth.isLoggedIn) { 
             refreshAdminViewList();
             isLocked = false; 
@@ -1652,9 +1662,28 @@ window.onload = () => {
     $('sort-memo-order')?.addEventListener('change', renderRehearsalMemos);
     $('save-memo-btn')?.addEventListener('click', saveMemo);
     $('cancel-memo-btn')?.addEventListener('click', resetMemoForm);
-    
+
     // 区分リスト管理用
     $('add-memo-category-btn')?.addEventListener('click', addMemoCategory);
+
+    document.querySelectorAll('.memo-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+
+            document.querySelectorAll('.memo-tab-btn')
+                .forEach(b => b.classList.remove('active'));
+
+            document.querySelectorAll('#rehearsal-memo .sub-tab-content')
+                .forEach(c => c.style.display = 'none');
+
+            btn.classList.add('active');
+
+            const target = document.getElementById(btn.dataset.menu);
+
+            if (target) {
+                target.style.display = 'block';
+            }
+        });
+    });
 
     // キャスト成立状況モーダルの閉じるボタン
     $('close-cast-status-btn')?.addEventListener('click', () => {
@@ -2550,6 +2579,9 @@ window.addMemoCategory = async () => {
         
         input.value = '';
         await loadCloud();
+        
+        console.log(state.settings.memoCategories);
+
         renderMemoSettings();
         updateMemoCategoryDropdowns();
     } catch (err) {
