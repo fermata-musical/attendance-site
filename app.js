@@ -393,6 +393,58 @@ function initTabs() {
         };
     });
 
+    document.querySelectorAll('.attendance-sub-tab').forEach(tab => {
+
+    document.querySelectorAll('.rehearsal-sub-tab').forEach(tab => {
+        tab.onclick = () => {
+            document.querySelectorAll('.rehearsal-sub-tab')
+                .forEach(t => t.classList.remove('active'));
+
+            document.querySelectorAll('#rehearsal-work .rehearsal-sub-content')
+                .forEach(c => c.style.display = 'none');
+
+            tab.classList.add('active');
+
+            const menuId = tab.dataset.menu;
+
+            if ($(menuId)) {
+                $(menuId).style.display = 'block';
+            }
+
+            if (menuId === 'rehearsal-memo-main') {
+                renderRehearsalMemos();
+            }
+
+            if (menuId === 'rehearsal-cast-main') {
+                renderAdminCastMaster();
+            }
+        };
+    });
+        tab.onclick = () => {
+            document.querySelectorAll('.attendance-sub-tab')
+                .forEach(t => t.classList.remove('active'));
+
+            document.querySelectorAll('#attendance-input > .sub-tab-content')
+                .forEach(c => c.style.display = 'none');
+
+            tab.classList.add('active');
+
+            const menuId = tab.dataset.menu;
+
+            if ($(menuId)) {
+                $(menuId).style.display = 'block';
+            }
+
+            if (menuId === 'attendance-status') {
+                renderOverallStatus();
+            }
+
+            if (menuId === 'attendance-past') {
+                renderPastRecords();
+            }
+        };
+    });
+
     document.querySelectorAll('.add-rehearsal-btn-class').forEach(btn => {
         btn.addEventListener('click', async () => {
             try {
@@ -480,12 +532,25 @@ function renderSelfProfiles() {
 
     container.innerHTML = '';
 
-    state.members.forEach(member => {
+    const members = [...state.members].sort((a, b) => {
+        const pa = state.selfProfiles.find(
+            p => String(p.member_id) === String(a.id)
+        );
+        const pb = state.selfProfiles.find(
+            p => String(p.member_id) === String(b.id)
+        );
+
+        return new Date(pb?.updated_at || 0) - new Date(pa?.updated_at || 0);
+    });
+
+    members.forEach(member => {
 
         const profile = state.selfProfiles.find(
             p => String(p.member_id) === String(member.id)
         );
-
+        const updatedDate = profile?.updated_at
+        ? new Date(profile.updated_at).toLocaleDateString('ja-JP')
+        : '';
         if (profile) {
 
             container.innerHTML += `
@@ -497,7 +562,7 @@ function renderSelfProfiles() {
                         align-items:flex-start;
                         margin-bottom:4px;">
 
-                        <div>
+                        <div style="flex:1; min-width:0;">
 
                             <div style="
                                 font-size:1.35rem;
@@ -519,21 +584,40 @@ function renderSelfProfiles() {
 
                         </div>
 
-                        <button
-                            class="edit-profile-btn"
-                            data-member-id="${member.id}"
-                            title="編集"
-                            style="
-                                background:none;
-                                border:none;
-                                color:#d98bb3;
-                                font-size:0.9rem;
-                                cursor:pointer;
-                                padding:4px 6px;">
+                        <div style="
+                            display:flex;
+                            flex-direction:column;
+                            align-items:flex-end;
+                            margin-left:12px;
+                            flex-shrink:0;">
 
-                            <i class="fa-solid fa-pen"></i>
+                            <button
+                                class="edit-profile-btn"
+                                data-member-id="${member.id}"
+                                title="編集"
+                                style="
+                                    background:none;
+                                    border:none;
+                                    color:#d98bb3;
+                                    font-size:0.9rem;
+                                    cursor:pointer;
+                                    padding:4px 6px;
+                                    margin-bottom:4px;">
 
-                        </button>
+                                <i class="fa-solid fa-pen"></i>
+
+                            </button>
+
+                            <div style="
+                                font-size:0.72rem;
+                                color:#999;
+                                white-space:nowrap;">
+
+                                🕒 ${updatedDate}
+
+                            </div>
+
+                        </div>
 
                     </div>
 
@@ -716,8 +800,24 @@ function initializeBirthdaySelects() {
 function renderTab(id) {
     if (id === 'attendance-input') renderAttendanceInput();
     if (id === 'overall-status') renderOverallStatus();
-    if (id === 'cast-master-edit-tab') renderAdminCastMaster();
-    if (id === 'rehearsal-memo') renderRehearsalMemos();
+    if (id === 'self-profile-tab') renderSelfProfiles();
+
+    if (id === 'rehearsal-work') {
+
+        document.querySelectorAll('#rehearsal-work .rehearsal-sub-content')
+            .forEach(c => c.style.display = 'none');
+
+        $('rehearsal-memo-main').style.display = 'block';
+
+        document.querySelectorAll('.rehearsal-sub-tab')
+            .forEach(t => t.classList.remove('active'));
+
+        document.querySelector('[data-menu="rehearsal-memo-main"]')
+            .classList.add('active');
+
+        renderRehearsalMemos();
+    }
+
     if (id === 'admin-panel') renderAdminPanel();
     if (id === 'past-records') renderPastRecords();
 }
@@ -1299,34 +1399,48 @@ window.delItem = async (key, i) => {
 };
 
 function renderAdminVisibility() {
-    const container = $('visibility-controls-container'); if (!container) return;
+    const container = $('visibility-controls-container');
+    if (!container) return;
+
     container.innerHTML = '';
-    const tabs = [
-        { id: 'attendance-input', label: '出欠入力' }, 
-        { id: 'overall-status', label: '参加状況' }, 
-        { id: 'cast-master-edit-tab', label: '配役' }, 
-        { id: 'past-records', label: '過去' }, 
-        { id: 'admin-panel', label: '管理' }
-    ];
-    
+
+    // 画面上のメインタブを自動取得
+    const tabs = Array.from(document.querySelectorAll('nav .nav-tab'))
+        .map(btn => {
+            const label = btn.innerText
+                .replace('🔒', '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .split(' ')
+                .pop();
+
+            return {
+                id: btn.dataset.tab,
+                label: label
+            };
+        });
+
     tabs.forEach(tab => {
         const cur = state.settings.visibility[tab.id] || 'public';
+
         const div = document.createElement('div');
-        div.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;";
+        div.style.cssText =
+            "display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;";
+
         div.innerHTML = `
             <span style="font-size:0.9rem;">${tab.label}</span>
-            <select class="cute-input visibility-select" data-tab-id="${tab.id}" style="width:100px; margin:0;">
-                <option value="public" ${cur==='public'?'selected':''}>公開</option>
-                <option value="protected" ${cur==='protected'?'selected':''}>制限中</option>
+            <select class="cute-input visibility-select"
+                    data-tab-id="${tab.id}"
+                    style="width:100px; margin:0;">
+                <option value="public" ${cur === 'public' ? 'selected' : ''}>公開</option>
+                <option value="protected" ${cur === 'protected' ? 'selected' : ''}>制限中</option>
             </select>
         `;
-        
-        // セレクトボックスに変更イベントを設定
-        const select = div.querySelector('.visibility-select');
-        select.addEventListener('change', (e) => {
+
+        div.querySelector('.visibility-select').addEventListener('change', e => {
             window.updateVis(e.target.dataset.tabId, e.target.value);
         });
-        
+
         container.appendChild(div);
     });
 }
@@ -1649,12 +1763,26 @@ window.onload = () => {
     // 稽古メモ用イベントリスナー
     const toggleMemoBtn = $('toggle-memo-form-btn');
     if (toggleMemoBtn) {
-        toggleMemoBtn.addEventListener('click', () => {
+
+        const toggleMemo = () => {
             const container = $('memo-form-container');
             container.classList.toggle('hidden');
-            const icon = toggleMemoBtn.querySelector('i');
-            icon.className = container.classList.contains('hidden') ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
-        });
+
+            const opened = !container.classList.contains('hidden');
+
+            toggleMemoBtn.querySelector('i').className =
+                opened ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+
+            $('toggle-memo-title').textContent =
+                opened ? '△ 稽古メモを登録' : '▽ 稽古メモを登録';
+        };
+
+        toggleMemoBtn.addEventListener('click', toggleMemo);
+        $('toggle-memo-title').addEventListener('click', toggleMemo);
+
+        // 初期状態は閉じる
+        $('memo-form-container').classList.add('hidden');
+        toggleMemoBtn.querySelector('i').className = 'fa-solid fa-chevron-down';
     }
 
     $('filter-memo-category')?.addEventListener('change', renderRehearsalMemos);
@@ -1824,40 +1952,6 @@ window.onload = () => {
         };
     }
 
-    document.querySelectorAll('.cast-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-
-            document.querySelectorAll('.cast-tab-btn')
-                .forEach(b => b.classList.remove('active'));
-
-            btn.classList.add('active');
-
-            document.querySelectorAll('#cast-master-edit-tab .sub-tab-content')
-                .forEach(c => c.style.display = 'none');
-
-            if (btn.textContent.includes('自己紹介')) {
-
-                document.getElementById('self-profile-content').style.display = 'block';
-
-                const member = state.members.find(
-                    m => String(m.id) === String(state.currentMember)
-                );
-
-                const memberNameInput =
-                    document.getElementById('profile-member-name');
-
-                if (memberNameInput) {
-                    memberNameInput.value = member ? member.name : '';
-                }
-
-            } else {
-
-                document.getElementById('cast-master-content').style.display = 'block';
-
-            }
-        });
-    });
-
     // イベント委譲：メニュー追加ボタン
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.add-menu-btn');
@@ -2021,6 +2115,11 @@ window.onload = () => {
     // 過去タブ：選択削除の実行
     const delPastBtn = $('delete-selected-past-btn');
     if (delPastBtn) {
+
+        if (state.auth?.type !== 'admin') {
+            delPastBtn.style.display = 'none';
+        }
+
         delPastBtn.onclick = async () => {
             const checked = document.querySelectorAll('.select-checkbox:checked');
             if (checked.length === 0) {
@@ -2305,7 +2404,7 @@ window.saveMemo = async () => {
         alert('メモを保存しました。');
         resetMemoForm();
         await loadCloud(); // 再取得して描画
-        if ($('rehearsal-memo').classList.contains('active')) {
+        if ($('rehearsal-work').classList.contains('active')) {
             renderRehearsalMemos();
         }
     } catch (err) {
@@ -2456,7 +2555,10 @@ window.renderRehearsalMemos = () => {
         
         const contentHtml = `
             <div class="${isLong ? 'memo-content-short' : ''}">
-                ${m.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                ${m.content
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, '<br>')}
             </div>
         `;
         
@@ -2481,6 +2583,8 @@ window.renderRehearsalMemos = () => {
         container.appendChild(card);
     });
 };
+
+renderRehearsalMemos = window.renderRehearsalMemos;
 
 // アプリの起動時・データロード後にプルダウンを更新するようにフックを追加
 const originalRenderRehearsalMemos = window.renderRehearsalMemos;

@@ -55,10 +55,14 @@
             </div>
             <nav>
                 <button class="nav-tab active" data-tab="attendance-input"><i class="fa-solid fa-pen-to-square"></i><br>出欠入力<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
-                <button class="nav-tab" data-tab="overall-status"><i class="fa-solid fa-users"></i><br>参加状況<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
-                <button class="nav-tab" data-tab="cast-master-edit-tab"><i class="fa-solid fa-users-gear"></i><br>配役<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
-                <button class="nav-tab" data-tab="rehearsal-memo"><i class="fa-solid fa-clipboard-list"></i><br>稽古メモ<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
-                <button class="nav-tab" data-tab="past-records"><i class="fa-solid fa-clock-rotate-left"></i><br>過去<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
+
+                <button class="nav-tab" data-tab="rehearsal-work">
+                    <i class="fa-solid fa-masks-theater"></i><br>稽古<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span>
+                </button>
+                
+                <button class="nav-tab" data-tab="self-profile-tab">
+                    <i class="fa-solid fa-id-card"></i><br>自己紹介<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span>
+                </button>
                 <button class="nav-tab" data-tab="admin-panel"><i class="fa-solid fa-gear"></i><br>管理<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
             </nav>
         </header>
@@ -66,6 +70,26 @@
         <main>
             <!-- 出欠入力タブ -->
             <div id="attendance-input" class="tab-content active">
+
+                <div class="admin-menu-tabs">
+                    <button class="attendance-sub-tab menu-tab active"
+                            data-menu="attendance-main">
+                        出欠入力
+                    </button>
+
+                    <button class="attendance-sub-tab menu-tab"
+                            data-menu="attendance-status">
+                        参加状況
+                    </button>
+
+                    <button class="attendance-sub-tab menu-tab"
+                            data-menu="attendance-past">
+                        過去
+                    </button>
+                </div>
+
+                <div id="attendance-main" class="sub-tab-content active">
+
                 <div class="notice-box card">
                     <h3 class="notice-title"><i class="fa-solid fa-circle-info"></i> 出欠入力時の注意事項</h3>
                     <ul class="notice-list">
@@ -97,103 +121,34 @@
                 <div id="month-tab-bar" class="month-tab-container"></div>
                 <div id="attendance-list-container"></div>
                 <div id="month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
+                </div>
+
+                <div id="attendance-status" class="sub-tab-content">
+                    <div id="status-month-tab-bar" class="month-tab-container"></div>
+                    <div id="overall-status-container"></div>
+                    <div id="status-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
+                </div>
+
+                <div id="attendance-past" class="sub-tab-content">
+                    <div id="past-month-tab-bar" class="month-tab-container"></div>
+                    <div id="past-records-container"></div>
+                    <div id="past-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
+
+                    <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                        <button id="delete-selected-past-btn" class="puffy-btn gray puffy-btn-sm" style="font-size:0.75rem; padding:6px 12px;">
+                            <i class="fa-solid fa-trash-can"></i> 選択した項目を削除
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- 参加状況タブ -->
             <div id="overall-status" class="tab-content">
-                <div id="status-month-tab-bar" class="month-tab-container"></div>
-                <div id="overall-status-container"></div>
-                <div id="status-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
             </div>
 
             <!-- 過去タブ -->
             <div id="past-records" class="tab-content">
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <button id="delete-selected-past-btn" class="puffy-btn pink puffy-btn-sm" style="flex:1"><i class="fa-solid fa-trash-can"></i> 選択した項目を削除</button>
-                </div>
-                <div id="past-month-tab-bar" class="month-tab-container"></div>
-                <div id="past-records-container"></div>
-                <div id="past-month-tab-bar-bottom" class="month-tab-container" style="margin-top:20px;"></div>
             </div>
-
-            <!-- 稽古メモタブ -->
-            <div id="rehearsal-memo" class="tab-content">
-                <div class="admin-menu-tabs">
-                    <button class="memo-tab-btn menu-tab active" data-menu="memo-main">メモ一覧</button>
-                    <button class="memo-tab-btn menu-tab" data-menu="memo-settings">区分管理</button>
-                </div>
-
-                <div id="memo-main" class="sub-tab-content active">
-                    <!-- 投稿フォーム -->
-                    <div class="card" id="memo-form-card">
-                        <div class="section-header" style="justify-content: space-between;">
-                            <h2><i class="fa-solid fa-pen"></i> 新規メモを追加</h2>
-                            <button id="toggle-memo-form-btn" class="icon-btn-sm"><i class="fa-solid fa-chevron-down"></i></button>
-                        </div>
-                        <div id="memo-form-container" style="margin-top: 15px;">
-                            <input type="hidden" id="edit-memo-id">
-                            <div class="input-group-full" style="gap: 10px;">
-                                <div style="display: flex; flex-direction: column; gap: 10px;">
-                                    <div style="flex: 1;">
-                                        <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">区分 <span style="color:red;">*</span> <small>(複数選択可)</small></label>
-                                        <div id="memo-category-checkboxes" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
-                                            <!-- JSで生成 -->
-                                        </div>
-                                    </div>
-                                    <div style="flex: 2;">
-                                        <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">対象者</label>
-                                        <input type="text" id="memo-target-person" class="cute-input" placeholder="例: 全員, アンサンブル, ○○役" style="width: 100%;">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">対象範囲</label>
-                                    <input type="text" id="memo-target-range" class="cute-input" placeholder="例: p.15〜18, M32, シーン3" style="width: 100%;">
-                                </div>
-                                <div>
-                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">内容 <span style="color:red;">*</span></label>
-                                    <textarea id="memo-content" class="cute-input" rows="4" placeholder="具体的な指示内容を入力" style="width: 100%; resize: vertical;"></textarea>
-                                </div>
-                                <div style="display: flex; gap: 10px; margin-top: 5px;">
-                                    <button id="save-memo-btn" class="puffy-btn pink" style="flex: 1;"><i class="fa-solid fa-paper-plane"></i> 登録する</button>
-                                    <button id="cancel-memo-btn" class="puffy-btn gray hidden" style="flex: 1;">キャンセル</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- フィルターとソート -->
-                    <div class="card" style="padding: 12px 15px;">
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-                            <select id="filter-memo-category" class="cute-input" style="padding: 6px 10px; font-size: 0.8rem; flex: 1; min-width: 80px;">
-                                <option value="">全ての区分</option>
-                            </select>
-                            <input type="text" id="filter-memo-keyword" class="cute-input" placeholder="キーワード検索" style="padding: 6px 10px; font-size: 0.8rem; flex: 2; min-width: 120px;">
-                            <select id="sort-memo-order" class="cute-input" style="padding: 6px 10px; font-size: 0.8rem; flex: 1.5; min-width: 100px;">
-                                <option value="updated_desc">更新日 (新)</option>
-                                <option value="updated_asc">更新日 (古)</option>
-                                <option value="page">ページ順</option>
-                                <option value="measure">小節順</option>
-                                <option value="scene">シーン順</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- メモ一覧 -->
-                    <div id="memo-list-container"></div>
-                </div>
-
-                <div id="memo-settings" class="sub-tab-content">
-                    <div class="card">
-                        <div class="section-header"><h2><i class="fa-solid fa-tags"></i> 区分リスト</h2></div>
-                        <div class="input-group-full">
-                            <input type="text" id="new-memo-category-input" class="cute-input" placeholder="新しい区分を追加">
-                            <button id="add-memo-category-btn" class="puffy-btn pink puffy-btn-sm">リストに追加</button>
-                        </div>
-                        <ul id="memo-category-list" style="list-style:none;"></ul>
-                    </div>
-                </div>
-            </div>
-
 
             <!-- 管理タブ -->
             <div id="admin-panel" class="tab-content">
@@ -253,33 +208,112 @@
                 </div>
             </div>
 
-            <!-- 配役マスターメインタブ -->
-            <div id="cast-master-edit-tab" class="tab-content">
+
+            <div id="rehearsal-work" class="tab-content">
 
                 <div class="admin-menu-tabs">
-                    <button class="cast-tab-btn menu-tab active">
+                    <button class="rehearsal-sub-tab menu-tab active"
+                            data-menu="rehearsal-memo-main">
+                        稽古メモ一覧
+                    </button>
+
+                    <button class="rehearsal-sub-tab menu-tab"
+                            data-menu="rehearsal-cast-main">
                         配役マスター管理
                     </button>
 
-                    <button class="cast-tab-btn menu-tab">
-                        自己紹介
+                    <button class="rehearsal-sub-tab menu-tab"
+                            data-menu="rehearsal-category-main">
+                        稽古区分管理
                     </button>
                 </div>
 
-                <div id="cast-master-content" class="sub-tab-content active">
+                <div id="rehearsal-memo-main" class="rehearsal-sub-content active">
+                    <!-- 投稿フォーム -->
+                    <div class="card" id="memo-form-card">
+                        <div class="section-header" style="justify-content: space-between;">
+                            <h2 id="toggle-memo-title" style="cursor:pointer;">▽ 稽古メモを登録</h2>
+                            <button id="toggle-memo-form-btn" class="icon-btn-sm"><i class="fa-solid fa-chevron-down"></i></button>
+                        </div>
+                        <div id="memo-form-container" style="margin-top: 15px;">
+                            <input type="hidden" id="edit-memo-id">
+                            <div class="input-group-full" style="gap: 10px;">
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">区分 <span style="color:red;">*</span> <small>(複数選択可)</small></label>
+                                        <div id="memo-category-checkboxes" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
+                                            <!-- JSで生成 -->
+                                        </div>
+                                    </div>
+                                    <div style="flex: 2;">
+                                        <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">対象者</label>
+                                        <input type="text" id="memo-target-person" class="cute-input" placeholder="例: 全員, アンサンブル, ○○役" style="width: 100%;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">対象範囲</label>
+                                    <input type="text" id="memo-target-range" class="cute-input" placeholder="例: p.15〜18, M32, シーン3" style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">内容 <span style="color:red;">*</span></label>
+                                    <textarea id="memo-content" class="cute-input" rows="4" placeholder="具体的な指示内容を入力" style="width: 100%; resize: vertical;"></textarea>
+                                </div>
+                                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                                    <button id="save-memo-btn" class="puffy-btn pink" style="flex: 1;"><i class="fa-solid fa-paper-plane"></i> 登録する</button>
+                                    <button id="cancel-memo-btn" class="puffy-btn gray hidden" style="flex: 1;">キャンセル</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- フィルターとソート -->
+                    <div class="card" style="padding: 12px 15px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                            <select id="filter-memo-category" class="cute-input" style="padding: 6px 10px; font-size: 0.8rem; flex: 1; min-width: 80px;">
+                                <option value="">全ての区分</option>
+                            </select>
+                            <input type="text" id="filter-memo-keyword" class="cute-input" placeholder="キーワード検索" style="padding: 6px 10px; font-size: 0.8rem; flex: 2; min-width: 120px;">
+                            <select id="sort-memo-order" class="cute-input" style="padding: 6px 10px; font-size: 0.8rem; flex: 1.5; min-width: 100px;">
+                                <option value="updated_desc">更新日 (新)</option>
+                                <option value="updated_asc">更新日 (古)</option>
+                                <option value="page">ページ順</option>
+                                <option value="measure">小節順</option>
+                                <option value="scene">シーン順</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- メモ一覧 -->
+                    <div id="memo-list-container"></div>                
+                </div>
+            
+                <div id="rehearsal-cast-main" class="rehearsal-sub-content">
 
                     <div class="card">
                         <div class="section-header"><h2><i class="fa-solid fa-users-gear"></i> 配役マスター管理</h2></div>
-                    <p style="font-size:0.75rem; color:var(--muted); margin-bottom:15px;">「美女と野獣」のキャスト、組（A/B/C/未定）、役名、表示順を管理します。<br>リストの並び順（↑↓ボタンでの変更）が本番表示の順序になります。</p>
-                    <button id="add-cast-btn" class="puffy-btn pink" style="width:100%; margin-bottom:15px; background:#fff; color:var(--pink-accent); border:2px solid var(--pink-accent);"><i class="fa-solid fa-user-plus"></i> 新しい配役を追加</button>
-                    <button id="save-casts-btn" class="puffy-btn pink" style="width:100%; margin-bottom:20px; box-shadow: 0 4px 10px rgba(233,101,153,0.3);"><i class="fa-solid fa-cloud-arrow-up"></i> 配役マスターの変更を保存</button>
-                   <div id="admin-cast-list"></div>
-                                   </div>
-                               </div>
+                        <p style="font-size:0.75rem; color:var(--muted); margin-bottom:15px;">「美女と野獣」のキャスト、組（A/B/C/未定）、役名、表示順を管理します。<br>リストの並び順（↑↓ボタンでの変更）が本番表示の順序になります。</p>
+                        <button id="add-cast-btn" class="puffy-btn pink" style="width:100%; margin-bottom:15px; background:#fff; color:var(--pink-accent); border:2px solid var(--pink-accent);"><i class="fa-solid fa-user-plus"></i> 新しい配役を追加</button>
+                        <button id="save-casts-btn" class="puffy-btn pink" style="width:100%; margin-bottom:20px; box-shadow: 0 4px 10px rgba(233,101,153,0.3);"><i class="fa-solid fa-cloud-arrow-up"></i> 配役マスターの変更を保存</button>
+                        <div id="admin-cast-list"></div>
+                    </div>
 
-                               <div id="self-profile-content" class="sub-tab-content" style="display:none;">
-                                   
-                                   <div class="card hidden" id="profile-form">
+                </div>
+                <div id="rehearsal-category-main" class="rehearsal-sub-content">
+                    <div class="card">
+                        <div class="section-header"><h2><i class="fa-solid fa-tags"></i> 区分リスト</h2></div>
+                        <div class="input-group-full">
+                            <input type="text" id="new-memo-category-input" class="cute-input" placeholder="新しい区分を追加">
+                            <button id="add-memo-category-btn" class="puffy-btn pink puffy-btn-sm">リストに追加</button>
+                        </div>
+                        <ul id="memo-category-list" style="list-style:none;"></ul>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 自己紹介タブ -->
+            <div id="self-profile-tab" class="tab-content">
+                <div class="card hidden" id="profile-form">
                                        <h2>自己紹介</h2>
 
                                        <label>メンバー名</label>
@@ -462,7 +496,7 @@
 
                                        </div>
                                        <div id="profile-list"></div>
-                               </div>
+            </div>
                            </main>
                        </div>
 
