@@ -388,14 +388,16 @@ select.cute-input option {
 .memo-card {
     background: var(--bg-filled) !important;
     border-radius: var(--radius-md);
-    padding: 15px;
-    margin-bottom: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-dusty);
+
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
+
 .memo-header {
     display: flex;
     justify-content: space-between;
@@ -425,12 +427,17 @@ select.cute-input option {
     white-space: pre-wrap;
     word-break: break-word;
     border: 1px solid #f0e6ea;
+
+    line-height: 1.4;
 }
+
 .memo-content-short {
-    max-height: 4.5em; /* 約3行分 */
-    overflow: hidden;
-    position: relative;
+    overflow: visible;
+    position: static;
+    max-height: none;
 }
+
+/*
 .memo-content-short::after {
     content: "";
     position: absolute;
@@ -440,6 +447,8 @@ select.cute-input option {
     height: 2em;
     background: linear-gradient(transparent, var(--bg-soft));
 }
+*/
+
 .memo-toggle-btn {
     background: none;
     border: none;
@@ -457,16 +466,19 @@ select.cute-input option {
     gap: 10px;
     margin-top: 5px;
 }
+
 .memo-action-btn {
     background: none;
     border: none;
-    color: var(--text-sub);
-    font-size: 0.8rem;
+    color: var(--pink-accent);
+    font-size: 0.7rem;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    padding: 0;
 }
+
 .memo-action-btn:hover {
     color: var(--pink-accent);
 }
@@ -524,3 +536,6 @@ select.cute-input option {
     box-shadow: var(--shadow-md);
 }
 
+.memo-action-btn i {
+    font-size: 0.8rem;
+}

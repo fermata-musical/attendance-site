@@ -2444,20 +2444,19 @@ window.renderRehearsalMemos = () => {
         
         const isMine = m.author_id === state.currentMember || state.auth.type === 'admin';
         const actionsHtml = isMine ? `
-            <div class="memo-actions">
-                <button class="memo-action-btn" onclick="editMemo('${m.id}')"><i class="fa-solid fa-pen"></i> 編集</button>
-                <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')"><i class="fa-solid fa-trash-can"></i> 削除</button>
-            </div>
-        ` : '';
+    <div class="memo-actions">
+        <button class="memo-action-btn" onclick="editMemo('${m.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')"><i class="fa-solid fa-trash-can"></i></button>
+    </div>
+` : '';
 
         // 改行を判定して省略ボタンを出すか決める（文字数や行数で簡易判定）
         const lines = (m.content || '').split('\n').length;
         const isLong = lines > 3 || (m.content || '').length > 100;
         
         const contentHtml = `
-            <div class="memo-content-box">
-                <div class="${isLong ? 'memo-content-short' : ''}">${m.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-                ${isLong ? `<button class="memo-toggle-btn" onclick="toggleMemoText(this)"><i class="fa-solid fa-chevron-down"></i> 続きを読む</button>` : ''}
+            <div class="${isLong ? 'memo-content-short' : ''}">
+                ${m.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
             </div>
         `;
         
