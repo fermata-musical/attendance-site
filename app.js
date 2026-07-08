@@ -2623,22 +2623,23 @@ window.renderRehearsalMemos = () => {
                             .join('\n')
                     }"
                     style="
-                    border:1px solid #ddd;
-                    background:${
-                        state.reactions.some(x =>
-                            String(x.memo_id) === String(m.id) &&
-                            String(x.member_id) === String(state.currentMember) &&
-                            x.reaction === r
-                        ) ? '#ffdce8' : 'white'
-                    };
-                    border-radius:14px;
-                    padding:2px 6px;
+                    border:none;
+                    background:transparent;
+                    padding:0;
                     font-size:0.75rem;
                     line-height:1;
                     cursor:pointer;
                     "
                 >
-                    ${r}
+                    ${
+                        state.reactions.some(x =>
+                            String(x.memo_id) === String(m.id) &&
+                            String(x.member_id) === String(state.currentMember) &&
+                            x.reaction === r
+                        )
+                            ? '<i class="fa-solid fa-heart" style="color:var(--pink-accent);"></i>'
+                            : '<i class="fa-regular fa-heart" style="color:#cfcfcf;"></i>'
+                    }
                     <span
                         onclick="event.stopPropagation();showReactionUsers('${m.id}','${r}')"
                         style="margin-left:2px;cursor:pointer;font-size:0.7rem;"
