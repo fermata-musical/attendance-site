@@ -65,14 +65,7 @@ const CONFIG = {
 };
 
 const REACTIONS = [
-  "👍",
   "❤️",
-  "🙏",
-  "🔥",
-  "😭",
-  "🐰",
-  "👏",
-  "🎉"
 ];
 
 let state = {
@@ -2592,12 +2585,18 @@ return 0;
                     cursor:pointer;
                     "
                 >
-                    ${r} ${
+                    ${r}
+                    <span
+                        onclick="event.stopPropagation();showReactionUsers('${m.id}','${r}')"
+                        style="margin-left:4px;text-decoration:underline;cursor:pointer;"
+                    >
+                    ${
                         state.reactions.filter(x =>
                             String(x.memo_id) === String(m.id) &&
                             x.reaction === r
                         ).length
                     }
+                    </span>
                 </button>
             `).join('')}
         </div>
@@ -3140,4 +3139,25 @@ window.toggleReaction = async (memoId, reaction) => {
         console.error(err);
         alert(JSON.stringify(err, null, 2));
     }
+};
+
+
+window.showReactionUsers = (memoId, reaction) => {
+    const names = state.reactions
+        .filter(x =>
+            String(x.memo_id) === String(memoId) &&
+            x.reaction === reaction
+        )
+        .map(x => {
+            const member = state.members.find(mem =>
+                String(mem.id) === String(x.member_id)
+            );
+            return member ? member.name : '';
+        })
+        .filter(Boolean);
+
+    alert(
+        `${reaction}\n\n` +
+        (names.length ? names.join('\n') : 'まだ誰もリアクションしていません')
+    );
 };
