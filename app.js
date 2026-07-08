@@ -64,6 +64,17 @@ const CONFIG = {
     STORAGE_KEY: 'fermata_v6_sync'
 };
 
+const REACTIONS = [
+  "👍",
+  "❤️",
+  "🙏",
+  "🔥",
+  "😭",
+  "🐰",
+  "👏",
+  "🎉"
+];
+
 let state = {
     auth: { isLoggedIn: false, type: null },
     members: [],
@@ -73,6 +84,7 @@ let state = {
     rehearsals: [], 
     attendance: {}, 
     memos: [],
+    reactions: [],
     settings: {
         locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
         menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
@@ -120,7 +132,7 @@ async function loadCloud() {
         $('sync-indicator').classList.remove('hidden');
         
         // 各種データの並列取得
-        const [mRes, pRes, aRes, vRes, locRes, menuRes, memoRes, catRes, castRes, profileRes] = await Promise.all([
+        const [mRes, pRes, aRes, vRes, locRes, menuRes, memoRes, reactionRes, catRes, castRes, profileRes] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
             db.from('attendance').select('*'),
@@ -128,6 +140,7 @@ async function loadCloud() {
             db.from('places').select('*').order('sort_order', { ascending: true }),
             db.from('menus').select('*').order('sort_order', { ascending: true }),
             db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
+            db.from('memo_reactions').select('*'),
             db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
             db.from('cast_master').select('*').order('sort_order', { ascending: true }),
             db.from('self_profiles').select('*')
@@ -226,6 +239,10 @@ async function loadCloud() {
         // 稽古メモ
         if (memoRes.data) {
             state.memos = memoRes.data;
+        }
+
+        if (reactionRes.data) {
+            state.reactions = reactionRes.data;
         }
 
         // メモ区分
@@ -2511,22 +2528,13 @@ window.renderRehearsalMemos = () => {
             return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
         } else if (sortOrder === 'updated_asc') {
             return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
-        } else if (sortOrder === 'page') {
-            const pa = a.sort_page !== null ? a.sort_page : 999999;
-            const pb = b.sort_page !== null ? b.sort_page : 999999;
-            return pa - pb;
-        } else if (sortOrder === 'measure') {
-            const ma = a.sort_measure !== null ? a.sort_measure : 999999;
-            const mb = b.sort_measure !== null ? b.sort_measure : 999999;
-            return ma - mb;
-        } else if (sortOrder === 'scene') {
-            const sa = a.sort_scene !== null ? a.sort_scene : 999999;
-            const sb = b.sort_scene !== null ? b.sort_scene : 999999;
-            return sa - sb;
-        }
-        return 0;
-    });
-    
+} else if (sortOrder === 'page') {
+    const pa = a.sort_page !== null ? a.sort_page : 999999;
+    const pb = b.sort_page !== null ? b.sort_page : 999999;
+    return pa - pb;
+}
+return 0;
+});    
     container.innerHTML = '';
     
     if (filtered.length === 0) {
@@ -2548,6 +2556,52 @@ window.renderRehearsalMemos = () => {
         <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')"><i class="fa-solid fa-trash-can"></i></button>
     </div>
 ` : '';
+
+        const reactionsHtml = `
+        <div class="memo-reactions" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+            ${REACTIONS.map(r => `                
+                <button
+                    class="reaction-btn"
+                    onclick="toggleReaction('${m.id}', '${r}')"
+                    title="${
+                        state.reactions
+                            .filter(x =>
+                                String(x.memo_id) === String(m.id) &&
+                                x.reaction === r
+                            )
+                            .map(x => {
+                                const member = state.members.find(mem =>
+                                    String(mem.id) === String(x.member_id)
+                                );
+                                return member ? member.name : '';
+                            })
+                            .filter(Boolean)
+                            .join('\n')
+                    }"
+                    style="
+                    border:1px solid #ddd;
+                    background:${
+                        state.reactions.some(x =>
+                            String(x.memo_id) === String(m.id) &&
+                            String(x.member_id) === String(state.currentMember) &&
+                            x.reaction === r
+                        ) ? '#ffdce8' : 'white'
+                    };
+                    border-radius:16px;
+                    padding:4px 8px;
+                    cursor:pointer;
+                    "
+                >
+                    ${r} ${
+                        state.reactions.filter(x =>
+                            String(x.memo_id) === String(m.id) &&
+                            x.reaction === r
+                        ).length
+                    }
+                </button>
+            `).join('')}
+        </div>
+        `;
 
         // 改行を判定して省略ボタンを出すか決める（文字数や行数で簡易判定）
         const lines = (m.content || '').split('\n').length;
@@ -2578,6 +2632,7 @@ window.renderRehearsalMemos = () => {
                 <span style="margin-left: auto; font-weight: bold;"><i class="fa-solid fa-pen-nib"></i> ${m.author_name || '不明'}</span>
             </div>
             ${contentHtml}
+            ${reactionsHtml}
             ${actionsHtml}
         `;
         container.appendChild(card);
@@ -3039,3 +3094,50 @@ window.saveCastMasterFromDOM = async () => {
     }
 };
 
+window.toggleReaction = async (memoId, reaction) => {
+    if (!state.currentMember) {
+        alert('先にメンバーを選択してください');
+        return;
+    }
+
+    const existing = state.reactions.find(r =>
+        String(r.memo_id) === String(memoId) &&
+        String(r.member_id) === String(state.currentMember) &&
+        r.reaction === reaction
+    );
+
+    try {
+        if (existing) {
+            const { error } = await db
+                .from('memo_reactions')
+                .delete()
+                .eq('id', existing.id);
+
+            if (error) throw error;
+        } else {
+
+            await db
+                .from('memo_reactions')
+                .delete()
+                .eq('memo_id', memoId)
+                .eq('member_id', state.currentMember);
+
+            const { error } = await db
+                .from('memo_reactions')
+                .insert([{
+                    memo_id: memoId,
+                    member_id: state.currentMember,
+                    reaction: reaction
+                }]);
+
+            if (error) throw error;
+        }
+
+        await loadCloud();
+        renderRehearsalMemos();
+
+    } catch (err) {
+        console.error(err);
+        alert(JSON.stringify(err, null, 2));
+    }
+};
