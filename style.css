@@ -388,8 +388,8 @@ select.cute-input option {
 .memo-card {
     background: var(--bg-filled) !important;
     border-radius: var(--radius-md);
-    padding: 10px;
-    margin-bottom: 8px;
+    padding: 6px;
+    margin-bottom: 5px;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-dusty);
 
@@ -432,10 +432,11 @@ select.cute-input option {
 }
 
 .memo-content-short {
-    overflow: visible;
-    position: static;
-    max-height: none;
+    overflow: hidden;
+    max-height: 20px;
+    position: relative;
 }
+
 
 /*
 .memo-content-short::after {
@@ -453,18 +454,19 @@ select.cute-input option {
     background: none;
     border: none;
     color: var(--pink-accent);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: bold;
     cursor: pointer;
     text-align: center;
-    padding: 5px;
+    padding: 0;
+    margin: 0;
     width: 100%;
 }
 .memo-actions {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 5px;
+    margin-top: 0;
 }
 
 .memo-action-btn {

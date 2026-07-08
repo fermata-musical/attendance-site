@@ -68,6 +68,12 @@ const REACTIONS = [
   "❤️",
 ];
 
+let memoReadStatus =
+    JSON.parse(localStorage.getItem('memoReadStatus') || '{}');
+
+let memoUpdatedStatus =
+    JSON.parse(localStorage.getItem('memoUpdatedStatus') || '{}');
+
 let state = {
     auth: { isLoggedIn: false, type: null },
     members: [],
@@ -2393,7 +2399,8 @@ window.saveMemo = async () => {
         sort_page: parsed.page,
         sort_measure: parsed.measure,
         sort_scene: parsed.scene,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        pinned: false
     };
     
     try {
@@ -2410,10 +2417,21 @@ window.saveMemo = async () => {
         }
         
         if (error) throw error;
-        
+
+        if (editId) {
+            memoUpdatedStatus[editId] = true;
+
+            localStorage.setItem(
+                'memoUpdatedStatus',
+                JSON.stringify(memoUpdatedStatus)
+            );
+        }
+
         alert('メモを保存しました。');
         resetMemoForm();
-        await loadCloud(); // 再取得して描画
+
+        await loadCloud();
+
         if ($('rehearsal-work').classList.contains('active')) {
             renderRehearsalMemos();
         }
@@ -2517,17 +2535,24 @@ window.renderRehearsalMemos = () => {
     });
     
     filtered.sort((a, b) => {
+
+        if ((a.pinned || false) !== (b.pinned || false)) {
+            return (b.pinned || false) - (a.pinned || false);
+        }
+
         if (sortOrder === 'updated_desc') {
             return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
         } else if (sortOrder === 'updated_asc') {
             return new Date(a.updated_at || a.created_at) - new Date(b.updated_at || b.created_at);
-} else if (sortOrder === 'page') {
-    const pa = a.sort_page !== null ? a.sort_page : 999999;
-    const pb = b.sort_page !== null ? b.sort_page : 999999;
-    return pa - pb;
-}
-return 0;
-});    
+        } else if (sortOrder === 'page') {
+            const pa = a.sort_page !== null ? a.sort_page : 999999;
+            const pb = b.sort_page !== null ? b.sort_page : 999999;
+            return pa - pb;
+        }
+
+        return 0;
+    });
+
     container.innerHTML = '';
     
     if (filtered.length === 0) {
@@ -2536,6 +2561,8 @@ return 0;
     }
     
     filtered.forEach(m => {
+        const isNew = !memoReadStatus[m.id];
+        const isUpdated = memoUpdatedStatus[m.id];
         const d = new Date(m.updated_at || m.created_at);
         const dateStr = `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
         
@@ -2545,13 +2572,37 @@ return 0;
         const isMine = m.author_id === state.currentMember || state.auth.type === 'admin';
         const actionsHtml = isMine ? `
     <div class="memo-actions">
-        <button class="memo-action-btn" onclick="editMemo('${m.id}')"><i class="fa-solid fa-pen"></i></button>
-        <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')"><i class="fa-solid fa-trash-can"></i></button>
+
+        <button class="memo-action-btn"
+            onclick="togglePin('${m.id}')"
+            style="
+                color:${m.pinned ? 'white' : '#bfbfbf'};
+                background:${m.pinned ? 'var(--pink-accent)' : 'transparent'};
+                border-radius:50%;
+                width:24px;
+                height:24px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:${m.pinned ? '1.15rem' : '0.9rem'};
+                box-shadow:${m.pinned ? '0 2px 6px rgba(233,101,153,0.4)' : 'none'};
+            ">
+            <i class="fa-solid fa-thumbtack"></i>
+        </button>
+
+        <button class="memo-action-btn" onclick="editMemo('${m.id}')">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+
+        <button class="memo-action-btn delete" onclick="deleteMemo('${m.id}')">
+            <i class="fa-solid fa-trash-can"></i>
+        </button>
+
     </div>
 ` : '';
 
         const reactionsHtml = `
-        <div class="memo-reactions" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+        <div class="memo-reactions" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
             ${REACTIONS.map(r => `                
                 <button
                     class="reaction-btn"
@@ -2580,15 +2631,17 @@ return 0;
                             x.reaction === r
                         ) ? '#ffdce8' : 'white'
                     };
-                    border-radius:16px;
-                    padding:4px 8px;
+                    border-radius:14px;
+                    padding:2px 6px;
+                    font-size:0.75rem;
+                    line-height:1;
                     cursor:pointer;
                     "
                 >
                     ${r}
                     <span
                         onclick="event.stopPropagation();showReactionUsers('${m.id}','${r}')"
-                        style="margin-left:4px;text-decoration:underline;cursor:pointer;"
+                        style="margin-left:2px;cursor:pointer;font-size:0.7rem;"
                     >
                     ${
                         state.reactions.filter(x =>
@@ -2607,12 +2660,22 @@ return 0;
         const isLong = lines > 3 || (m.content || '').length > 100;
         
         const contentHtml = `
-            <div class="${isLong ? 'memo-content-short' : ''}">
+            <div class="memo-content-short">
                 ${m.content
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/\n/g, '<br>')}
             </div>
+        `;
+
+        const toggleButtonHtml = `
+        <button class="memo-toggle-btn"
+            onclick="
+            toggleMemoText(this);
+            markMemoAsRead('${m.id}');
+            "
+            <i class="fa-solid fa-chevron-down"></i> 続きを読む
+        </button>
         `;
         
         const categories = (m.category || '').split(',').map(c => c.trim()).filter(c => c);
@@ -2622,7 +2685,39 @@ return 0;
         card.className = 'memo-card';
         card.innerHTML = `
             <div class="memo-header">
-                <div style="display: flex; flex-wrap: wrap; gap: 5px;">${badgesHtml}</div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+
+                ${isNew ? `
+                <span style="
+                background:var(--pink-accent);
+                color:white;
+                font-size:0.7rem;
+                padding:2px 6px;
+                border-radius:4px;
+                font-weight:bold;
+                ">
+                NEW
+                </span>
+                ` : ''}
+
+                ${!isNew && isUpdated ? `
+                <span style="
+                background:var(--bg-soft);
+                color:var(--pink-accent);
+                border:1px solid var(--border-dusty);
+                font-size:0.7rem;
+                padding:2px 6px;
+                border-radius:4px;
+                font-weight:bold;
+                ">
+                更新
+                </span>
+                ` : ''}
+
+                ${badgesHtml}
+
+            </div>
                 <span style="font-size: 0.75rem; color: var(--text-sub);"><i class="fa-regular fa-clock"></i> ${dateStr}</span>
             </div>
             <div class="memo-meta">
@@ -2631,6 +2726,7 @@ return 0;
                 <span style="margin-left: auto; font-weight: bold;"><i class="fa-solid fa-pen-nib"></i> ${m.author_name || '不明'}</span>
             </div>
             ${contentHtml}
+            ${toggleButtonHtml}
             ${reactionsHtml}
             ${actionsHtml}
         `;
@@ -3160,4 +3256,44 @@ window.showReactionUsers = (memoId, reaction) => {
         `${reaction}\n\n` +
         (names.length ? names.join('\n') : 'まだ誰もリアクションしていません')
     );
+};
+
+window.markMemoAsRead = (memoId) => {
+    memoReadStatus[memoId] = true;
+    delete memoUpdatedStatus[memoId];
+
+    localStorage.setItem(
+        'memoReadStatus',
+        JSON.stringify(memoReadStatus)
+    );
+
+    localStorage.setItem(
+        'memoUpdatedStatus',
+        JSON.stringify(memoUpdatedStatus)
+    );
+};
+
+window.togglePin = async (memoId) => {
+
+    const memo = state.memos.find(
+        m => String(m.id) === String(memoId)
+    );
+
+    if (!memo) return;
+
+    const { error } = await db
+        .from('rehearsal_memos')
+        .update({
+            pinned: !memo.pinned,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', memoId);
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    await loadCloud();
+    renderRehearsalMemos();
 };
