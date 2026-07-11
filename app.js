@@ -1,7 +1,5 @@
 console.log("app.js loaded");
 // --- 接続設定 ---
-const SUPABASE_URL = 'https://cwepoklweabvpmyfizto.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_3M_jMfBkVJdZNVypnV51ig_oYsn6-0n';
 
 let db; 
 let allowUpdate = false; 
@@ -58,12 +56,6 @@ function refreshUI() {
     renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input');
 }
 
-const CONFIG = {
-    COMMON_PW: 'kuma',
-    ADMIN_PW: '9203',
-    STORAGE_KEY: 'fermata_v6_sync'
-};
-
 const REACTIONS = [
   "❤️",
 ];
@@ -74,45 +66,7 @@ let memoReadStatus =
 let memoUpdatedStatus =
     JSON.parse(localStorage.getItem('memoUpdatedStatus') || '{}');
 
-let state = {
-    auth: { isLoggedIn: false, type: null },
-    members: [],
-    castMaster: [], // 配役マスター
-    selfProfiles: [],
-    currentMember: '',
-    rehearsals: [], 
-    attendance: {}, 
-    memos: [],
-    reactions: [],
-    settings: {
-        locations: ['段原公民館', '祇園公民館', '宇品公民館', '青崎公民館', '中央公民館', '己斐公民館', '公民館', '八本松地域センター'],
-        menus: ['ワークショップダンス基礎', 'ワークショップダンス', 'ワークショップミュージカル', 'ワークショップ', '美女野獣　稽古', '美女野獣　合唱練習'],
-        memoCategories: [],
-        visibility: {} // localStorageから読み込む
-    },
-    ui: {
-        currentMonth: '',
-        statusMonth: '',
-        pastMonth: '',
-        editingId: null,
-        adminViewList: [],
-        adminSortOrder: 'asc'
-    }
-};
-
 // --- ユーティリティ ---
-const $ = (id) => document.getElementById(id);
-const getMonthStr = (date) => date ? date.substring(0, 7) : "";
-const getToday = () => new Date().setHours(0,0,0,0);
-const getTodayStr = () => new Date().toISOString().split('T')[0];
-
-function getWeekday(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    const days = ['日', '月', '火', '水', '木', '金', '土'];
-    return days[d.getDay()];
-}
 
 function setupSelectEventListeners() {
     // プルダウンの挙動を正常化
@@ -121,198 +75,6 @@ function setupSelectEventListeners() {
         select.dataset.initialized = 'true';
         // 余計なイベント停止を削除し、ブラウザ標準の動作を優先
     });
-}
-
-// --- クラウド同期ロジック (Supabase版) ---
-
-async function loadCloud() {
-    if (!db) return;
-    try {
-        $('sync-indicator').classList.remove('hidden');
-        
-        // 各種データの並列取得
-        const [mRes, pRes, aRes, vRes, locRes, menuRes, memoRes, reactionRes, catRes, castRes, profileRes] = await Promise.all([
-            db.from('members').select('*'),
-            db.from('practices').select('*').order('sort_order', { ascending: true }),
-            db.from('attendance').select('*'),
-            db.from('visibility_settings').select('*'),
-            db.from('places').select('*').order('sort_order', { ascending: true }),
-            db.from('menus').select('*').order('sort_order', { ascending: true }),
-            db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
-            db.from('memo_reactions').select('*'),
-            db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
-            db.from('cast_master').select('*').order('sort_order', { ascending: true }),
-            db.from('self_profiles').select('*')
-
-        ]);
-
-        if (mRes.error) throw mRes.error;
-        if (pRes.error) throw pRes.error;
-        if (aRes.error) throw aRes.error;
-
-        if (castRes && castRes.data) {
-            state.castMaster = castRes.data;
-        } else if (castRes && castRes.error) {
-            console.warn("cast_master取得エラー:", castRes.error);
-        }
-
-        if (profileRes && profileRes.data) {
-            state.selfProfiles = profileRes.data;
-        } else if (profileRes && profileRes.error) {
-            console.warn("self_profiles取得エラー:", profileRes.error);
-        }
-
-        // メンバー情報
-        state.members = mRes.data;
-
-        // 一覧を描画
-        renderSelfProfiles();
-
-        const member = state.members.find(
-            m => String(m.id) === String(state.currentMember)
-        );
-
-        const memberNameInput =
-            document.getElementById('profile-member-name');
-
-        if (memberNameInput) {
-            memberNameInput.value = member ? member.name : '';
-        }
-
-        // 稽古日程
-        const groups = {};
-        pRes.data.forEach(p => {
-            const key = `${p.date}_${p.place}`;
-            if (!groups[key]) groups[key] = { date: p.date, location: p.place, slots: [] };
-            groups[key].slots.push({ id: p.id, start: p.start_time, end: p.end_time, menu: p.menu });
-        });
-        state.rehearsals = Object.values(groups).map(group => {
-            const validSlots = group.slots.filter(s => s.start || s.end || s.menu);
-            const emptySlots = group.slots.filter(s => !(s.start || s.end || s.menu));
-
-            // 過去のバグで蓄積したゴーストデータを物理削除する処理
-            if (validSlots.length > 0 && emptySlots.length > 0) {
-                // 有効データがあるのに空データもある場合、空データは完全なゴミ
-                emptySlots.forEach(s => {
-                    db.from('practices').delete().eq('id', s.id).then();
-                });
-                group.slots = validSlots;
-            } else if (validSlots.length === 0 && emptySlots.length > 1) {
-                // 有効データがなく、空データが複数ある場合、1つ残して他はゴミ
-                const keep = emptySlots[0];
-                const trash = emptySlots.slice(1);
-                trash.forEach(s => {
-                    db.from('practices').delete().eq('id', s.id).then();
-                });
-                group.slots = [keep];
-            }
-            return group;
-        });
-
-        // 出欠情報
-        state.attendance = {};
-        aRes.data.forEach(a => {
-            if (!state.attendance[a.member_id]) state.attendance[a.member_id] = {};
-            state.attendance[a.member_id][a.practice_id] = { id: a.id, status: a.status, note: a.note };
-        });
-
-        // 閲覧制限設定
-        if (!vRes.error && vRes.data) {
-            const vis = {};
-            vRes.data.forEach(v => {
-                vis[v.tab_name] = v.is_locked ? 'protected' : 'public';
-            });
-            state.settings.visibility = vis;
-        }
-
-        // 場所リストの同期
-        if (locRes.data && locRes.data.length > 0) {
-            state.settings.locations = locRes.data.map(d => d.name);
-        }
-
-        // メニューリストの同期
-        if (menuRes.data && menuRes.data.length > 0) {
-            state.settings.menus = menuRes.data.map(d => d.name);
-        }
-
-        // 稽古メモ
-        if (memoRes.data) {
-            state.memos = memoRes.data;
-        }
-
-        if (reactionRes.data) {
-            state.reactions = reactionRes.data;
-        }
-
-        // メモ区分
-        if (catRes.data) {
-            state.settings.memoCategories = catRes.data;
-        }
-
-        if (state.auth.isLoggedIn) { 
-            refreshAdminViewList();
-            isLocked = false; 
-            renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input'); 
-            updateLockIcons(); // 鍵アイコンを更新
-            setupSelectEventListeners();
-            isLocked = true;
-        }
-    } catch (error) { 
-        console.error("Supabase読み込みエラー:", error); 
-    } finally { 
-        $('sync-indicator').classList.add('hidden'); 
-    }
-}
-
-function saveLocal() {
-    const json = JSON.stringify(state);
-    localStorage.setItem(CONFIG.STORAGE_KEY, json);
-}
-
-// --- 認証 ---
-
-function initAuth() {
-    const localSaved = localStorage.getItem(CONFIG.STORAGE_KEY);
-    if (localSaved) {
-        const parsed = JSON.parse(localSaved);
-        if (parsed.settings) {
-            state.settings = { ...state.settings, ...parsed.settings };
-        }
-        state.auth = parsed.auth || state.auth;
-        state.currentMember = parsed.currentMember || '';
-    }
-
-    const loginBtn = $('login-btn');
-    if (loginBtn) {
-        loginBtn.onclick = () => {
-            const pw = ($('password-input').value || '').trim();
-            if (pw === CONFIG.ADMIN_PW) state.auth = { isLoggedIn: true, type: 'admin' };
-            else if (pw === CONFIG.COMMON_PW) state.auth = { isLoggedIn: true, type: 'common' };
-            else { $('login-error').classList.remove('hidden'); return; }
-            saveLocal();
-            $('login-overlay').style.display = 'none';
-            $('app').classList.remove('hidden');
-            loadCloud();
-        };
-    }
-    const logoutBtn = $('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.onclick = () => {
-            if (confirm('ログアウトしますか？')) {
-                state.auth = { isLoggedIn: false, type: null };
-                saveLocal(); location.reload();
-            }
-        };
-    }
-    if (state.auth.isLoggedIn) {
-        $('login-overlay').style.display = 'none';
-        $('app').classList.remove('hidden');
-        loadCloud(); 
-    } else {
-        $('login-overlay').style.display = 'flex';
-        $('app').classList.add('hidden');
-    }
-    updateLockIcons(); 
 }
 
 // --- アプリロジック ---
@@ -327,6 +89,7 @@ function updateLockIcons() {
 }
 
 function initTabs() {
+    console.count('initTabs');
     // 未保存の変更警告（ページ遷移・リロード時）
     window.addEventListener('beforeunload', (e) => {
         if (isDirty) {
@@ -507,23 +270,33 @@ async function saveAllPractices(silent = false) {
     validRehearsals.forEach(r => {
         
         if (!r.slots || r.slots.length === 0) {
-            dataList.push({ id: crypto.randomUUID(), date: r.date || null, place: r.location, start_time: '', end_time: '', menu: '', sort_order: currentOrder++ });
-        } else {
-            r.slots.forEach(s => {
-                dataList.push({
-                    id: s.id && s.id !== "undefined" ? s.id : crypto.randomUUID(),
-                    date: r.date || null,
-                    place: r.location,
-                    start_time: s.start || '',
-                    end_time: s.end || '',
-                    menu: s.menu || '',
-                    sort_order: currentOrder++
-                });
+            dataList.push({
+                id: crypto.randomUUID(),
+                date: r.date || null,
+                place: r.location,
+                start_time: '',
+                end_time: '',
+                menu: '',
+                notice: r.notice || '',
+                sort_order: currentOrder++
             });
-        }
-    });
+                } else {
+                    r.slots.forEach(s => {
+                        dataList.push({
+                            id: s.id && s.id !== "undefined" ? s.id : crypto.randomUUID(),
+                            date: r.date || null,
+                            place: r.location,
+                            start_time: s.start || '',
+                            end_time: s.end || '',
+                            menu: s.menu || '',
+                            notice: r.notice || '',
+                            sort_order: currentOrder++
+                        });
+                    });
+                }
+            });
 
-    if (dataList.length === 0) return;
+            if (dataList.length === 0) return;
     
     console.log('[upsert送信]', dataList);
     const { error } = await db.from('practices').upsert(dataList, { onConflict: 'id' });
@@ -792,27 +565,6 @@ function renderSelfProfiles() {
 
 }
 
-function initializeBirthdaySelects() {
-
-    const month = document.getElementById('profile-birth-month');
-    const day = document.getElementById('profile-birth-day');
-
-    if (!month || !day) return;
-
-    month.innerHTML = '<option value="">月</option>';
-
-    for (let i = 1; i <= 12; i++) {
-        month.innerHTML += `<option value="${i}">${i}月</option>`;
-    }
-
-    day.innerHTML = '<option value="">日</option>';
-
-    for (let i = 1; i <= 31; i++) {
-        day.innerHTML += `<option value="${i}">${i}日</option>`;
-    }
-
-}
-
 function renderTab(id) {
     if (id === 'attendance-input') renderAttendanceInput();
     if (id === 'overall-status') renderOverallStatus();
@@ -993,7 +745,31 @@ function renderAttendanceContent() {
             });
             const weekday = getWeekday(r.date);
             const dateDisplay = weekday ? `${r.date}（${weekday}）` : (r.date || '');
-            card.innerHTML = `<div class="section-header"><h2><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}　${r.location}</h2></div>${slotsHtml}`;
+            card.innerHTML = `
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-calendar-day"></i> ${dateDisplay}　${r.location}</h2>
+                </div>
+
+                ${r.notice ? `
+                    <div style="
+                        margin-bottom:18px;
+                        background:var(--bg-card);
+                        border:1px solid var(--border-dusty);
+                        border-radius:var(--radius-md);
+                        box-shadow:var(--shadow-sm);
+                        overflow:hidden;
+                    ">
+                        <div style="
+                            padding:16px 18px;
+                            color:var(--text-main);
+                            white-space:pre-wrap;
+                            line-height:1.8;
+                        ">${r.notice}</div>
+                    </div>
+                ` : ''}
+
+                ${slotsHtml}
+            `;
             mainContainer.appendChild(card);
         });
     });
@@ -1097,7 +873,7 @@ function renderAdminPanel() {
     if (activeSub === 'cast-master-edit') renderAdminCastMaster();
     if (activeSub === 'tab-visibility') renderAdminVisibility();
 }
-
+        
 function savePracticesFromDOM() {
     const list = $('admin-rehearsal-list');
     // 管理タブの日程編集画面が表示されていない場合はスキップ
@@ -1110,28 +886,51 @@ function savePracticesFromDOM() {
 
     cards.forEach(card => {
         if (!card) return;
+
         const date = card.querySelector('.date-input')?.value || '';
-        
+
         // 場所の取得（プルダウン or 直接入力）
         const locSel = card.querySelector('.location-input');
         const locText = card.querySelector('.location-input-text');
-        let location = (locSel && locSel.value === 'other') ? (locText?.value || '') : (locSel?.value || '');
+        let location = (locSel && locSel.value === 'other')
+            ? (locText?.value || '')
+            : (locSel?.value || '');
+
+        // 連絡事項
+        const notice = card.querySelector('.notice-input')?.value || '';
 
         const slots = [];
+
         card.querySelectorAll('.slots').forEach(slot => {
-            const id = slot.dataset.id && slot.dataset.id !== "undefined" ? slot.dataset.id : crypto.randomUUID();
+            const id = slot.dataset.id && slot.dataset.id !== "undefined"
+                ? slot.dataset.id
+                : crypto.randomUUID();
+
             const start = slot.querySelector('.start-time-input')?.value || '';
             const end = slot.querySelector('.end-time-input')?.value || '';
-            
+
             // メニューの取得（プルダウン or 直接入力）
             const menuSel = slot.querySelector('.menu-input');
             const menuText = slot.querySelector('.menu-input-text');
-            let menu = (menuSel && menuSel.value === 'other') ? (menuText?.value || '') : (menuSel?.value || '');
 
-            slots.push({ id, start, end, menu });
+            let menu = (menuSel && menuSel.value === 'other')
+                ? (menuText?.value || '')
+                : (menuSel?.value || '');
+
+            slots.push({
+                id,
+                start,
+                end,
+                menu
+            });
         });
 
-        state.rehearsals.push({ date, location, slots });
+        state.rehearsals.push({
+            date,
+            location,
+            notice,
+            slots
+        });
     });
 
     console.log('[保存データ]', state.rehearsals);
@@ -1186,6 +985,21 @@ function renderAdminRehearsals() {
             <div class="menu-container">
                 ${slotsHtml}
             </div>
+
+            <details class="notice-section" style="margin-top:12px;">
+                <summary style="cursor:pointer; font-weight:bold;">
+                    連絡事項
+                    ${r.notice ? '📌' : ''}
+                </summary>
+
+                <div style="margin-top:8px;">
+                    <textarea
+                        class="cute-input notice-input"
+                        style="width:100%; min-height:90px; resize:vertical;"
+                        placeholder="この日の連絡事項を入力してください">${r.notice || ''}</textarea>
+                </div>
+            </details>
+
             <div class="card-footer" style="display:flex; gap:6px; margin-top:15px; padding-top:10px; border-top:1px dashed var(--border-dusty); align-items:center;">
                 <button class="action-btn-styled add add-menu-btn" type="button" data-date="${r.date}" data-place="${r.location}" style="flex:1;">
                     <i class="fa-solid fa-plus"></i> 追加
@@ -1772,10 +1586,185 @@ function renderMonthTabs(months, currentMonth, containerTopId, containerBottomId
         bottom.appendChild(btnBottom);
     });
 }
+    
+function initMenuEvents() {
+    // イベント委譲：メニュー追加ボタン
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.add-menu-btn');
+        if (btn) {
+            // 再描画を絶対に発生させない：DOMに直接追加
+            const container = btn.closest('.admin-card-inner').querySelector('.menu-container');
+            if (container) {
+                // 直前のメニューの終了時刻を取得して、次の開始時刻の初期値にする
+                const rows = container.querySelectorAll('.menu-row');
+                let lastEnd = '';
+                if (rows.length > 0) {
+                    const lastRow = rows[rows.length - 1];
+                    lastEnd = lastRow.querySelector('.end-time-input')?.value || '';
+                }
 
-window.onload = () => {
-    if (window.supabase) { db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+                const newSlotId = crypto.randomUUID();
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = getSlotHtml(newSlotId, lastEnd);
+                const row = tempDiv.firstElementChild;
+                container.appendChild(row);
+            }
+        }
+    });
+}
 
+function initLockEvents() {
+    // 項目管理の「追加」ボタンが反応しない場合への対策
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'add-location-btn' || e.target.id === 'add-menu-btn') {
+            isLocked = false;
+            // 本来の処理が終わるのを少し待ってから再ロック
+            setTimeout(() => { isLocked = true; }, 100);
+        }
+    });
+}
+
+function initMoveEvents() {
+    // 手動並び替えボタン（↑ ↓）
+    document.addEventListener('click', (e) => {
+        const upBtn = e.target.closest('.move-up-btn');
+        const downBtn = e.target.closest('.move-down-btn');
+        const castUpBtn = e.target.closest('.cast-row-up-btn');
+        const castDownBtn = e.target.closest('.cast-row-down-btn');
+
+        if (upBtn || downBtn) {
+            const card = e.target.closest('.admin-card-inner');
+            if (!card) return;
+            const parent = card.parentNode;
+            if (upBtn) {
+                const prev = card.previousElementSibling;
+                if (prev) parent.insertBefore(card, prev);
+            } else {
+                const next = card.nextElementSibling;
+                if (next) parent.insertBefore(next, card);
+            }
+            // 並び替え後に状態を保存
+            savePracticesFromDOM();
+        } else if (castUpBtn || castDownBtn) {
+            const row = e.target.closest('.cast-master-row');
+            if (!row) return;
+            const parent = row.parentNode;
+            if (castUpBtn) {
+                const prev = row.previousElementSibling;
+                if (prev && prev.classList.contains('cast-master-row')) parent.insertBefore(row, prev);
+            } else {
+                const next = row.nextElementSibling;
+                if (next && next.classList.contains('cast-master-row')) parent.insertBefore(next, row);
+            }
+            isDirty = true;
+        }
+    });
+}
+
+function initMenuMoveEvents() {
+
+    // メニュー行の手動並び替えボタン（↑ ↓）
+    document.addEventListener('click', (e) => {
+        const menuUpBtn = e.target.closest('.menu-up-btn');
+        const menuDownBtn = e.target.closest('.menu-down-btn');
+        if (menuUpBtn || menuDownBtn) {
+            const row = e.target.closest('.menu-row');
+            if (!row) return;
+            const container = row.parentElement;
+            if (menuUpBtn) {
+                const prev = row.previousElementSibling;
+                if (prev) container.insertBefore(row, prev);
+            } else {
+                const next = row.nextElementSibling;
+                if (next) container.insertBefore(next, row);
+            }
+            savePracticesFromDOM();
+        }
+    });
+}
+
+function initPracticeSortEvents() {
+
+    // ワンクリック自動並び替え：全体を日付順
+    document.addEventListener('click', (e) => {
+        const sortPracticeBtn = e.target.closest('.sort-practice-btn');
+        if (sortPracticeBtn) {
+            const order = sortPracticeBtn.dataset.order || 'asc';
+            state.ui.adminSortOrder = order;
+            savePracticesFromDOM();
+            state.rehearsals.sort((a, b) => {
+                if (order === 'desc') {
+                    // 降順の場合は、未入力を一番下にするため 0000-01-01 扱いにする
+                    const daDesc = a.date ? new Date(a.date) : new Date('0000-01-01');
+                    const dbDesc = b.date ? new Date(b.date) : new Date('0000-01-01');
+                    return dbDesc - daDesc;
+                } else {
+                    // 昇順の場合は、未入力を一番下にするため 9999-12-31 扱いにする
+                    const daAsc = a.date ? new Date(a.date) : new Date('9999-12-31');
+                    const dbAsc = b.date ? new Date(b.date) : new Date('9999-12-31');
+                    return daAsc - dbAsc;
+                }
+            });
+            refreshAdminViewList();
+            renderAdminRehearsals();
+        }
+    });
+}
+
+function initMenuSortEvents() {
+    // ワンクリック自動並び替え：同日内のメニューを時間順
+    document.addEventListener('click', (e) => {
+        const sortMenuBtn = e.target.closest('.sort-menu-btn');
+        if (sortMenuBtn) {
+            const item = sortMenuBtn.closest('.admin-card-inner');
+            if (!item) return;
+            const container = item.querySelector('.menu-container');
+            if (!container) return;
+            const rows = Array.from(container.querySelectorAll('.menu-row'));
+            
+            rows.sort((a, b) => {
+                const ta = a.querySelector('.start-time-input')?.value || 'zz:zz';
+                const tb = b.querySelector('.start-time-input')?.value || 'zz:zz';
+                return ta.localeCompare(tb);
+            });
+            
+            rows.forEach(row => container.appendChild(row));
+            savePracticesFromDOM();
+        }
+    });
+}
+
+function initChangeEvents() {
+
+    // 管理タブ：過去分表示切り替えの連動
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'show-past-admin-check') {
+            renderAdminPanel();
+        }
+    });
+
+    // 管理タブ：日付入力変更時に曜日を連動表示
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('date-input')) {
+            const label = e.target.nextElementSibling;
+            if (label && label.classList.contains('weekday-label')) {
+                const w = getWeekday(e.target.value);
+                label.textContent = w ? `（${w}）` : '';
+            }
+        }
+    });
+
+    // 過去タブ：月単位のチェック連動
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('month-checkbox')) {
+            const block = e.target.closest('.month-block');
+            const items = block.querySelectorAll('.select-checkbox');
+            items.forEach(cb => cb.checked = e.target.checked);
+        }
+    });
+}
+
+function initPageEvents() {
     // 稽古メモ用イベントリスナー
     const toggleMemoBtn = $('toggle-memo-form-btn');
     if (toggleMemoBtn) {
@@ -1899,234 +1888,9 @@ window.onload = () => {
             setTimeout(() => { window.scrollTo(0, y); }, 0);
         }
     });
+}
 
-    initAuth(); initTabs(); 
-
-    const saveProfileBtn = document.getElementById('save-profile-btn');
-
-    if (saveProfileBtn) {
-
-        saveProfileBtn.onclick = async () => {
-
-            if (!state.currentProfileMemberId) {
-                alert('メンバーを選択してください。');
-                return;
-            }
-
-            const profileData = {
-
-                member_id: state.currentProfileMemberId,
-
-                full_name: document.getElementById('profile-name').value,
-
-                reading: document.getElementById('profile-reading').value,
-
-                birth_year:
-                    document.getElementById('profile-birth-year').value || null,
-
-                birth_month:
-                    document.getElementById('profile-birth-month').value || null,
-
-                birth_day:
-                    document.getElementById('profile-birth-day').value || null,
-
-                area:
-                    document.getElementById('profile-area').value,
-
-                transportation:
-                    document.getElementById('profile-transportation').value,
-
-                daily_life:
-                    document.getElementById('profile-daily-life').value,
-
-                hobbies: document.getElementById('profile-hobbies').value,
-
-                favorite_food: document.getElementById('profile-favorite-food').value,
-        
-                talk_to_me_about: document.getElementById('profile-talk').value,
-
-                message: document.getElementById('profile-message').value
-
-            };
-
-            const { error } = await db
-                .from('self_profiles')
-                .upsert(profileData);
-
-            if (error) {
-                alert(error.message);
-                return;
-            }
-
-            alert('保存しました');
-
-            document.getElementById('profile-form')
-                .classList.add('hidden');
-
-            await loadCloud();
-
-        };
-    }
-
-    // イベント委譲：メニュー追加ボタン
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.add-menu-btn');
-        if (btn) {
-            // 再描画を絶対に発生させない：DOMに直接追加
-            const container = btn.closest('.admin-card-inner').querySelector('.menu-container');
-            if (container) {
-                // 直前のメニューの終了時刻を取得して、次の開始時刻の初期値にする
-                const rows = container.querySelectorAll('.menu-row');
-                let lastEnd = '';
-                if (rows.length > 0) {
-                    const lastRow = rows[rows.length - 1];
-                    lastEnd = lastRow.querySelector('.end-time-input')?.value || '';
-                }
-
-                const newSlotId = crypto.randomUUID();
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = getSlotHtml(newSlotId, lastEnd);
-                const row = tempDiv.firstElementChild;
-                container.appendChild(row);
-            }
-        }
-    });
-
-    // 項目管理の「追加」ボタンが反応しない場合への対策
-    document.addEventListener('click', (e) => {
-        if (e.target.id === 'add-location-btn' || e.target.id === 'add-menu-btn') {
-            isLocked = false;
-            // 本来の処理が終わるのを少し待ってから再ロック
-            setTimeout(() => { isLocked = true; }, 100);
-        }
-    });
-
-    // 手動並び替えボタン（↑ ↓）
-    document.addEventListener('click', (e) => {
-        const upBtn = e.target.closest('.move-up-btn');
-        const downBtn = e.target.closest('.move-down-btn');
-        const castUpBtn = e.target.closest('.cast-row-up-btn');
-        const castDownBtn = e.target.closest('.cast-row-down-btn');
-
-        if (upBtn || downBtn) {
-            const card = e.target.closest('.admin-card-inner');
-            if (!card) return;
-            const parent = card.parentNode;
-            if (upBtn) {
-                const prev = card.previousElementSibling;
-                if (prev) parent.insertBefore(card, prev);
-            } else {
-                const next = card.nextElementSibling;
-                if (next) parent.insertBefore(next, card);
-            }
-            // 並び替え後に状態を保存
-            savePracticesFromDOM();
-        } else if (castUpBtn || castDownBtn) {
-            const row = e.target.closest('.cast-master-row');
-            if (!row) return;
-            const parent = row.parentNode;
-            if (castUpBtn) {
-                const prev = row.previousElementSibling;
-                if (prev && prev.classList.contains('cast-master-row')) parent.insertBefore(row, prev);
-            } else {
-                const next = row.nextElementSibling;
-                if (next && next.classList.contains('cast-master-row')) parent.insertBefore(next, row);
-            }
-            isDirty = true;
-        }
-    });
-
-    // メニュー行の手動並び替えボタン（↑ ↓）
-    document.addEventListener('click', (e) => {
-        const menuUpBtn = e.target.closest('.menu-up-btn');
-        const menuDownBtn = e.target.closest('.menu-down-btn');
-        if (menuUpBtn || menuDownBtn) {
-            const row = e.target.closest('.menu-row');
-            if (!row) return;
-            const container = row.parentElement;
-            if (menuUpBtn) {
-                const prev = row.previousElementSibling;
-                if (prev) container.insertBefore(row, prev);
-            } else {
-                const next = row.nextElementSibling;
-                if (next) container.insertBefore(next, row);
-            }
-            savePracticesFromDOM();
-        }
-    });
-
-    // ワンクリック自動並び替え：全体を日付順
-    document.addEventListener('click', (e) => {
-        const sortPracticeBtn = e.target.closest('.sort-practice-btn');
-        if (sortPracticeBtn) {
-            const order = sortPracticeBtn.dataset.order || 'asc';
-            state.ui.adminSortOrder = order;
-            savePracticesFromDOM();
-            state.rehearsals.sort((a, b) => {
-                if (order === 'desc') {
-                    // 降順の場合は、未入力を一番下にするため 0000-01-01 扱いにする
-                    const daDesc = a.date ? new Date(a.date) : new Date('0000-01-01');
-                    const dbDesc = b.date ? new Date(b.date) : new Date('0000-01-01');
-                    return dbDesc - daDesc;
-                } else {
-                    // 昇順の場合は、未入力を一番下にするため 9999-12-31 扱いにする
-                    const daAsc = a.date ? new Date(a.date) : new Date('9999-12-31');
-                    const dbAsc = b.date ? new Date(b.date) : new Date('9999-12-31');
-                    return daAsc - dbAsc;
-                }
-            });
-            refreshAdminViewList();
-            renderAdminRehearsals();
-        }
-    });
-
-    // ワンクリック自動並び替え：同日内のメニューを時間順
-    document.addEventListener('click', (e) => {
-        const sortMenuBtn = e.target.closest('.sort-menu-btn');
-        if (sortMenuBtn) {
-            const item = sortMenuBtn.closest('.admin-card-inner');
-            if (!item) return;
-            const container = item.querySelector('.menu-container');
-            if (!container) return;
-            const rows = Array.from(container.querySelectorAll('.menu-row'));
-            
-            rows.sort((a, b) => {
-                const ta = a.querySelector('.start-time-input')?.value || 'zz:zz';
-                const tb = b.querySelector('.start-time-input')?.value || 'zz:zz';
-                return ta.localeCompare(tb);
-            });
-            
-            rows.forEach(row => container.appendChild(row));
-            savePracticesFromDOM();
-        }
-    });
-
-    // 管理タブ：過去分表示切り替えの連動
-    document.addEventListener('change', (e) => {
-        if (e.target.id === 'show-past-admin-check') {
-            renderAdminPanel();
-        }
-    });
-
-    // 管理タブ：日付入力変更時に曜日を連動表示
-    document.addEventListener('change', (e) => {
-        if (e.target.classList.contains('date-input')) {
-            const label = e.target.nextElementSibling;
-            if (label && label.classList.contains('weekday-label')) {
-                const w = getWeekday(e.target.value);
-                label.textContent = w ? `（${w}）` : '';
-            }
-        }
-    });
-
-    // 過去タブ：月単位のチェック連動
-    document.addEventListener('change', (e) => {
-        if (e.target.classList.contains('month-checkbox')) {
-            const block = e.target.closest('.month-block');
-            const items = block.querySelectorAll('.select-checkbox');
-            items.forEach(cb => cb.checked = e.target.checked);
-        }
-    });
+function initPastDeleteEvents() {
 
     // 過去タブ：選択削除の実行
     const delPastBtn = $('delete-selected-past-btn');
@@ -2150,7 +1914,6 @@ window.onload = () => {
                         const item = cb.closest('.practice-item');
                         const date = item.dataset.date;
                         const place = item.dataset.place;
-                        // 日付と場所が一致するスロットをすべて削除
                         await db.from('practices').delete().eq('date', date).eq('place', place);
                     }
                     await loadCloud();
@@ -2164,7 +1927,26 @@ window.onload = () => {
             }
         };
     }
-};
+}
+
+window.onload = () => {
+    if (window.supabase) { 
+        db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); 
+    }
+
+    initAuth();
+    initTabs();
+    initPageEvents();
+    initProfileEvents();
+    initMenuEvents();
+    initLockEvents();
+    initMoveEvents();
+    initMenuMoveEvents();
+    initPracticeSortEvents();
+    initMenuSortEvents();
+    initChangeEvents();
+    initPastDeleteEvents();
+}
 
 // --- 過去タブ編集機能 ---
 
