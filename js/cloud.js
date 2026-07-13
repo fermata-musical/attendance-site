@@ -7,7 +7,21 @@ async function loadCloud() {
         $('sync-indicator').classList.remove('hidden');
         
         // 各種データの並列取得
-        const [mRes, pRes, aRes, vRes, locRes, menuRes, memoRes, reactionRes, catRes, castRes, profileRes] = await Promise.all([
+        const [
+            mRes,
+            pRes,
+            aRes,
+            vRes,
+            locRes,
+            menuRes,
+            memoRes,
+            reactionRes,
+            commentRes,
+            commentReactionRes,
+            catRes,
+            castRes,
+            profileRes
+        ] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
             db.from('attendance').select('*'),
@@ -16,6 +30,8 @@ async function loadCloud() {
             db.from('menus').select('*').order('sort_order', { ascending: true }),
             db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
             db.from('memo_reactions').select('*'),
+            db.from('memo_comments').select('*').order('created_at', { ascending: true }),
+            db.from('memo_comment_reactions').select('*'),
             db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
             db.from('cast_master').select('*').order('sort_order', { ascending: true }),
             db.from('self_profiles').select('*')
@@ -132,6 +148,14 @@ async function loadCloud() {
 
         if (reactionRes.data) {
             state.reactions = reactionRes.data;
+        }
+
+        if (commentRes.data) {
+            state.memoComments = commentRes.data;
+        }
+
+        if (commentReactionRes.data) {
+            state.commentReactions = commentReactionRes.data;
         }
 
         // メモ区分

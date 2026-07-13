@@ -170,6 +170,8 @@ window.renderRehearsalMemos = () => {
         const categories = (m.category || '').split(',').map(c => c.trim()).filter(c => c);
         const badgesHtml = categories.map(c => `<span class="memo-category-badge">${c}</span>`).join('');
         
+        const commentsHtml = renderMemoComments(m.id);
+
         const card = document.createElement('div');
         card.className = 'memo-card';
         card.innerHTML = `
@@ -177,20 +179,7 @@ window.renderRehearsalMemos = () => {
 
             <div style="display: flex; flex-wrap: wrap; gap: 5px;">
 
-                ${isNew ? `
-                <span style="
-                background:var(--pink-accent);
-                color:white;
-                font-size:0.7rem;
-                padding:2px 6px;
-                border-radius:4px;
-                font-weight:bold;
-                ">
-                NEW
-                </span>
-                ` : ''}
-
-                ${!isNew && isUpdated ? `
+                ${isUpdated ? `
                 <span style="
                 background:var(--bg-soft);
                 color:var(--pink-accent);
@@ -201,6 +190,17 @@ window.renderRehearsalMemos = () => {
                 font-weight:bold;
                 ">
                 更新
+                </span>
+                ` : isNew ? `
+                <span style="
+                background:var(--pink-accent);
+                color:white;
+                font-size:0.7rem;
+                padding:2px 6px;
+                border-radius:4px;
+                font-weight:bold;
+                ">
+                NEW
                 </span>
                 ` : ''}
 
@@ -217,6 +217,7 @@ window.renderRehearsalMemos = () => {
             ${contentHtml}
             ${toggleButtonHtml}
             ${reactionsHtml}
+            ${commentsHtml}
             ${actionsHtml}
         `;
         container.appendChild(card);

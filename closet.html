@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>衣装管理サイト</title>
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="icon.png" sizes="32x32">
+    <link rel="icon" href="icon.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    <!-- キャッシュ対策のためバージョンを更新 -->
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/closet.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- ローディング画面 -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loader-box">
+            <div class="spinner"></div>
+            <p>読み込み中...</p>
+        </div>
+    </div>
+
+    <!-- 同期中ミニ表示 -->
+    <div id="sync-indicator" class="sync-indicator hidden">
+        <i class="fa-solid fa-cloud-arrow-up"></i> 保存中...
+    </div>
+
+    <div id="login-overlay" class="login-container">
+        <div class="login-box card">
+            <div class="main-title" style="align-items: center; margin-bottom: 25px;">
+                <span class="main-txt" style="font-size: 1.5rem;">衣装管理サイト</span>
+                <span class="sub-txt">音楽集団フェルマータ</span>
+            </div>
+            <div class="input-group-full">
+                <input type="password" id="password-input" class="cute-input" placeholder="パスワードを入力">
+                <button id="login-btn" class="puffy-btn pink">ログイン <i class="fa-solid fa-right-to-bracket"></i></button>
+            </div>
+            <p id="login-error" class="hidden" style="color: var(--danger); font-size: 0.8rem; text-align: center; margin-top: 10px;">パスワードが違います</p>
+        </div>
+    </div>
+        <div id="app" class="hidden">
+        <header>
+            <div class="header-content">
+                <div class="main-title">
+                    <span class="main-txt">衣装管理サイト</span>
+                    <span class="sub-txt">音楽集団フェルマータ</span>
+                </div>
+                <button id="logout-btn" class="icon-btn-sm"><i class="fa-solid fa-door-open"></i></button>
+            </div>
+            <nav>
+                <button class="nav-tab active" data-tab="closet-list">
+                    <i class="fa-solid fa-shirt"></i><br>一覧
+                </button>
+
+                <button class="nav-tab" data-tab="closet-entry">
+                    <i class="fa-solid fa-square-plus"></i><br>登録
+                </button>
+
+                <button class="nav-tab" data-tab="closet-admin">
+                    <i class="fa-solid fa-gear"></i><br>管理
+                </button>
+            </nav>
+        </header>
+
+        <main>
+
+            <div id="closet-list" class="tab-content active">
+                <div class="card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-shirt"></i> 衣装一覧</h2>
+                    </div>
+
+                    <p>一覧画面をここに作成します。</p>
+                </div>
+            </div>
+
+            <div id="closet-entry" class="tab-content">
+                <div class="card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-square-plus"></i> 衣装登録</h2>
+                    </div>
+
+                    <p>登録画面をここに作成します。</p>
+                </div>
+            </div>
+
+            <div id="closet-admin" class="tab-content">
+                <div class="card">
+                    <div class="section-header">
+                        <h2><i class="fa-solid fa-gear"></i> 管理</h2>
+                    </div>
+
+                    <p>管理画面をここに作成します。</p>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/cloud.js"></script>
+
+    <script src="js/profile.js"></script>
+    <script src="js/cast.js"></script>
+    <script src="js/memo.js"></script>
+    <script src="js/past.js"></script>
+    <script src="js/practice.js"></script>
+
+    <script src="app.js?v=1.6"></script>
+    <script src="js/main.js"></script>
+
+</body>
+</html>

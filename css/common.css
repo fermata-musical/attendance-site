@@ -1,0 +1,353 @@
+:root {
+    /* 洗練されたピンク ＆ グレー パレット */
+    --bg-main: #FCF6F8;        /* 画面全体の背景 */
+    --bg-card: #FFFDFE;        /* カード・コンテナの背景 */
+    --bg-soft: #F9F4F6;        /* サブ要素・未選択背景 */
+    
+    --border-dusty: #E8D8DF;   /* 基本の枠線カラー */
+    --pink-accent: #E58CAB;    /* メインピンク（操作・選択） */
+    --absent-dark: #7B7280;    /* 欠席・重要情報の濃グレー */
+    
+    --text-main: #5B5560;      /* 本文テキスト（濃いグレー） */
+    --text-sub: #8B8591;       /* 補助テキスト（中グレー） */
+    
+    /* 出欠状態カラー */
+    --present-bg: var(--pink-accent);
+    --present-text: #FFFFFF;
+    --absent-bg: var(--absent-dark);
+    --absent-text: #FFFFFF;
+    
+    /* スタイル補助 */
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.03);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.05);
+    --shadow-pink: 0 4px 12px rgba(229, 140, 171, 0.2);
+    
+    --radius-lg: 30px;        /* タブ用（ピル型） */
+    --radius-md: 16px;        /* カード用 */
+    
+    /* 未入力状態カラー */
+    --bg-empty: #F9F4F6;      /* 薄ピンク（未入力） */
+    --text-empty: #8B8591;
+    --bg-filled: #FFFFFF;     /* 白（入力済） */
+    --text-filled: #5B5560;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    line-height: 1.5;
+    font-size: 16px;
+}
+
+input, select, button, textarea {
+    font-size: 16px !important;
+}
+
+#admin-panel, #admin-panel * {
+    transform: none !important;
+    zoom: 1 !important;
+}
+
+.hidden { display: none !important; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.sub-tab-content { display: none; }
+.sub-tab-content.active { display: block; }
+
+/* ローディングオーバーレイ */
+.loading-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex; justify-content: center; align-items: center; z-index: 2000;
+}
+.loader-box { text-align: center; color: var(--pink-accent); }
+.spinner {
+    width: 40px; height: 40px; border: 4px solid var(--bg-soft); border-top: 4px solid var(--pink-accent);
+    border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* 同期中インジケーター */
+.sync-indicator {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--pink-accent); color: white;
+    padding: 8px 16px; border-radius: 20px; font-size: 0.75rem;
+    box-shadow: var(--shadow-pink); z-index: 1500;
+}
+
+/* Header & Title */
+header {
+    background-color: var(--bg-card); 
+    padding: 15px 0; 
+    position: static; 
+    z-index: 100; 
+    border-bottom: 1px solid var(--border-dusty);
+}
+.header-content {
+    display: flex; justify-content: space-between; align-items: center; padding: 0 20px 10px 20px;
+}
+.main-title { display: flex; flex-direction: column; line-height: 1.2; }
+.main-txt { font-size: 1.25rem; font-weight: 700; color: var(--pink-accent); }
+.sub-txt { font-size: 0.75rem; color: var(--text-sub); font-weight: 700; }
+
+nav { display: flex; padding: 0 15px 12px 15px; gap: 10px; }
+
+main { max-width: 600px; margin: 0 auto; padding: 15px; }
+.card { 
+    background: var(--bg-filled) !important; 
+    border-radius: var(--radius-md); padding: 18px 20px; margin-bottom: 12px; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+    border: 1px solid var(--border-dusty); 
+}
+
+/* 入力欄 */
+.cute-input {
+    border: 1px solid var(--border-dusty); border-radius: 12px; padding: 10px; background: var(--bg-card); font-size: 0.9rem; color: var(--text-main); font-family: inherit; transition: 0.3s;
+}
+.cute-input:focus { 
+    outline: none; 
+    border-color: var(--pink-accent) !important; 
+    background-color: var(--bg-filled) !important;
+    box-shadow: 0 0 0 2px rgba(229, 140, 171, 0.1);
+}
+
+/* 未入力状態（グレー背景） */
+.input-empty, input:invalid {
+    background-color: #f6f6f6 !important;
+    color: var(--text-empty) !important;
+}
+
+/* 入力済み状態（白背景） */
+.input-filled {
+    background-color: var(--bg-filled) !important;
+    color: var(--text-filled) !important;
+}
+
+.puffy-btn {
+    border: none; border-radius: 40px; padding: 14px 28px; font-weight: 700; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.puffy-btn.pink { background: var(--pink-accent); color: white; }
+.puffy-btn.pink:hover { background: #dd4155; }
+.puffy-btn.gray { background: var(--bg-soft); color: var(--text-main); border: 1px solid var(--border-dusty); box-shadow: none; }
+.puffy-btn.danger { background: var(--bg-soft); color: var(--text-sub); border: 1px solid var(--border-dusty); }
+
+.action-btn-styled {
+    flex: 1; border: 1px solid var(--border-dusty); border-radius: 20px; padding: 12px 5px; font-weight: 700; font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: 0.2s;
+}
+.action-btn-styled.add { background-color: var(--pink-accent); color: white; border: none; flex: 1.3; font-size: 0.9rem; box-shadow: var(--shadow-pink); }
+.action-btn-styled.edit { background-color: var(--bg-soft); color: var(--text-main); }
+.action-btn-styled.delete { background-color: var(--bg-soft); color: var(--text-sub); }
+
+.action-btn-styled:hover { box-shadow: var(--shadow-md); }
+
+.icon-btn-sm { 
+    background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--pink-accent); width: 36px; height: 36px; border-radius: 12px; 
+    display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+}
+
+.del-icon-btn { color: var(--text-sub); background: none; border: none; cursor: pointer; transition: 0.2s; padding: 5px; flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.del-icon-btn:hover { color: var(--absent-dark); }
+
+
+.icon-delete {
+    background: none;
+    border: none;
+    color: #bbb;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 5px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.icon-delete:hover {
+    color: #e57373;
+}
+
+/* ログイン画面 */
+.overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.login-card { width: 90%; max-width: 360px; text-align: center; background: var(--bg-card) !important; border: 1px solid var(--border-dusty) !important; box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
+.login-card h2 { margin-bottom: 5px; color: var(--pink-accent); }
+.login-card p { margin-bottom: 20px; font-size: 0.95rem; color: var(--text-main); font-weight: 700; }
+.error-text { color: #d32f2f; font-size: 0.85rem; margin-top: 10px; font-weight: 700; }
+
+
+/* 上部メインタブ（ボタンっぽいカード） */
+.nav-tab {
+    flex: 1; padding: 10px 10px; 
+    border: 1px solid var(--border-dusty);
+    background: var(--bg-soft); 
+    color: var(--text-sub);
+    font-size: 0.8rem; border-radius: var(--radius-lg); transition: 0.3s;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    line-height: 1.2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.nav-tab:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+.nav-tab.active {
+    background: var(--pink-accent); 
+    color: #ffffff; 
+    border-color: var(--pink-accent);
+    box-shadow: 0 4px 10px rgba(229, 140, 171, 0.25); 
+}
+
+.lock-icon { color: #facc15; margin-left: 3px; font-size: 0.8rem; }
+
+/* 注意事項ボックス（トーンを統一） */
+.notice-box {
+    background-color: var(--bg-soft) !important;
+    border: 1.5px solid var(--border-dusty);
+    margin-bottom: 20px;
+    padding: 15px !important;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+.notice-title {
+    color: var(--pink-accent); font-size: 0.95rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-weight: 700;
+}
+.notice-list { list-style: none; font-size: 0.8rem; color: var(--text-main); }
+.notice-list li { margin-bottom: 8px; position: relative; padding-left: 15px; }
+.notice-list li::before { content: "・"; position: absolute; left: 0; color: var(--pink-accent); }
+
+
+.admin-card-inner { 
+    background: var(--bg-filled); 
+    border: 1px solid var(--border-dusty); 
+    border-radius: var(--radius-md); 
+    padding: 18px 20px; /* .card と同じ余白に拡大 */
+    margin-bottom: 15px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03); 
+}
+
+/* 氏名操作ボタン */
+.member-action-grid {
+    display: flex; gap: 8px; justify-content: space-between; margin-top: 5px;
+}
+
+.member-select-row { display: flex; flex-direction: column; gap: 12px; }
+.select-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
+.select-wrapper i { position: absolute; left: 12px; color: var(--pink-accent); font-size: 1rem; pointer-events: none; }
+.select-wrapper select { padding-left: 35px; width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border-dusty); background: var(--bg-card); color: var(--text-main); font-weight: 700; height: 44px; }
+
+.admin-line { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; width: 100%; }
+.admin-line.slots { 
+    background: #FFFFFF !important; 
+    border-radius: 12px; 
+    padding: 12px 10px; /* 少し広げてゆとりを持たせる */
+    border: 1px solid var(--border-dusty); 
+}
+
+.input-group-full { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.input-group-full .cute-input { width: 100%; padding: 12px; }
+
+/* 入力欄とゴミ箱をニコイチで並べる */
+.input-row { display: flex; align-items: center; flex: 1; min-width: 0; }
+.input-row > *:first-child { flex: 1; min-width: 0; }
+.input-row .del-icon-btn, 
+.input-row .icon-delete { margin-left: 4px; flex-shrink: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+.date-input-fixed { flex: 0 0 135px; width: 135px; min-width: 0; }
+.time-sel { flex: 0 0 92px; width: 92px; padding: 8px 4px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-dusty); color: var(--text-main); border-radius: 8px; transition: 0.2s; min-width: 0; }
+.time-sel-display { display: inline-block; width: 40px; text-align: center; font-weight: 700; color: var(--pink-accent); flex-shrink: 0; }
+.flex-fill-input { flex: 1; min-width: 0; }
+
+@media (max-width: 600px) {
+    .admin-line { padding-right: 0px; gap: 10px; } /* 間隔を広げてゆとりを出す */
+    .admin-card-inner { padding: 15px; } /* スマホでは画面幅を有効活用するため少しだけ狭める（でも前よりは広い） */
+    .date-input-fixed { flex: 0 0 115px; width: 115px; }
+    .time-sel { flex: 0 0 90px; width: 90px; }
+}
+
+@media (max-width: 480px) {
+    .admin-line.slots { gap: 4px; padding: 6px; }
+    .date-input-fixed { flex: 0 0 100px; width: 100px; }
+    .time-sel { flex: 0 0 80px; width: 80px; }
+}
+/* 参加状況タグ（チップUI） */
+.status-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    margin: 3px 6px 3px 0;
+    border: none;
+}
+
+.status-tag.absent {
+    background-color: var(--absent-dark);
+    color: #FFFFFF;
+}
+.status-tag.note-only {
+    background-color: var(--bg-soft);
+    color: var(--text-sub);
+}
+
+.past-checkbox { 
+    appearance: none; width: 22px; height: 22px; border: 2px solid var(--border-dusty); border-radius: 8px; cursor: pointer; position: relative; margin-right: 12px; transition: 0.2s;
+    background: var(--bg-card);
+}
+.past-checkbox:checked { background: var(--pink-accent); border-color: var(--pink-accent); }
+.past-checkbox:checked::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: white; font-size: 14px; position: absolute; left: 3px; top: 0px; }
+
+.section-header h2 {
+    font-size: 1rem; 
+    font-weight: 700;
+    color: var(--pink-accent);
+    display: flex;
+    flex-wrap: wrap; 
+    align-items: center;
+    gap: 8px;
+    line-height: 1.4;
+}
+
+/* 年月タブ・管理タブ */
+.admin-menu-tabs, .month-tab-container { 
+    display: flex; gap: 10px; margin-bottom: 20px; 
+    background: transparent; padding: 5px; 
+}
+
+.menu-tab, .month-btn { 
+    flex: 1; padding: 12px 10px; 
+    border: 1px solid var(--border-dusty);
+    background: var(--bg-card); 
+    color: var(--text-sub); 
+    font-size: 16px; border-radius: 25px; transition: 0.3s; 
+    font-family: inherit; cursor: pointer; white-space: nowrap; text-align: center;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+}
+.menu-tab.active, .month-btn.active { 
+    background: var(--pink-accent); 
+    color: #ffffff; 
+    border: none;
+    box-shadow: var(--shadow-pink);
+}
+
+.pills-edit {
+    background: var(--bg-card); color: var(--pink-accent); padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; transition: 0.2s;
+    border: 1px solid var(--border-dusty); 
+}
+
+/* 手動並び替えボタン */
+.move-up-btn, .move-down-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    background: #f8f8f8 !important;
+    color: #888 !important;
+    border: 1px solid #ddd !important;
+    flex-shrink: 0;
+}
