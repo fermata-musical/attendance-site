@@ -20,7 +20,8 @@ async function loadCloud() {
             commentReactionRes,
             catRes,
             castRes,
-            profileRes
+            profileRes,
+            linkRes
         ] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
@@ -34,7 +35,8 @@ async function loadCloud() {
             db.from('memo_comment_reactions').select('*'),
             db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
             db.from('cast_master').select('*').order('sort_order', { ascending: true }),
-            db.from('self_profiles').select('*')
+            db.from('self_profiles').select('*'),
+            db.from('links').select('*').order('display_order', { ascending: true })
 
         ]);
 
@@ -52,6 +54,15 @@ async function loadCloud() {
             state.selfProfiles = profileRes.data;
         } else if (profileRes && profileRes.error) {
             console.warn("self_profiles取得エラー:", profileRes.error);
+        }
+
+        if (linkRes && linkRes.data) {
+            state.links = linkRes.data;
+
+            console.log("state.links", state.links);
+
+        } else if (linkRes && linkRes.error) {
+            console.warn("links取得エラー:", linkRes.error);
         }
 
         // メンバー情報

@@ -8,6 +8,7 @@ let state = {
     rehearsals: [], 
     attendance: {}, 
     memos: [],
+    links: [],
     reactions: [],
     commentReactions: [],
     memoComments: [],

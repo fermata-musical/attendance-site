@@ -218,6 +218,11 @@
                     </button>
 
                     <button class="rehearsal-sub-tab menu-tab"
+                            data-menu="rehearsal-links-main">
+                        リンク集
+                    </button>
+
+                    <button class="rehearsal-sub-tab menu-tab"
                             data-menu="rehearsal-cast-main">
                         配役
                     </button>
@@ -282,8 +287,68 @@
                     </div>
 
                     <!-- メモ一覧 -->
-                    <div id="memo-list-container"></div>                
-                </div>
+                    <div id="memo-list-container"></div>
+                    </div>
+
+                    <div id="rehearsal-links-main" class="rehearsal-sub-content">
+
+                        <div class="card">
+                            <button
+                                id="add-link-btn"
+                                class="puffy-btn pink"
+                                style="width:100%;"
+                                onclick="showLinkForm();">
+                                <i class="fa-solid fa-plus"></i>
+                                リンクを追加
+                            </button>
+
+                            <div id="link-form-area" class="hidden" style="margin-top:15px;">
+
+                                <input type="hidden" id="edit-link-id">
+
+                                <div class="input-group-full">
+
+                                    <label>カテゴリ</label>
+                                    <select id="link-category" class="cute-input">
+                                        <option value="フェルマータ">フェルマータ</option>
+                                        <option value="一般">一般</option>
+                                    </select>
+
+                                    <label>グループ</label>
+                                    <select id="link-group" class="cute-input"></select>
+
+                                    <label>タイトル</label>
+                                    <input type="text" id="link-title" class="cute-input">
+
+                                    <label>説明</label>
+                                    <textarea id="link-description" class="cute-input" rows="2"></textarea>
+
+                                    <label>URL</label>
+                                    <input type="url" id="link-url" class="cute-input">
+
+                                </div>
+
+                                <div style="display:flex; gap:10px; margin-top:15px;">
+                                    <button
+                                        id="save-link-btn"
+                                        class="puffy-btn pink"
+                                        style="flex:1;"
+                                        onclick="saveLink();">
+                                        保存
+                                    </button>
+
+                                    <button id="cancel-link-btn" class="puffy-btn gray hidden" style="flex:1;">
+                                        キャンセル
+                                    </button>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div id="links-container"></div>
+
+        </div>
             
                 <div id="rehearsal-cast-main" class="rehearsal-sub-content">
 
@@ -554,6 +619,7 @@
     <script src="js/profile.js"></script>
     <script src="js/cast.js"></script>
     <script src="js/memo.js"></script>
+    <script src="js/links.js"></script>
     <script src="js/memo-comments.js"></script>
     <script src="js/past.js"></script>
     <script src="js/practice.js"></script>

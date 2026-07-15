@@ -291,3 +291,183 @@ select.cute-input option {
     color: var(--pink-accent);
     font-weight: 700;
 }
+
+/* ========================================
+   リンク集
+======================================== */
+
+.link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.link-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: default;
+    transition: background-color 0.2s;
+}
+
+.link-item:hover {
+    background: rgba(255, 182, 193, 0.15);
+}
+
+.link-title {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.link-description {
+    margin-top: 2px;
+    font-size: 0.85rem;
+    color: var(--text-sub);
+}
+
+.link-group-header {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed #f3b6c8;
+}
+
+.link-group-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.link-item {
+    padding: 10px 14px !important;
+    min-height: auto;
+}
+
+.link-title {
+    margin-bottom: 2px;
+    line-height: 1.2;
+}
+
+.link-description {
+    margin-top: 0;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    color: var(--text-sub);
+}
+
+.link-item:hover {
+    transform: translateY(-1px);
+}
+
+.link-item + .link-item {
+    border-top: 1px solid #f7d7e2;
+}
+
+.link-item:last-child {
+    margin-bottom: 2px;
+}
+
+/* ========================================
+   リンク集（仕上げ）
+======================================== */
+
+/* リンク全体 */
+.link-item {
+    text-decoration: none;
+    padding: 8px 12px !important;
+    border-radius: 10px;
+}
+
+.link-item:hover {
+    background: #f7f7f7;
+    transform: none;
+}
+
+/* タイトル */
+.link-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.35;
+}
+
+/* 説明 */
+.link-description {
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+/* グループ */
+.link-group-header {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px dashed #e5e5e5;
+}
+
+.link-group-title {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--pink-accent);
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* カテゴリ（フェルマータ・一般） */
+.card > h2 {
+    background: linear-gradient(90deg, #f8d9e7, #fdeef5);
+    padding: 8px 14px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    font-size: 1rem;
+}
+
+/* アイコンボタン */
+.icon-btn-sm {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+}
+
+/* お気に入り */
+.favorite-link-btn {
+    background: white;
+    border: 1px solid #d9d9d9;
+    color: #999;
+    transition: all .2s ease;
+}
+
+.favorite-link-btn.active {
+    background: var(--pink-accent);
+    border-color: var(--pink-accent);
+    color: white;
+}
+
+.favorite-link-btn:hover {
+    transform: scale(1.05);
+}
+
+.edit-link-btn,
+.delete-link-btn {
+    background: white;
+    border: 1px solid var(--border-dusty);
+    color: var(--pink-accent);
+}
+
+.edit-link-btn:hover,
+.delete-link-btn:hover {
+    background: #fff4f8;
+    border-color: var(--pink-accent);
+}
+
+.edit-link-btn:hover,
+.delete-link-btn:hover {
+    background: #fff4f8;
+    border-color: var(--pink-accent);
+    color: var(--pink-accent);
+}

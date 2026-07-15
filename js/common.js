@@ -399,6 +399,10 @@ function initTabs() {
                 renderRehearsalMemos();
             }
 
+            if (menuId === 'rehearsal-links-main') {
+                renderLinks();
+            }
+
             if (menuId === 'rehearsal-cast-main') {
                 renderAdminCastMaster();
             }
@@ -470,18 +474,26 @@ function renderTab(id) {
 
     if (id === 'rehearsal-work') {
 
+        const activeSubTab =
+            document.querySelector('.rehearsal-sub-tab.active')?.dataset.menu
+            || 'rehearsal-memo-main';
+
         document.querySelectorAll('#rehearsal-work .rehearsal-sub-content')
             .forEach(c => c.style.display = 'none');
 
-        $('rehearsal-memo-main').style.display = 'block';
+        document.getElementById(activeSubTab).style.display = 'block';
 
         document.querySelectorAll('.rehearsal-sub-tab')
             .forEach(t => t.classList.remove('active'));
 
-        document.querySelector('[data-menu="rehearsal-memo-main"]')
+        document.querySelector(`[data-menu="${activeSubTab}"]`)
             .classList.add('active');
 
-        renderRehearsalMemos();
+        if (activeSubTab === 'rehearsal-memo-main') {
+            renderRehearsalMemos();
+        } else if (activeSubTab === 'rehearsal-links-main') {
+            renderLinks();
+        }
     }
 
     if (id === 'admin-panel') renderAdminPanel();
