@@ -295,7 +295,7 @@ window.saveLink = async () => {
 
     renderLinks();
 
-    showLinkForm();
+    document.getElementById('link-form-area').classList.add('hidden');
 
 };
 

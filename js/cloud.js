@@ -178,6 +178,7 @@ async function loadCloud() {
             refreshAdminViewList();
             isLocked = false; 
             renderTab(document.querySelector('.nav-tab.active')?.dataset.tab || 'attendance-input'); 
+            renderLinks();
             updateLockIcons(); // 鍵アイコンを更新
             setupSelectEventListeners();
             isLocked = true;
