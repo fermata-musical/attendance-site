@@ -3,13 +3,17 @@ const LINK_GROUPS = {
         "共有フォルダ",
         "稽古動画"
     ],
-    "一般": [
-        "映画・ミュージカル脚本",
+    "ミュージカル動画": [   
         "YouTubeミュージカル_フル",
         "YouTubeミュージカル_部分的なシーン",
+
+    ],
+    "一般": [   
+        "映画・ミュージカル脚本",
         "YouTube舞台メイク",
         "ハンドメイドの参考",
-        "衣裳・ウィッグ・メイク"
+        "衣裳・ウィッグ・メイク",
+        "発声・演技"
     ]
 };
 
@@ -39,7 +43,7 @@ window.renderLinks = () => {
 
     const data = state.links;
 
-    const categories = ['フェルマータ', '一般']
+    const categories = ['フェルマータ', 'ミュージカル動画','一般']
         .filter(category => data.some(x => x.category === category));
 
     container.innerHTML = '';
