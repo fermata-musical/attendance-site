@@ -372,4 +372,8 @@ window.moveLink = async (id, direction) => {
 
 };
 
-document.getElementById('link-category').addEventListener('change', updateLinkGroupOptions);
+const linkCategory = document.getElementById('link-category');
+
+if (linkCategory) {
+    linkCategory.addEventListener('change', updateLinkGroupOptions);
+}

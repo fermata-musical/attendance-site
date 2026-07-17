@@ -77,7 +77,18 @@
                         <h2><i class="fa-solid fa-shirt"></i> 衣装一覧</h2>
                     </div>
 
-                    <p>一覧画面をここに作成します。</p>
+                    <div class="input-group-full" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="text" id="closet-search-name" class="cute-input" placeholder="名称検索" style="flex: 1; min-width: 150px;">
+                        <input type="text" id="closet-search-number" class="cute-input" placeholder="管理番号検索" style="flex: 1; min-width: 120px;">
+                        <select id="closet-search-category" class="cute-input" style="flex: 1; min-width: 120px;">
+                            <option value="">全てのカテゴリー</option>
+                        </select>
+                        <button id="closet-search-btn" class="puffy-btn pink" onclick="renderClosetItems()"><i class="fa-solid fa-magnifying-glass"></i> 検索</button>
+                    </div>
+
+                    <div id="closet-items-container" style="display: grid; gap: 15px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));">
+                        <!-- アイテムカードがここに動的に表示されます -->
+                    </div>
                 </div>
             </div>
 
@@ -87,7 +98,101 @@
                         <h2><i class="fa-solid fa-square-plus"></i> 衣装登録</h2>
                     </div>
 
-                    <p>登録画面をここに作成します。</p>
+                    <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
+                        <div class="input-group-full">
+                            <label>名称</label>
+                            <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>大項目 <span style="color:red">*</span></label>
+                                    <select id="entry-large-category" class="cute-input" required><option value="">選択</option></select>
+                                </div>
+                                <div style="flex: 1;" id="middle-category-wrapper">
+                                    <label>中項目</label>
+                                    <select id="entry-middle-category" class="cute-input"><option value="">選択</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>小項目</label>
+                                    <select id="entry-small-category" class="cute-input"><option value="">選択</option></select>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>サイズ</label>
+                                    <input type="text" id="entry-size" class="cute-input" placeholder="例：M">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>色</label>
+                                    <div id="entry-color-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>購入日</label>
+                                    <input type="date" id="entry-purchase-date" class="cute-input">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>購入価格</label>
+                                    <input type="number" id="entry-purchase-price" class="cute-input" placeholder="例：1500">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>入手方法</label>
+                                    <div id="entry-acquisition-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>雰囲気</label>
+                                    <div id="entry-mood-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>保管場所</label>
+                                    <select id="entry-storage" class="cute-input"><option value="">選択</option></select>
+                                </div>
+                            </div>
+
+                            <label>備考</label>
+                            <textarea id="entry-remarks" class="cute-input" rows="3" placeholder="特記事項があれば入力"></textarea>
+
+                            <div style="margin-top: 15px; border-top: 1px dashed var(--border-dusty); padding-top: 15px;">
+                                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                    <input type="checkbox" id="entry-is-set" onchange="toggleSetItemFields()">
+                                    <strong>セット品として登録する</strong>
+                                </label>
+                                
+                                <div id="set-item-fields" style="display: none; margin-top: 10px; padding: 10px; background: var(--bg-soft); border-radius: 8px;">
+                                    <div style="display: flex; gap: 10px;">
+                                        <div style="flex: 1;">
+                                            <label>親番号</label>
+                                            <input type="text" id="entry-parent-number" class="cute-input" placeholder="例：0013">
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label>子番号</label>
+                                            <input type="number" id="entry-child-number" class="cute-input" placeholder="例：1">
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label>数量</label>
+                                            <input type="number" id="entry-set-quantity" class="cute-input" placeholder="例：1" value="1">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 写真登録 (Step 5で実装) -->
+                            <div style="margin-top: 15px;">
+                                <label>写真</label>
+                                <input type="file" id="entry-image" class="cute-input" accept="image/*">
+                            </div>
+
+                            <button type="submit" class="puffy-btn pink" style="margin-top: 20px; width: 100%;">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -115,8 +220,11 @@
     <script src="js/profile.js"></script>
     <script src="js/cast.js"></script>
     <script src="js/memo.js"></script>
+    <script src="js/links.js"></script>
+    <script src="js/memo-comments.js"></script>
     <script src="js/past.js"></script>
     <script src="js/practice.js"></script>
+    <script src="js/closet.js"></script>
 
     <script src="app.js?v=1.6"></script>
     <script src="js/main.js"></script>

@@ -647,7 +647,8 @@ window.handleAdminDropdownChangeGroup = (id, type, select) => {
 
 window.onload = () => {
     if (window.supabase) { 
-        db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); 
+        db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window.db = db;
     }
 
     initAuth();
