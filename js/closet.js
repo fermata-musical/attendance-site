@@ -5,6 +5,30 @@ let currentEditingItemId = null;
 // ページロード時の初期化処理
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded");
+
+    let currentMember = getCurrentMember();
+
+    const nameLabel = document.getElementById('current-user-name');
+
+    if (nameLabel) {
+        if (currentMember?.id) {
+            nameLabel.textContent = currentMember.name;
+        } else {
+            nameLabel.textContent = '使用者を選択';
+        }
+    }
+
+    const userButton = document.getElementById('current-user-btn');
+
+    if (userButton) {
+        userButton.onclick = () => {
+            localStorage.removeItem('currentMemberId');
+            localStorage.removeItem('currentMemberName');
+
+            window.location.href = 'index.html#attendance-input';
+        };
+    }
+
     // 検索イベントの設定
     const searchName = document.getElementById('closet-search-name');
     const searchNumber = document.getElementById('closet-search-number');
@@ -27,6 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.db && typeof state !== 'undefined') {
             console.log("loadClosetItems call");
             clearInterval(initInterval);
+
+            currentMember = getCurrentMember();
+
+            const nameLabel = document.getElementById('current-user-name');
+            if (nameLabel) {
+                nameLabel.textContent = currentMember?.name || '使用者を選択';
+            }
+
             loadClosetItems();
         }
     }, 500);
@@ -40,7 +72,7 @@ async function loadClosetMasterData() {
     try {
         const [
             largeRes, middleRes, smallRes, storageRes,
-            colorsRes, acqRes, moodsRes
+            colorsRes, acqRes, moodsRes, statusRes
         ] = await Promise.all([
             db.from('category_large').select('*').order('sort_order', { ascending: true }),
             db.from('category_middle').select('*').order('sort_order', { ascending: true }),
@@ -48,7 +80,8 @@ async function loadClosetMasterData() {
             db.from('storage_boxes').select('*').order('sort_order', { ascending: true }),
             db.from('colors').select('*').order('id', { ascending: true }),
             db.from('acquisition_methods').select('*').order('sort_order', { ascending: true }),
-            db.from('moods').select('*').order('sort_order', { ascending: true })
+            db.from('moods').select('*').order('sort_order', { ascending: true }),
+            db.from('item_statuses').select('*').order('sort_order', { ascending: true })
         ]);
 
         console.log("largeRes", largeRes);
@@ -67,7 +100,8 @@ async function loadClosetMasterData() {
             storage: storageRes.data || [],
             colors: colorsRes.data || [],
             acquisition: acqRes.data || [],
-            moods: moodsRes.data || []
+            moods: moodsRes.data || [],
+            statuses: statusRes.data || []
         };
 
         populateDropdown('entry-large-category', state.closetMaster.large, 'id', 'name');
@@ -79,6 +113,15 @@ async function loadClosetMasterData() {
         populateCheckboxes('entry-color-container', state.closetMaster.colors, 'color', 'id', 'name');
         populateCheckboxes('entry-acquisition-container', state.closetMaster.acquisition, 'acquisition', 'id', 'name');
         populateCheckboxes('entry-mood-container', state.closetMaster.moods, 'mood', 'id', 'name');
+
+        populateDropdown(
+            'entry-status',
+            state.closetMaster.statuses,
+            'id',
+            'name'
+        );
+
+        handleLargeCategoryChange();
 
         handleLargeCategoryChange();
     } catch (error) {
@@ -154,6 +197,14 @@ function handleLargeCategoryChange() {
 
 // アイテムの取得
 async function loadClosetItems() {
+
+    currentMember = getCurrentMember();
+
+    if (!currentMember?.id) {
+        alert('使用者を選択してください。');
+        window.location.href = 'index.html#attendance-input';
+        return;
+    }
     if (!window.db) {
         console.warn('Supabaseクライアント (db) が見つかりません。');
         return;
@@ -173,18 +224,42 @@ async function loadClosetItems() {
         // items テーブルからデータ取得（画像パスと中間テーブルも同時に取得）
         const { data, error } = await db.from('items').select(`
             *,
+            created_by_member:members!items_created_by_fkey (
+                name
+            ),
+            updated_by_member:members!items_updated_by_fkey (
+                name
+            )
             item_images ( storage_path, image_order ),
             item_colors ( color_id ),
             item_acquisition_methods ( acquisition_method_id ),
             item_moods ( mood_id )
-        `);
+        `).order('item_number');
         
         if (error) throw error;
         
         if (typeof state !== 'undefined') {
             state.closetItems = data;
         }
-        
+
+        // お気に入り一覧取得
+        currentMember = getCurrentMember();
+
+        if (currentMember?.id) {
+
+            const { data: favorites } = await db
+                .from('item_favorites')
+                .select('item_id')
+                .eq('member_id', currentMember.id);
+
+            state.favoriteItems = (favorites || []).map(f => f.item_id);
+
+        } else {
+
+            state.favoriteItems = [];
+
+        }
+
         renderClosetItems();
     } catch (error) {
         console.error("衣装データ取得エラー:", error);
@@ -231,18 +306,16 @@ function renderClosetItems() {
         card.style.padding = '15px';
         card.style.border = '1px solid var(--border-dusty)';
         
-        let imageUrl = 'images/no-image.png'; 
+        let imageUrl = 'images/no-image.png';
         if (item.item_images && item.item_images.length > 0) {
-            const path = item.item_images[0].storage_path;
-            const { data: publicUrlData } = db.storage.from('item_images').getPublicUrl(path);
-            if (publicUrlData) {
-                imageUrl = publicUrlData.publicUrl;
-            }
+            imageUrl = getImageUrl(item.item_images[0].storage_path);
         }
 
         const storageBox = state.closetMaster?.storage?.find(s => s.id === item.storage_box_id);
         const storageText = storageBox ? storageBox.location : '-';
-        
+
+        const isFavorite = state.favoriteItems?.includes(item.id);
+
         card.innerHTML = `
             <div style="text-align: center; margin-bottom: 10px;">
                 <img src="${imageUrl}" alt="衣装写真" style="width: 100%; height: 150px; object-fit: contain; border-radius: 8px; background: #f5f5f5;">
@@ -259,9 +332,32 @@ function renderClosetItems() {
             <div style="font-size: 0.85rem; color: var(--text-sub);">
                 <i class="fa-solid fa-box-open"></i> 保管場所: ${storageText}
             </div>
-            <div style="margin-top: 15px; display: flex; gap: 8px;">
-                <button onclick="editClosetItem('${item.id}')" class="puffy-btn pink puffy-btn-sm" style="flex: 1;"><i class="fa-solid fa-pen"></i> 編集</button>
-                <button onclick="deleteClosetItem('${item.id}')" class="puffy-btn gray puffy-btn-sm" style="flex: 1;"><i class="fa-solid fa-trash"></i> 削除</button>
+            <div style="margin-top:15px; display:flex; justify-content:flex-end; gap:8px;">
+
+                <button
+                    class="icon-btn-sm"
+                    title="お気に入り"
+                    onclick="toggleFavorite('${item.id}')"
+                    ${!currentMember?.id ? 'disabled' : ''}>
+
+                    <i class="${isFavorite ? 'fa-solid' : 'fa-regular'} fa-star"></i>
+
+                </button>
+
+                <button
+                    class="icon-btn-sm"
+                    title="編集"
+                    onclick="editClosetItem('${item.id}')">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+
+                <button
+                    class="icon-btn-sm"
+                    title="削除"
+                    onclick="deleteClosetItem('${item.id}')">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
             </div>
         `;
         container.appendChild(card);
@@ -289,6 +385,16 @@ async function submitClosetEntry() {
     const smallCat = document.getElementById('entry-small-category').value;
     const size = document.getElementById('entry-size').value.trim();
     const storageBoxId = document.getElementById('entry-storage').value;
+    const usageHistory = document.getElementById('entry-usage-history').value.trim();
+    const statusId = document.getElementById('entry-status').value;
+    const loanTo = document.getElementById('entry-loan-to').value.trim();
+    const loanDate = document.getElementById('entry-loan-date').value;
+    const returnDueDate = document.getElementById('entry-return-date').value;
+    const disposedDate = document.getElementById('entry-disposed-date').value;
+    const lostDate = document.getElementById('entry-lost-date').value;
+    const lastUsedDate = document.getElementById('entry-last-used-date').value;
+    const purchaseDate = document.getElementById('entry-purchase-date').value;
+    const purchasePrice = document.getElementById('entry-purchase-price').value;
     const remarks = document.getElementById('entry-remarks').value.trim();
     
     const isSetItem = document.getElementById('entry-is-set').checked;
@@ -319,7 +425,23 @@ async function submitClosetEntry() {
             small_category_id: smallCat || null,
             size: size,
             storage_box_id: storageBoxId || null,
+
+            created_by: currentEditingItemId ? undefined : currentMember?.id || null,
+            updated_by: currentMember?.id || null,
+
+            usage_history: usageHistory || null,
+            status_id: statusId || null,
+            loan_to: loanTo || null,
+            loan_date: loanDate || null,
+            return_due_date: returnDueDate || null,
+            disposed_date: disposedDate || null,
+            lost_date: lostDate || null,
+            last_used_date: lastUsedDate || null,
+            purchase_date: purchaseDate || null,
+            purchase_price: purchasePrice || null,
+
             remarks: remarks,
+
             is_set_item: isSetItem,
             parent_item_number: isSetItem ? parentItemNumber : null,
             set_child_no: isSetItem && !isNaN(setChildNo) ? setChildNo : null,
@@ -333,10 +455,13 @@ async function submitClosetEntry() {
             const { data: updateData, error: updateError } = await db.from('items')
                 .update(itemDataPayload)
                 .eq('id', currentEditingItemId)
-                .select();
+                .select()
+                .single();
+
             if (updateError) throw updateError;
-            insertedItem = updateData[0];
-            
+
+            insertedItem = updateData;
+
             // 中間テーブルの既存データを削除
             await db.from('item_colors').delete().eq('item_id', currentEditingItemId);
             await db.from('item_acquisition_methods').delete().eq('item_id', currentEditingItemId);
@@ -346,9 +471,12 @@ async function submitClosetEntry() {
             // 新規登録処理
             const { data: insertData, error: insertError } = await db.from('items')
                 .insert([itemDataPayload])
-                .select();
+                .select()
+                .single();
+
             if (insertError) throw insertError;
-            insertedItem = insertData[0];
+
+            insertedItem = insertData;
         }
         
         // 中間テーブルへInsert
@@ -366,42 +494,66 @@ async function submitClosetEntry() {
             await db.from('item_moods').insert(checkedMoods.map(id => ({ item_id: insertedItem.id, mood_id: id })));
         }
         
-        // 画像ファイルのアップロード処理（画像が選択されている場合のみ）
-        const imageFile = document.getElementById('entry-image').files[0];
-        if (imageFile && insertedItem) {
-            const fileExt = imageFile.name.split('.').pop();
-            const fileName = `${insertedItem.id}-${Date.now()}.${fileExt}`;
-            
-            const { error: uploadError } = await db.storage
-                .from('item_images')
-                .upload(fileName, imageFile);
-                
-            if (uploadError) {
-                console.error("画像アップロードエラー:", uploadError);
-                alert('アイテムは保存されましたが、画像のアップロードに失敗しました。');
-            } else {
-                const { error: imageInsertError } = await db.from('item_images').insert([{
-                    item_id: insertedItem.id,
-                    storage_path: fileName,
-                    image_order: 1
-                }]);
-                if (imageInsertError) {
-                    console.error("画像データ登録エラー:", imageInsertError);
-                }
-            }
+        await saveItemImages(
+            insertedItem.id,
+            currentEditingItemId !== null
+        );
+        alert(currentEditingItemId ? '衣装を更新しました！' : '衣装を登録しました！');
+
+        // 作成者・更新者名を取得するため再取得
+        const { data: latestItem } = await db
+        .from('items')
+        .select(`
+            *,
+            created_by_member:members!items_created_by_fkey(name),
+            updated_by_member:members!items_updated_by_fkey(name)
+        `)
+        .eq('id', insertedItem.id)
+        .single();
+
+        if (latestItem) {
+            insertedItem = latestItem;
         }
 
-        alert(currentEditingItemId ? '衣装を更新しました！' : '衣装を登録しました！');
-        
+        // 登録情報を表示
+        document.getElementById('item-info-panel').style.display = 'block';
+
+        if (!insertedItem) {
+            console.error('登録データ取得失敗');
+            return;
+        }
+
+        // 編集状態を解除（フォーム内容は維持）
+        currentEditingItemId = null;
+
+        document.getElementById('info-management-number').textContent =
+            insertedItem.management_number || '-';
+
+        document.getElementById('info-created-by').textContent =
+            insertedItem.created_by_member?.name || insertedItem.created_by || '-';
+
+       document.getElementById('info-updated-by').textContent =
+            insertedItem.updated_by_member?.name || insertedItem.updated_by || '-';
+
+        document.getElementById('info-created-at').textContent =
+            insertedItem.created_at
+                ? new Date(insertedItem.created_at).toLocaleString('ja-JP')
+                : '-';
+
+        document.getElementById('info-updated-at').textContent =
+            insertedItem.updated_at
+                ? new Date(insertedItem.updated_at).toLocaleString('ja-JP')
+                : '-';
+
         // フォームのリセットと状態の初期化
-        resetClosetEntryForm();
-        
+        resetClosetEntryForm(false);
+
         // データを再取得して一覧を更新
         await loadClosetItems();
 
-        // 一覧タブに戻る
-        const listTabBtn = document.querySelector('[data-tab="closet-list"]');
-        if (listTabBtn) listTabBtn.click();
+        // 登録タブを表示したままにする
+        const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
+        if (entryTabBtn) entryTabBtn.click();
 
     } catch (error) {
         console.error("衣装保存エラー:", error);
@@ -413,10 +565,23 @@ async function submitClosetEntry() {
 }
 
 // フォームをリセットし、新規登録状態に戻す
-function resetClosetEntryForm() {
+function resetClosetEntryForm(clearInfo = true) {
     currentEditingItemId = null;
+
+    if (clearInfo) {
+        // 管理情報を非表示
+        document.getElementById('item-info-panel').style.display = 'none';
+        document.getElementById('info-management-number').textContent = '-';
+        document.getElementById('info-created-by').textContent = '-';
+        document.getElementById('info-created-at').textContent = '-';
+        document.getElementById('info-updated-by').textContent = '-';
+        document.getElementById('info-updated-at').textContent = '-';
+    }
+
     const form = document.getElementById('closet-entry-form');
     if (form) form.reset();
+
+    clearSelectedImages();
     
     // チェックボックスもリセット
     document.querySelectorAll('#closet-entry-form input[type="checkbox"]').forEach(cb => {
@@ -441,6 +606,23 @@ function editClosetItem(id) {
 
     currentEditingItemId = id;
 
+    // 管理情報を表示
+    document.getElementById('item-info-panel').style.display = 'block';
+    document.getElementById('info-management-number').textContent = item.management_number || '-';
+    document.getElementById('info-created-by').textContent =
+        item.created_by_name || item.created_by || '-';
+
+    document.getElementById('info-created-at').textContent =
+        item.created_at
+            ? new Date(item.created_at).toLocaleString('ja-JP')
+            : '-';
+
+    document.getElementById('info-updated-by').textContent =
+        item.updated_by_name || item.updated_by || '-';
+
+    document.getElementById('info-updated-at').textContent =
+        item.updated_at ? new Date(item.updated_at).toLocaleString('ja-JP') : '-';
+
     // フォームに値をセット
     document.getElementById('entry-name').value = item.name || '';
     document.getElementById('entry-large-category').value = item.large_category_id || '';
@@ -452,6 +634,16 @@ function editClosetItem(id) {
     document.getElementById('entry-small-category').value = item.small_category_id || '';
     document.getElementById('entry-size').value = item.size || '';
     document.getElementById('entry-storage').value = item.storage_box_id || '';
+    document.getElementById('entry-usage-history').value = item.usage_history || '';
+    document.getElementById('entry-status').value = item.status_id || '';
+    document.getElementById('entry-loan-to').value = item.loan_to || '';
+    document.getElementById('entry-loan-date').value = item.loan_date || '';
+    document.getElementById('entry-return-date').value = item.return_due_date || '';
+    document.getElementById('entry-disposed-date').value = item.disposed_date || '';
+    document.getElementById('entry-lost-date').value = item.lost_date || '';
+    document.getElementById('entry-last-used-date').value = item.last_used_date || '';
+    document.getElementById('entry-purchase-date').value = item.purchase_date || '';
+    document.getElementById('entry-purchase-price').value = item.purchase_price || '';
     document.getElementById('entry-remarks').value = item.remarks || '';
     
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
@@ -484,6 +676,20 @@ function editClosetItem(id) {
             const cb = document.querySelector(`input[name="mood"][value="${im.mood_id}"]`);
             if (cb) cb.checked = true;
         });
+    }
+
+    // 編集中画像を表示
+    clearSelectedImages();
+
+    if (item.item_images && item.item_images.length > 0) {
+        item.item_images.forEach(img => {
+            selectedImages.push({
+                name: img.storage_path,
+                isExisting: true,
+                storage_path: img.storage_path
+            });
+        });
+        renderImagePreview();
     }
 
     // UIを「更新」に変更
@@ -532,4 +738,42 @@ async function deleteClosetItem(id) {
         const indicator = document.getElementById('sync-indicator');
         if (indicator) indicator.classList.add('hidden');
     }
+}
+
+async function toggleFavorite(itemId) {
+
+    currentMember = getCurrentMember();
+
+    if (!currentMember?.id) {
+        alert('使用者を選択してください。');
+        return;
+    }
+
+    const isFavorite = state.favoriteItems?.includes(itemId);
+
+    if (isFavorite) {
+
+        await db
+            .from('item_favorites')
+            .delete()
+            .eq('member_id', currentMember.id)
+            .eq('item_id', itemId);
+
+        state.favoriteItems =
+            state.favoriteItems.filter(id => id !== itemId);
+
+    } else {
+
+        await db
+            .from('item_favorites')
+            .insert({
+                member_id: currentMember.id,
+                item_id: itemId
+            });
+
+        state.favoriteItems.push(itemId);
+
+    }
+
+    renderClosetItems();
 }

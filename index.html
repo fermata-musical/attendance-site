@@ -101,24 +101,33 @@
                     </ul>
                 </div>
 
-                <div class="card">
-                    <div class="member-select-row">
-                        <div class="select-wrapper">
-                            <i class="fa-solid fa-user"></i>
-                            <select id="member-select" class="cute-input">
-                                <option value="">メンバーを選択</option>
-                            </select>
-                        </div>
-                        <div id="member-action-container" class="member-action-grid"></div>
-                    </div>
-                    <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #DDD; padding-top:15px;">
-                        <input type="text" id="new-member-name" class="cute-input" placeholder="新しい氏名を入力" style="width:100%; margin-bottom:10px;">
-                        <div style="display:flex; gap:10px;">
-                            <button id="confirm-member-btn" class="puffy-btn pink puffy-btn-sm" style="flex:1">登録する</button>
-                            <button id="cancel-member-btn" class="puffy-btn gray puffy-btn-sm" style="flex:1">キャンセル</button>
-                        </div>
-                    </div>
-                </div>
+                                <div class="card">
+                                    <div class="member-select-row">
+                                        <div class="select-wrapper">
+                                            <i class="fa-solid fa-user"></i>
+                                            <select id="member-select" class="cute-input">
+                                                <option value="">メンバーを選択</option>
+                                            </select>
+                                        </div>
+                                        <div id="member-action-container" class="member-action-grid"></div>
+                                    </div>
+
+                                    <button
+                                        id="open-closet-btn"
+                                        class="puffy-btn pink"
+                                        style="width:100%; margin-top:12px;">
+                                        <i class="fa-solid fa-shirt"></i>
+                                        備品管理へ
+                                    </button>
+
+                                    <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #DDD; padding-top:15px;">
+                                        <input type="text" id="new-member-name" class="cute-input" placeholder="新しい氏名を入力" style="width:100%; margin-bottom:10px;">
+                                        <div style="display:flex; gap:10px;">
+                                            <button id="confirm-member-btn" class="puffy-btn pink puffy-btn-sm" style="flex:1">登録する</button>
+                                            <button id="cancel-member-btn" class="puffy-btn gray puffy-btn-sm" style="flex:1">キャンセル</button>
+                                        </div>
+                                    </div>
+                                </div>
 
                 <div id="month-tab-bar" class="month-tab-container"></div>
                 <div id="attendance-list-container"></div>

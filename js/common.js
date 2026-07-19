@@ -291,6 +291,11 @@ function initPageEvents() {
             setTimeout(() => { window.scrollTo(0, y); }, 0);
         }
     });
+
+    // 備品管理サイトへ
+    $('open-closet-btn')?.addEventListener('click', () => {
+        window.location.href = 'closet.html';
+    });
 }
 
 function initTabs() {
@@ -657,4 +662,16 @@ async function saveAllPractices(silent = false) {
             await loadCloud(); 
         }
     }
+}
+
+function getCurrentMember() {
+
+    const memberId = localStorage.getItem('currentMemberId');
+    const memberName = localStorage.getItem('currentMemberName');
+
+    return {
+        id: memberId,
+        name: memberName
+    };
+
 }

@@ -52,7 +52,27 @@
                     <span class="main-txt">衣装管理サイト</span>
                     <span class="sub-txt">音楽集団フェルマータ</span>
                 </div>
-                <button id="logout-btn" class="icon-btn-sm"><i class="fa-solid fa-door-open"></i></button>
+
+                <div style="display:flex; align-items:center; gap:10px;">
+
+                    <button
+                        id="current-user-btn"
+                        class="icon-btn-sm"
+                        title="使用者を変更">
+                        <i class="fa-solid fa-user"></i>
+                    </button>
+
+                    <span
+                        id="current-user-name"
+                        style="font-size:0.85rem;font-weight:700;color:var(--text-main);">
+                        未選択
+                    </span>
+
+                    <button id="logout-btn" class="icon-btn-sm">
+                        <i class="fa-solid fa-door-open"></i>
+                    </button>
+
+                </div>
             </div>
             <nav>
                 <button class="nav-tab active" data-tab="closet-list">
@@ -98,7 +118,40 @@
                         <h2><i class="fa-solid fa-square-plus"></i> 衣装登録</h2>
                     </div>
 
+                    <div id="item-info-panel"
+                        style="display:none; margin-bottom:15px; padding:12px; background:#f8f8f8; border-radius:8px; font-size:0.9rem;">
+
+                        <div><strong>管理番号：</strong><span id="info-management-number">-</span></div>
+                        <div><strong>作成者：</strong><span id="info-created-by">-</span></div>
+                        <div><strong>作成日時：</strong><span id="info-created-at">-</span></div>
+                        <div><strong>更新者：</strong><span id="info-updated-by">-</span></div>
+                        <div><strong>更新日時：</strong><span id="info-updated-at">-</span></div>
+
+                    </div>
+
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
+                        
+                        <!-- 写真登録 (Step 5で実装) -->
+                        <div style="margin-top: 15px;">
+                            <label>写真</label>
+                            <input
+                                type="file"
+                                id="entry-image"
+                                class="cute-input"
+                                accept="image/*"
+                                multiple
+                                onchange="handleImageSelect(event)">
+                        </div>
+                        
+                        <div id="entry-image-preview"
+                            style="
+                                display:flex;
+                                flex-wrap:wrap;
+                                gap:10px;
+                                margin-top:10px;
+                            ">
+                        </div>
+                        
                         <div class="input-group-full">
                             <label>名称</label>
                             <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
@@ -142,28 +195,97 @@
 
                             <div style="display: flex; gap: 10px;">
                                 <div style="flex: 1;">
-                                    <label>入手方法</label>
-                                    <div id="entry-acquisition-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                    <label>保管ボックス</label>
+                                    <select id="entry-storage" class="cute-input">
+                                        <option value="">選択</option>
+                                    </select>
                                 </div>
+                            </div>
+
+                            <label>名称</label>
+                            <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>サイズ</label>
+                                    <input type="text" id="entry-size" class="cute-input" placeholder="例：M">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>色</label>
+                                    <div id="entry-color-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
                                 <div style="flex: 1;">
                                     <label>雰囲気</label>
                                     <div id="entry-mood-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
                                 </div>
+                            </div>
+
+                            <label>使用履歴・キャラクター</label>
+                            <textarea
+                                id="entry-usage-history"
+                                class="cute-input"
+                                rows="3"
+                                placeholder="例：美女と野獣 ベル、アナと雪の女王 アナ"></textarea>
+
+                            <div style="display: flex; gap: 10px;">
                                 <div style="flex: 1;">
-                                    <label>保管場所</label>
-                                    <select id="entry-storage" class="cute-input"><option value="">選択</option></select>
+                                    <label>管理状態</label>
+                                    <select id="entry-status" class="cute-input">
+                                        <option value="">選択</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            <label>備考</label>
-                            <textarea id="entry-remarks" class="cute-input" rows="3" placeholder="特記事項があれば入力"></textarea>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>貸出先</label>
+                                    <input type="text" id="entry-loan-to" class="cute-input">
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <label>貸出日</label>
+                                    <input type="date" id="entry-loan-date" class="cute-input">
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <label>返却予定日</label>
+                                    <input type="date" id="entry-return-date" class="cute-input">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>破棄日</label>
+                                    <input type="date" id="entry-disposed-date" class="cute-input">
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <label>紛失日</label>
+                                    <input type="date" id="entry-lost-date" class="cute-input">
+                                </div>
+
+                                <div style="flex: 1;">
+                                    <label>最終使用日</label>
+                                    <input type="date" id="entry-last-used-date" class="cute-input">
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <div style="flex: 1;">
+                                    <label>入手方法</label>
+                                    <div id="entry-acquisition-container" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;"></div>
+                                </div>
+                            </div>
 
                             <div style="margin-top: 15px; border-top: 1px dashed var(--border-dusty); padding-top: 15px;">
                                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                     <input type="checkbox" id="entry-is-set" onchange="toggleSetItemFields()">
                                     <strong>セット品として登録する</strong>
                                 </label>
-                                
+
                                 <div id="set-item-fields" style="display: none; margin-top: 10px; padding: 10px; background: var(--bg-soft); border-radius: 8px;">
                                     <div style="display: flex; gap: 10px;">
                                         <div style="flex: 1;">
@@ -182,11 +304,8 @@
                                 </div>
                             </div>
 
-                            <!-- 写真登録 (Step 5で実装) -->
-                            <div style="margin-top: 15px;">
-                                <label>写真</label>
-                                <input type="file" id="entry-image" class="cute-input" accept="image/*">
-                            </div>
+                            <label>備考</label>
+                            <textarea id="entry-remarks" class="cute-input" rows="3" placeholder="特記事項があれば入力"></textarea>
 
                             <button type="submit" class="puffy-btn pink" style="margin-top: 20px; width: 100%;">
                                 <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
@@ -224,6 +343,7 @@
     <script src="js/memo-comments.js"></script>
     <script src="js/past.js"></script>
     <script src="js/practice.js"></script>
+    <script src="js/image-manager.js"></script>
     <script src="js/closet.js"></script>
 
     <script src="js/main.js"></script>

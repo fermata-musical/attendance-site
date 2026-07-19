@@ -284,6 +284,16 @@ function renderAttendanceInput() {
 
     select.onchange = (e) => {
         state.currentMember = e.target.value;
+
+        const member = state.members.find(
+            m => String(m.id) === String(state.currentMember)
+        );
+
+        if (member) {
+            localStorage.setItem('currentMemberId', member.id);
+            localStorage.setItem('currentMemberName', member.name);
+        }
+
         saveLocal();
 
         renderAttendanceContent();
@@ -319,8 +329,12 @@ function renderAttendanceInput() {
                 alert(error.message);
             } else { 
                 state.currentMember = data.id;
-                saveLocal(); 
-                await loadCloud(); 
+
+                localStorage.setItem('currentMemberId', data.id);
+                localStorage.setItem('currentMemberName', data.name);
+
+                saveLocal();
+                await loadCloud();
                 $('add-member-form').classList.add('hidden');
                 $('new-member-name').value = '';
             }
@@ -329,7 +343,20 @@ function renderAttendanceInput() {
             $('edit-current-member-btn').onclick = () => startEditCurrentMember();
             $('delete-current-member-btn').onclick = () => deleteCurrentMember();
         }
+        }
+
+    // 現在選択中のメンバーを localStorage に保存
+    if (state.currentMember) {
+        const member = state.members.find(
+            m => String(m.id) === String(state.currentMember)
+        );
+
+        if (member) {
+            localStorage.setItem('currentMemberId', member.id);
+            localStorage.setItem('currentMemberName', member.name);
+        }
     }
+
     renderAttendanceContent();
     setupSelectEventListeners();
 }
@@ -353,6 +380,9 @@ async function startEditCurrentMember() {
         }
 
         await db.from('members').update({ name: trimmedName }).eq('id', state.currentMember);
+
+        localStorage.setItem('currentMemberName', trimmedName);
+
         await loadCloud();
     }
 }
@@ -361,7 +391,14 @@ async function deleteCurrentMember() {
     const member = state.members.find(m => m.id === state.currentMember);
     if (confirm(`${member.name}さんを削除しますか？`)) {
         await db.from('members').delete().eq('id', state.currentMember);
-        state.currentMember = ''; saveLocal(); await loadCloud();
+
+        state.currentMember = '';
+
+        localStorage.removeItem('currentMemberId');
+        localStorage.removeItem('currentMemberName');
+
+        saveLocal();
+        await loadCloud();
     }
 }
 
