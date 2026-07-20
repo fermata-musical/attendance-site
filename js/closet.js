@@ -124,6 +124,7 @@ async function loadClosetMasterData() {
         handleLargeCategoryChange();
 
         handleLargeCategoryChange();
+        renderStorageBoxes();
     } catch (error) {
         console.error('マスタデータ取得エラー', error);
     }
@@ -224,12 +225,6 @@ async function loadClosetItems() {
         // items テーブルからデータ取得（画像パスと中間テーブルも同時に取得）
         const { data, error } = await db.from('items').select(`
             *,
-            created_by_member:members!items_created_by_fkey (
-                name
-            ),
-            updated_by_member:members!items_updated_by_fkey (
-                name
-            )
             item_images ( storage_path, image_order ),
             item_colors ( color_id ),
             item_acquisition_methods ( acquisition_method_id ),
@@ -263,6 +258,9 @@ async function loadClosetItems() {
         renderClosetItems();
     } catch (error) {
         console.error("衣装データ取得エラー:", error);
+        console.log("message =", error.message);
+        console.log("details =", error.details);
+        console.log("hint =", error.hint);
     } finally {
         const indicator = document.getElementById('sync-indicator');
         if (indicator) indicator.classList.add('hidden');
@@ -776,4 +774,196 @@ async function toggleFavorite(itemId) {
     }
 
     renderClosetItems();
+}
+
+// 保管場所一覧表示
+function renderStorageBoxes() {
+    const container = document.getElementById('storage-box-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const storageBoxes = state.closetMaster?.storage || [];
+
+    storageBoxes.forEach(box => {
+
+        const card = document.createElement('div');
+
+        card.className = 'card';
+        card.style.display = 'flex';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.style.marginBottom = '10px';
+        card.style.padding = '12px';
+
+        card.innerHTML = `
+            <div>
+                <strong>${box.code}</strong><br>
+                ${box.location}
+            </div>
+
+            <div style="display:flex; gap:6px;">
+
+                <button
+                    class="icon-btn-sm"
+                    onclick="moveStorageBox('${box.id}', -1)">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+
+                <button
+                    class="icon-btn-sm"
+                    onclick="moveStorageBox('${box.id}', 1)">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+
+                <button
+                    class="icon-btn-sm"
+                    onclick="editStorageBox('${box.id}')">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+
+                <button
+                    class="icon-btn-sm"
+                    onclick="deleteStorageBox('${box.id}')">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+            </div>
+        `;
+
+        container.appendChild(card);
+
+    });
+}
+
+let currentEditingStorageId = null;
+
+async function saveStorageBox() {
+
+    const code = document.getElementById('storage-code').value.trim();
+    const location = document.getElementById('storage-location').value.trim();
+
+    if (!code || !location) {
+        alert('箱と保管場所を入力してください。');
+        return;
+    }
+
+    const nextSort =
+        (state.closetMaster.storage.at(-1)?.sort_order || 0) + 1;
+
+    let error;
+
+    if (currentEditingStorageId) {
+
+        ({ error } = await db
+            .from('storage_boxes')
+            .update({
+                code,
+                location
+            })
+            .eq('id', currentEditingStorageId));
+
+    } else {
+
+        ({ error } = await db
+            .from('storage_boxes')
+            .insert({
+                code,
+                location,
+                sort_order: nextSort,
+                member_code: currentMember.member_code
+            }));
+
+    }
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    await loadClosetMasterData();
+    renderStorageBoxes();
+
+    currentEditingStorageId = null;
+
+    document.getElementById('storage-code').value = '';
+    document.getElementById('storage-location').value = '';
+
+    document.getElementById('storage-entry-form').style.display = 'none';
+    document.getElementById('btn-add-storage').style.display = 'inline-flex';
+}
+
+function editStorageBox(id) {
+
+    const box = state.closetMaster.storage.find(x => x.id === id);
+    if (!box) return;
+
+    currentEditingStorageId = id;
+
+    document.getElementById('storage-code').value = box.code;
+    document.getElementById('storage-location').value = box.location;
+
+    document.getElementById('storage-entry-form').style.display = 'block';
+    document.getElementById('btn-add-storage').style.display = 'none';
+
+}
+
+async function deleteStorageBox(id) {
+
+    if (!confirm('この保管場所を削除しますか？')) return;
+
+    const { error } = await db
+        .from('storage_boxes')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        alert(error.message);
+        return;
+    }
+
+    await loadClosetMasterData();
+    renderStorageBoxes();
+
+}
+
+async function moveStorageBox(id, direction) {
+
+    const list = [...state.closetMaster.storage]
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+    const index = list.findIndex(x => x.id === id);
+    if (index < 0) return;
+
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+
+    const current = list[index];
+    const target = list[targetIndex];
+
+    const currentOrder = current.sort_order;
+
+    const { error: error1 } = await db
+        .from('storage_boxes')
+        .update({ sort_order: target.sort_order })
+        .eq('id', current.id);
+
+    if (error1) {
+        alert(error1.message);
+        return;
+    }
+
+    const { error: error2 } = await db
+        .from('storage_boxes')
+        .update({ sort_order: currentOrder })
+        .eq('id', target.id);
+
+    if (error2) {
+        alert(error2.message);
+        return;
+    }
+
+    await loadClosetMasterData();
+    renderStorageBoxes();
+
 }

@@ -210,10 +210,6 @@
                                     <label>サイズ</label>
                                     <input type="text" id="entry-size" class="cute-input" placeholder="例：M">
                                 </div>
-                                <div style="flex: 1;">
-                                    <label>色</label>
-                                    <div id="entry-color-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
-                                </div>
                             </div>
 
                             <div style="display: flex; gap: 10px;">
@@ -321,7 +317,86 @@
                         <h2><i class="fa-solid fa-gear"></i> 管理</h2>
                     </div>
 
-                    <p>管理画面をここに作成します。</p>
+                    <!-- サブタブ -->
+                    <div style="display:flex; gap:10px; margin-bottom:20px;">
+                        <button
+                            class="puffy-btn pink admin-subtab active"
+                            data-admin-tab="storage">
+                            保管場所
+                        </button>
+                    </div>
+
+                    <!-- 保管場所サブタブ -->
+                    <div id="admin-storage" class="admin-tab-content">
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <h3>保管場所一覧</h3>
+
+                            <button
+                                class="puffy-btn pink"
+                                id="btn-add-storage"
+                                onclick="document.getElementById('storage-entry-form').style.display='block'; this.style.display='none';">
+                                <i class="fa-solid fa-plus"></i> 新規登録
+                            </button>
+                        </div>
+
+                        <!-- 登録フォーム -->
+                        <div
+                                    id="storage-entry-form"
+                            class="card"
+                            style="display:none; margin-bottom:15px;">
+
+                            <div style="display:flex; gap:10px;">
+
+                                <div style="flex:1;">
+                                    <label>箱</label>
+                                    <input
+                                        type="text"
+                                        id="storage-code"
+                                        class="cute-input"
+                                        placeholder="例：C9">
+                                </div>
+
+                                <div style="flex:2;">
+                                    <label>保管場所</label>
+                                    <input
+                                        type="text"
+                                        id="storage-location"
+                                        class="cute-input"
+                                        placeholder="例：段原公民館">
+                                </div>
+
+                            </div>
+
+                            <div style="margin-top:15px; display:flex; gap:10px; justify-content:flex-end;">
+
+                                <button
+                                    type="button"
+                                    class="puffy-btn gray"
+                                    onclick="
+                                            document.getElementById('storage-entry-form').style.display='none';
+                                            document.getElementById('btn-add-storage').style.display='inline-flex';
+                                        ">
+                                        キャンセル
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="puffy-btn pink"
+                                        id="btn-save-storage"
+                                        onclick="saveStorageBox()">
+                                        登録
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                            <div id="storage-box-list">
+                                <!-- JavaScriptでカードを生成 -->
+                            </div>
+
+                    </div>
                 </div>
             </div>
 
