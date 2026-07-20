@@ -486,7 +486,12 @@ async function submitClosetEntry() {
     let setQuantity = null;
 
     if (isSetItem) {
-        parentItemNumber = document.getElementById('entry-parent-number').value.trim();
+        const parentInput = document.getElementById('entry-parent-number');
+
+        if (parentInput) {
+            parentItemNumber = parentInput.value.trim();
+        }
+
         setQuantity = parseInt(document.getElementById('entry-set-quantity').value, 10);
     }
 
@@ -681,23 +686,7 @@ async function submitClosetEntry() {
         currentEditingItemId = null;
 
         document.getElementById('info-management-number').textContent =
-            insertedItem.management_number || '-';
-
-        document.getElementById('info-created-by').textContent =
-            insertedItem.created_by_member?.name || insertedItem.created_by || '-';
-
-       document.getElementById('info-updated-by').textContent =
-            insertedItem.updated_by_member?.name || insertedItem.updated_by || '-';
-
-        document.getElementById('info-created-at').textContent =
-            insertedItem.created_at
-                ? new Date(insertedItem.created_at).toLocaleString('ja-JP')
-                : '-';
-
-        document.getElementById('info-updated-at').textContent =
-            insertedItem.updated_at
-                ? new Date(insertedItem.updated_at).toLocaleString('ja-JP')
-                : '-';
+            insertedItem.item_number || '-';
 
         // フォームのリセットと状態の初期化
         resetClosetEntryForm(false);
@@ -720,6 +709,8 @@ async function submitClosetEntry() {
 
 // フォームをリセットし、新規登録状態に戻す
 function resetClosetEntryForm(clearInfo = true) {
+    console.log('resetClosetEntryForm');
+
     currentEditingItemId = null;
     hasEditChanges = false;
 
@@ -727,10 +718,6 @@ function resetClosetEntryForm(clearInfo = true) {
         // 管理情報を非表示
         document.getElementById('item-info-panel').style.display = 'none';
         document.getElementById('info-management-number').textContent = '-';
-        document.getElementById('info-created-by').textContent = '-';
-        document.getElementById('info-created-at').textContent = '-';
-        document.getElementById('info-updated-by').textContent = '-';
-        document.getElementById('info-updated-at').textContent = '-';
     }
 
     const form = document.getElementById('closet-entry-form');
@@ -760,10 +747,10 @@ function resetClosetEntryForm(clearInfo = true) {
         submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 登録する';
     }
 
-    // ★キャンセルボタンを非表示
+    // キャンセルボタンは常に表示
     const cancelBtn = document.getElementById('cancel-edit-btn');
     if (cancelBtn) {
-        cancelBtn.style.display = 'none';
+        cancelBtn.style.display = 'block';
     }
 }
 
@@ -777,20 +764,8 @@ function editClosetItem(id) {
 
     // 管理情報を表示
     document.getElementById('item-info-panel').style.display = 'block';
-    document.getElementById('info-management-number').textContent = item.management_number || '-';
-    document.getElementById('info-created-by').textContent =
-        item.created_by_name || item.created_by || '-';
-
-    document.getElementById('info-created-at').textContent =
-        item.created_at
-            ? new Date(item.created_at).toLocaleString('ja-JP')
-            : '-';
-
-    document.getElementById('info-updated-by').textContent =
-        item.updated_by_name || item.updated_by || '-';
-
-    document.getElementById('info-updated-at').textContent =
-        item.updated_at ? new Date(item.updated_at).toLocaleString('ja-JP') : '-';
+    document.getElementById('info-management-number').textContent =
+        item.item_number || '-';
 
     // フォームに値をセット
     document.getElementById('entry-name').value = item.name || '';

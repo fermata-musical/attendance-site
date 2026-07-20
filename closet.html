@@ -121,17 +121,38 @@
                     <div id="item-info-panel"
                         style="display:none; margin-bottom:15px; padding:12px; background:#f8f8f8; border-radius:8px; font-size:0.9rem;">
 
-                        <div><strong>管理番号：</strong><span id="info-management-number">-</span></div>
-                        <div><strong>作成者：</strong><span id="info-created-by">-</span></div>
-                        <div><strong>作成日時：</strong><span id="info-created-at">-</span></div>
-                        <div><strong>更新者：</strong><span id="info-updated-by">-</span></div>
-                        <div><strong>更新日時：</strong><span id="info-updated-at">-</span></div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.9rem; color:#888;">管理番号</div>
+                            <div id="info-management-number"
+                                style="font-size:2rem; font-weight:700; color:#555; margin-top:4px; letter-spacing:2px;">
+                                -
+                            </div>
+                        </div>
 
                     </div>
 
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
                         
                         <div class="input-group-full">
+                        <div class="button-area" style="margin-bottom:20px;">
+
+                            <button
+                                type="button"
+                                class="puffy-btn pink"
+                                style="flex:1;"
+                                onclick="document.querySelector('#closet-entry-form button[type=&quot;submit&quot;]').click();">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
+                            </button>
+
+                            <button
+                                type="button"
+                                class="puffy-btn gray"
+                                style="flex:1;"
+                                onclick="document.getElementById('cancel-edit-btn').click();">
+                                キャンセル
+                            </button>
+
+                        </div>
 
                             <div class="card" style="margin-top:20px;">
 
@@ -222,26 +243,26 @@
                                             <h3><i class="fa-solid fa-shirt"></i> アイテム情報</h3>
                                         </div>
 
+                                        <div class="form-group">
+                                            <label>名称 <span class="required">*</span></label>
+                                            <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
+                                        </div>
+
                                         <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
-                                    <label>保管ボックス</label>
-                                    <select id="entry-storage" class="cute-input">
-                                        <option value="">選択</option>
-                                    </select>
-                                </div>
-                            </div>
+                                            <div style="flex: 1;">
+                                                <label>保管ボックス</label>
+                                                <select id="entry-storage" class="cute-input">
+                                                    <option value="">選択</option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                            <div class="form-group">
-                                <label>名称 <span class="required">*</span></label>
-                                <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
-                            </div>
-
-                            <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
-                                    <label>サイズ</label>
-                                    <input type="text" id="entry-size" class="cute-input" placeholder="例：M">
-                                </div>
-                            </div>
+                                        <div style="display: flex; gap: 10px;">
+                                            <div style="flex: 1;">
+                                                <label>サイズ</label>
+                                                <input type="text" id="entry-size" class="cute-input" placeholder="例：M">
+                                            </div>
+                                        </div>
 
                             <label>使用履歴・キャラクター</label>
                             <textarea
@@ -376,7 +397,7 @@
                                         type="button"
                                         id="cancel-edit-btn"
                                         class="puffy-btn gray"
-                                        style="flex:1; display:none;">
+                                        style="flex:1;">
                                         キャンセル
                                     </button>
 
