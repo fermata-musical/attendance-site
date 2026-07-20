@@ -2,6 +2,9 @@
 
 let currentEditingItemId = null;
 
+// 編集中に内容が変更されたか
+let hasEditChanges = false;
+
 // ページロード時の初期化処理
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded");
@@ -38,10 +41,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchNumber) searchNumber.addEventListener('input', renderClosetItems);
     if (searchCategory) searchCategory.addEventListener('change', renderClosetItems);
 
-    // 大項目の変更イベント
-    const largeCatSelect = document.getElementById('entry-large-category');
-    if (largeCatSelect) {
-        largeCatSelect.addEventListener('change', handleLargeCategoryChange);
+    // キャンセルボタン
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', () => {
+
+            if (currentEditingItemId && hasEditChanges) {
+                if (!confirm('変更内容を破棄してもよろしいですか？')) {
+                    return;
+                }
+            }
+
+            resetClosetEntryForm();
+
+            // 登録フォームの先頭へスクロール
+            document
+                .getElementById('closet-entry-form')
+                ?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+        });
     }
 
     // ログイン完了を監視して衣装データを自動取得
@@ -63,6 +84,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 500);
 });
+
+// 編集中の変更を検知
+const entryForm = document.getElementById('closet-entry-form');
+
+if (entryForm) {
+    entryForm.addEventListener('input', () => {
+        if (currentEditingItemId) {
+            hasEditChanges = true;
+        }
+    });
+
+    entryForm.addEventListener('change', () => {
+        if (currentEditingItemId) {
+            hasEditChanges = true;
+        }
+    });
+}
 
 // マスタデータ取得
 async function loadClosetMasterData() {
@@ -231,21 +269,29 @@ async function loadClosetItems() {
             console.log(state.closetMaster);
         }
         
-        // items テーブルからデータ取得（画像パスと中間テーブルも同時に取得）
+        // items テーブルからデータ取得（画像・中間テーブル・次回の公演情報も同時に取得）
         const { data, error } = await db.from('items').select(`
             *,
             item_images ( storage_path, image_order ),
             item_colors ( color_id ),
             item_acquisition_methods ( acquisition_method_id ),
-            item_moods ( mood_id )
+            item_moods ( mood_id ),
+            next_production_items (
+                usable,
+                comment
+            )
         `).order('item_number');
-        
-        if (error) throw error;
-        
+
+        if (error) {
+            console.log(error);
+            throw error;
+        }
+
+        console.log("next=", data[0].next_production_items);
+
         if (typeof state !== 'undefined') {
             state.closetItems = data;
         }
-
         // お気に入り一覧取得
         currentMember = getCurrentMember();
 
@@ -403,15 +449,19 @@ async function submitClosetEntry() {
     const purchaseDate = document.getElementById('entry-purchase-date').value;
     const purchasePrice = document.getElementById('entry-purchase-price').value;
     const remarks = document.getElementById('entry-remarks').value.trim();
+
+    const nextUsable =
+        document.getElementById('entry-next-usable').checked;
+
+    const nextComment =
+        document.getElementById('entry-next-comment').value.trim();
     
     const isSetItem = document.getElementById('entry-is-set').checked;
     let parentItemNumber = null;
-    let setChildNo = null;
     let setQuantity = null;
 
     if (isSetItem) {
         parentItemNumber = document.getElementById('entry-parent-number').value.trim();
-        setChildNo = parseInt(document.getElementById('entry-child-number').value, 10);
         setQuantity = parseInt(document.getElementById('entry-set-quantity').value, 10);
     }
 
@@ -450,8 +500,11 @@ async function submitClosetEntry() {
             remarks: remarks,
 
             is_set_item: isSetItem,
-            parent_item_number: isSetItem ? parentItemNumber : null,
-            set_child_no: isSetItem && !isNaN(setChildNo) ? setChildNo : null,
+            parent_item_number:
+                isSetItem && parentItemNumber
+                    ? parentItemNumber
+                    : null,
+            set_child_no: null,
             set_quantity: isSetItem && !isNaN(setQuantity) ? setQuantity : 1
         };
 
@@ -475,15 +528,71 @@ async function submitClosetEntry() {
             await db.from('item_moods').delete().eq('item_id', currentEditingItemId);
 
         } else {
-            // 新規登録処理
-            const { data: insertData, error: insertError } = await db.from('items')
-                .insert([itemDataPayload])
-                .select()
-                .single();
+            if (isSetItem) {
 
-            if (insertError) throw insertError;
+                const { error } = await db.rpc('register_set_items', {
+                    p_items: [itemDataPayload]
+                });
 
-            insertedItem = insertData;
+                if (error) throw error;
+
+                // 作成されたセットの先頭データを取得
+                const { data } = await db
+                    .from('items')
+                    .select('*')
+                    .eq('parent_item_number',
+                        parentItemNumber || (
+                            await db
+                                .from('items')
+                                .select('parent_item_number')
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+                                .single()
+                        ).data.parent_item_number
+                    )
+                    .order('set_child_no')
+                    .limit(1)
+                    .single();
+
+                insertedItem = data;
+
+            } else {
+
+                if (isSetItem) {
+
+                    const { data: parentNumber, error } = await db.rpc(
+                        'register_set_items',
+                        {
+                            p_items: [itemDataPayload]
+                        }
+                    );
+
+                    if (error) throw error;
+
+                    const { data: firstItem, error: fetchError } = await db
+                        .from('items')
+                        .select()
+                        .eq('parent_item_number', parentNumber)
+                        .eq('set_child_no', 1)
+                        .single();
+
+                    if (fetchError) throw fetchError;
+
+                    insertedItem = firstItem;
+
+                } else {
+
+                    const { data: insertData, error: insertError } = await db
+                        .from('items')
+                        .insert([itemDataPayload])
+                        .select()
+                        .single();
+
+                    if (insertError) throw insertError;
+
+                    insertedItem = insertData;
+                }
+            }
         }
         
         // 中間テーブルへInsert
@@ -501,6 +610,19 @@ async function submitClosetEntry() {
             await db.from('item_moods').insert(checkedMoods.map(id => ({ item_id: insertedItem.id, mood_id: id })));
         }
         
+        // 次回の公演情報を保存
+        await db
+            .from('next_production_items')
+            .upsert({
+                item_id: insertedItem.id,
+                usable: nextUsable,
+                comment: nextComment || null,
+                updated_by: currentMember?.id || null,
+                created_by: currentMember?.id || null
+            }, {
+                onConflict: 'item_id'
+            });
+
         await saveItemImages(
             insertedItem.id,
             currentEditingItemId !== null
@@ -574,6 +696,7 @@ async function submitClosetEntry() {
 // フォームをリセットし、新規登録状態に戻す
 function resetClosetEntryForm(clearInfo = true) {
     currentEditingItemId = null;
+    hasEditChanges = false;
 
     if (clearInfo) {
         // 管理情報を非表示
@@ -589,6 +712,9 @@ function resetClosetEntryForm(clearInfo = true) {
     if (form) form.reset();
 
     clearSelectedImages();
+
+    document.getElementById('entry-next-usable').checked = false;
+    document.getElementById('entry-next-comment').value = '';
     
     // チェックボックスもリセット
     document.querySelectorAll('#closet-entry-form input[type="checkbox"]').forEach(cb => {
@@ -600,10 +726,20 @@ function resetClosetEntryForm(clearInfo = true) {
     
     // UIを「登録」に戻す
     const headerTitle = document.querySelector('#closet-entry .section-header h2');
-    if (headerTitle) headerTitle.innerHTML = '<i class="fa-solid fa-square-plus"></i> 衣装登録';
-    
+    if (headerTitle) {
+        headerTitle.innerHTML = '<i class="fa-solid fa-square-plus"></i> 衣装登録';
+    }
+
     const submitBtn = document.querySelector('#closet-entry-form button[type="submit"]');
-    if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 登録する';
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 登録する';
+    }
+
+    // ★キャンセルボタンを非表示
+    const cancelBtn = document.getElementById('cancel-edit-btn');
+    if (cancelBtn) {
+        cancelBtn.style.display = 'none';
+    }
 }
 
 // アイテムの編集
@@ -612,6 +748,7 @@ function editClosetItem(id) {
     if (!item) return;
 
     currentEditingItemId = id;
+    hasEditChanges = false;
 
     // 管理情報を表示
     document.getElementById('item-info-panel').style.display = 'block';
@@ -652,6 +789,16 @@ function editClosetItem(id) {
     document.getElementById('entry-purchase-date').value = item.purchase_date || '';
     document.getElementById('entry-purchase-price').value = item.purchase_price || '';
     document.getElementById('entry-remarks').value = item.remarks || '';
+
+    console.log("edit", item.next_production_items);
+    const nextProduction = item.next_production_items;
+
+    console.log(typeof nextProduction.usable, nextProduction.usable);
+    document.getElementById('entry-next-usable').checked =
+        nextProduction?.usable === true;
+
+    document.getElementById('entry-next-comment').value =
+        nextProduction?.comment || '';
     
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
     document.getElementById('entry-parent-number').value = item.parent_item_number || '';
@@ -662,7 +809,12 @@ function editClosetItem(id) {
 
     // 一旦チェックボックスをすべてクリア（セット品以外）
     document.querySelectorAll('#closet-entry-form input[type="checkbox"]').forEach(cb => {
-        if (cb.id !== 'entry-is-set') cb.checked = false;
+        if (
+            cb.id !== 'entry-is-set' &&
+            cb.id !== 'entry-next-usable'
+        ) {
+            cb.checked = false;
+        }
     });
 
     // 中間テーブルのリレーションデータに基づいてチェックボックスをオンにする
@@ -701,14 +853,26 @@ function editClosetItem(id) {
 
     // UIを「更新」に変更
     const headerTitle = document.querySelector('#closet-entry .section-header h2');
-    if (headerTitle) headerTitle.innerHTML = '<i class="fa-solid fa-pen"></i> 衣装編集';
-    
+    if (headerTitle) {
+        headerTitle.innerHTML = '<i class="fa-solid fa-pen"></i> 衣装編集';
+    }
+
     const submitBtn = document.querySelector('#closet-entry-form button[type="submit"]');
-    if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 更新する';
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 更新する';
+    }
+
+    // ★キャンセルボタンを表示
+    const cancelBtn = document.getElementById('cancel-edit-btn');
+    if (cancelBtn) {
+        cancelBtn.style.display = 'block';
+    }
 
     // 登録タブへ切り替え
     const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
-    if (entryTabBtn) entryTabBtn.click();
+    if (entryTabBtn) {
+        entryTabBtn.click();
+    }
 }
 
 // アイテムの削除

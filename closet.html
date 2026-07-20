@@ -289,10 +289,6 @@
                                             <input type="text" id="entry-parent-number" class="cute-input" placeholder="例：0013">
                                         </div>
                                         <div style="flex: 1;">
-                                            <label>子番号</label>
-                                            <input type="number" id="entry-child-number" class="cute-input" placeholder="例：1">
-                                        </div>
-                                        <div style="flex: 1;">
                                             <label>数量</label>
                                             <input type="number" id="entry-set-quantity" class="cute-input" placeholder="例：1" value="1">
                                         </div>
@@ -300,12 +296,43 @@
                                 </div>
                             </div>
 
+                            <div style="margin-top:15px; border-top:1px dashed var(--border-dusty); padding-top:15px;">
+
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="entry-next-usable">
+                                    <strong>次回の公演で使えそう</strong>
+                                </label>
+
+                                <label style="margin-top:12px;">使えるとしたら</label>
+                                <textarea
+                                    id="entry-next-comment"
+                                    class="cute-input"
+                                    rows="3"
+                                    placeholder="キャラクター名・用途などを入力"></textarea>
+
+                            </div>
+
                             <label>備考</label>
                             <textarea id="entry-remarks" class="cute-input" rows="3" placeholder="特記事項があれば入力"></textarea>
 
-                            <button type="submit" class="puffy-btn pink" style="margin-top: 20px; width: 100%;">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
-                            </button>
+                            <div style="display:flex; gap:10px; margin-top:20px;">
+
+                                <button
+                                    type="submit"
+                                    class="puffy-btn pink"
+                                    style="flex:1;">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="cancel-edit-btn"
+                                    class="puffy-btn gray"
+                                    style="flex:1; display:none;">
+                                    キャンセル
+                                </button>
+
+                            </div>
                         </div>
                     </form>
                 </div>
