@@ -802,7 +802,6 @@ function editClosetItem(id) {
     
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
     document.getElementById('entry-parent-number').value = item.parent_item_number || '';
-    document.getElementById('entry-child-number').value = item.set_child_no || '';
     document.getElementById('entry-set-quantity').value = item.set_quantity || '1';
     
     toggleSetItemFields();
