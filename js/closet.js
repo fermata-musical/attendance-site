@@ -361,7 +361,7 @@ function renderClosetItems() {
     filteredItems.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.padding = '15px';
+        card.style.padding = '8px';
         card.style.border = '1px solid var(--border-dusty)';
         
         let imageUrl = 'images/no-image.png';
@@ -375,22 +375,11 @@ function renderClosetItems() {
         const isFavorite = state.favoriteItems?.includes(item.id);
 
         card.innerHTML = `
-            <div style="text-align: center; margin-bottom: 10px;">
-                <img src="${imageUrl}" alt="衣装写真" style="width: 100%; height: 150px; object-fit: contain; border-radius: 8px; background: #f5f5f5;">
+            <div style="text-align: center; margin-bottom: 5px;">
+                <img src="${imageUrl}" alt="衣装写真" style="width: 100%; height: 90px; object-fit: contain; border-radius: 6px; background: #f5f5f5;">
             </div>
-            <div style="font-weight: bold; margin-bottom: 8px; font-size: 1.1rem; color: var(--text-main);">
-                ${item.name || '名称未設定'}
-            </div>
-            <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 4px;">
-                <i class="fa-solid fa-barcode"></i> 管理番号: ${item.item_number || '-'}
-            </div>
-            <div style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 4px;">
-                <i class="fa-solid fa-ruler"></i> サイズ: ${item.size || '-'}
-            </div>
-            <div style="font-size: 0.85rem; color: var(--text-sub);">
-                <i class="fa-solid fa-box-open"></i> 保管場所: ${storageText}
-            </div>
-            <div style="margin-top:15px; display:flex; justify-content:flex-end; gap:8px;">
+
+            <div style="margin-top:5px; display:flex; justify-content:flex-end; gap:4px;">
 
                 <button
                     class="icon-btn-sm"
