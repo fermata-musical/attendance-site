@@ -826,7 +826,12 @@ function editClosetItem(id) {
         nextProduction?.comment || '';
     
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
-    document.getElementById('entry-parent-number').value = item.parent_item_number || '';
+
+    const parentNumber = document.getElementById('entry-parent-number');
+    if (parentNumber) {
+        parentNumber.value = item.parent_item_number || '';
+    }
+
     document.getElementById('entry-set-quantity').value = item.set_quantity || '1';
 
     toggleSetItemFields();
