@@ -1,0 +1,259 @@
+/* =========================
+   カードタイトル
+========================= */
+
+.card .section-header{
+    display:flex;
+    align-items:center;
+    margin:0 0 24px;
+    padding:0 0 12px;
+
+    border-bottom:2px solid var(--border-dusty);
+
+    background:#ffffff;
+    position:sticky;
+    top:0;
+    z-index:5;
+}
+
+.card .section-header h3{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0;
+
+    font-size:1.3rem;
+    font-weight:700;
+    color:var(--text-main);
+    letter-spacing:.03em;
+    line-height:1.2;
+}
+
+.card .section-header h3 small{
+    font-size:.8rem;
+    font-weight:500;
+    color:var(--text-sub);
+}
+
+.card .section-header i{
+    width:28px;
+    text-align:center;
+    font-size:20px;
+    color:var(--pink-accent);
+}
+
+/* =========================
+   備品管理カード
+========================= */
+
+.card{
+    border-radius:20px;
+    padding:24px;
+    margin-bottom:24px;
+
+    background:linear-gradient(to bottom,#ffffff 0%,#fffdfd 100%);
+    border:1px solid var(--border-dusty);
+    border-top:4px solid var(--pink-accent);
+
+    box-shadow:
+        0 4px 10px rgba(0,0,0,.04),
+        0 12px 24px rgba(0,0,0,.03);
+
+    overflow:hidden;
+
+    transition:.2s ease;
+}
+
+.card:hover{
+    box-shadow:
+        0 6px 16px rgba(0,0,0,.06),
+        0 18px 30px rgba(0,0,0,.05);
+}
+
+/* =========================
+   入力ラベル
+========================= */
+
+.card label{
+    display:block;
+    margin-bottom:6px;
+
+    font-size:0.9rem;
+    font-weight:700;
+    color:var(--text-main);
+
+    letter-spacing:.02em;
+}
+
+.card .required{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+
+    width:16px;
+    height:16px;
+
+    margin-left:6px;
+    border-radius:50%;
+
+    background:#e57373;
+    color:#fff;
+
+    font-size:.7rem;
+    font-weight:700;
+    line-height:1;
+}
+
+/* =========================
+   入力グループ
+========================= */
+
+.card .form-group{
+    margin-bottom:18px;
+}
+
+.card .form-group:last-child{
+    margin-bottom:0;
+}
+
+/* =========================
+   カード内区切り線
+========================= */
+
+.card hr{
+    border: none;
+    border-top: 1px solid var(--border-dusty);
+    margin: 20px 0;
+}
+
+/* =========================
+   入力欄
+========================= */
+
+.card input.cute-input,
+.card select.cute-input,
+.card textarea.cute-input{
+    width:100%;
+}
+
+.card textarea.cute-input{
+    min-height:90px;
+}
+
+/* =========================
+   ボタン
+========================= */
+
+.card .puffy-btn{
+    min-height:48px;
+}
+
+.card .action-btn-styled{
+    min-height:48px;
+}
+
+/* =========================
+   レイアウト
+========================= */
+
+.card > * + *{
+    margin-top:16px;
+}
+
+.card .section-header{
+    margin-top:0;
+}
+
+/* =========================
+   チェックボックス
+========================= */
+
+.card input[type="checkbox"],
+.card input[type="radio"]{
+    margin-right:8px;
+}
+
+.card .checkbox-item,
+.card .radio-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+}
+
+/* =========================
+   フォームレイアウト
+========================= */
+
+.card .form-group{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.card .form-group label{
+    margin-bottom:0;
+}
+
+/* =========================
+   入力欄ホバー
+========================= */
+
+.card input.cute-input:hover,
+.card select.cute-input:hover,
+.card textarea.cute-input:hover{
+    border-color:var(--pink-accent);
+    transition:.2s;
+}
+
+/* =========================
+   無効入力欄
+========================= */
+
+.card input:disabled,
+.card select:disabled,
+.card textarea:disabled{
+    background:#f5f5f5;
+    color:var(--text-sub);
+    cursor:not-allowed;
+    opacity:.8;
+}
+
+/* =========================
+   プレースホルダー
+========================= */
+
+.card input::placeholder,
+.card textarea::placeholder{
+    color:var(--text-sub);
+    opacity:.7;
+    font-style:italic;
+}
+
+/* =========================
+   プルダウン
+========================= */
+
+.card select.cute-input{
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+
+    padding-right:40px;
+
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23E58CAB' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+}
+
+/* =========================
+   ボタンエリア
+========================= */
+
+.card .button-area{
+    display:flex;
+    justify-content:flex-end;
+    gap:12px;
+    margin-top:24px;
+    flex-wrap:wrap;
+}

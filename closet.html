@@ -231,8 +231,10 @@
                                 </div>
                             </div>
 
-                            <label>名称</label>
-                            <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
+                            <div class="form-group">
+                                <label>名称 <span class="required">*</span></label>
+                                <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
+                            </div>
 
                             <div style="display: flex; gap: 10px;">
                                 <div style="flex: 1;">
@@ -256,35 +258,38 @@
                                     <h3><i class="fa-solid fa-palette"></i> 属性</h3>
                                 </div>
 
-                                <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
+                                <div class="form-section">
                                     <label>雰囲気</label>
-                                    <div id="entry-mood-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                    <div id="entry-mood-container" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:5px;"></div>
                                 </div>
-                            </div>
 
-                            <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
+                                <hr>
+
+                                <div class="form-section">
                                     <label>色</label>
-                                    <div id="entry-color-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;"></div>
+                                    <div id="entry-color-container" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:5px;"></div>
                                 </div>
+
+                            <hr>
+
+                            <div class="form-section">
+                                <label>入手方法</label>
+                                <div id="entry-acquisition-container" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:5px;"></div>
                             </div>
 
-                            <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
-                                    <label>入手方法</label>
-                                    <div id="entry-acquisition-container" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;"></div>
-                                </div>
-                            </div>
+                            <hr>
 
-                            <div style="display: flex; gap: 10px;">
-                                <div style="flex: 1;">
-                                    <label>入手日</label>
-                                    <input type="date" id="entry-purchase-date" class="cute-input">
-                                </div>
-                                <div style="flex: 1;">
-                                    <label>価格</label>
-                                    <input type="number" id="entry-purchase-price" class="cute-input" placeholder="例：1500">
+                            <div class="form-section">
+                                <div style="display:flex; gap:10px;">
+                                    <div style="flex:1;">
+                                        <label>入手日</label>
+                                        <input type="date" id="entry-purchase-date" class="cute-input">
+                                    </div>
+
+                                    <div style="flex:1;">
+                                        <label>価格</label>
+                                        <input type="number" id="entry-purchase-price" class="cute-input" placeholder="例：1500">
+                                    </div>
                                 </div>
                             </div>
 
@@ -358,7 +363,7 @@
 
                                 </div>
 
-                                <div style="display:flex; gap:10px; margin-top:20px;">
+                                <div class="button-area">
 
                                     <button
                                         type="submit"
@@ -375,7 +380,7 @@
                                         キャンセル
                                     </button>
 
-                            </div>
+                                </div>
                         </div>
                     </form>
                 </div>
