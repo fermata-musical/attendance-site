@@ -1,4 +1,4 @@
-// 衣装管理用スクリプト (closet.js)
+// 備品管理用スクリプト (closet.js)
 
 let currentEditingItemId = null;
 
@@ -129,6 +129,7 @@ async function loadClosetMasterData() {
         console.log("colorsRes", colorsRes);
         console.log("acqRes", acqRes);
         console.log("moodsRes", moodsRes);
+        console.log("statusRes", statusRes);
 
         if (typeof state === 'undefined') window.state = {};
         state.closetMaster = {
@@ -161,7 +162,11 @@ async function loadClosetMasterData() {
 
         handleLargeCategoryChange();
 
-        handleLargeCategoryChange();
+        const largeCategory = document.getElementById('entry-large-category');
+        if (largeCategory) {
+            largeCategory.addEventListener('change', handleLargeCategoryChange);
+        }
+
         renderStorageBoxes();
     } catch (error) {
         console.error('マスタデータ取得エラー', error);
@@ -423,6 +428,26 @@ function toggleSetItemFields() {
     if (fields) {
         fields.style.display = isSet ? 'block' : 'none';
     }
+}
+
+function toggleLoanFields() {
+    const statusId = document.getElementById('entry-status').value;
+
+    const loanFields = document.getElementById('loan-fields');
+    const disposedField = document.getElementById('disposed-field');
+    const lostField = document.getElementById('lost-field');
+
+    if (!loanFields || !disposedField || !lostField) return;
+
+    const statuses = state.closetMaster.statuses || [];
+
+    const loanId = statuses.find(s => s.name === '貸出中')?.id;
+    const disposedId = statuses.find(s => s.name === '破棄')?.id;
+    const lostId = statuses.find(s => s.name === '紛失')?.id;
+
+    loanFields.style.display = statusId === loanId ? 'block' : 'none';
+    disposedField.style.display = statusId === disposedId ? 'block' : 'none';
+    lostField.style.display = statusId === lostId ? 'block' : 'none';
 }
 
 // 新規衣装データまたは更新データの保存
@@ -803,8 +828,9 @@ function editClosetItem(id) {
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
     document.getElementById('entry-parent-number').value = item.parent_item_number || '';
     document.getElementById('entry-set-quantity').value = item.set_quantity || '1';
-    
+
     toggleSetItemFields();
+    toggleLoanFields();
 
     // 一旦チェックボックスをすべてクリア（セット品以外）
     document.querySelectorAll('#closet-entry-form input[type="checkbox"]').forEach(cb => {
