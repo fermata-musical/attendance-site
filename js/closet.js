@@ -133,11 +133,20 @@ async function loadClosetMasterData() {
 function populateDropdown(elementId, data, valKey, textKey) {
     const el = document.getElementById(elementId);
     if (!el) return;
+
     el.innerHTML = '<option value="">選択</option>';
+
     data.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item[valKey];
-        opt.textContent = item[textKey];
+
+        // 保管ボックスだけ「箱：保管場所」で表示
+        if (elementId === 'entry-storage') {
+            opt.textContent = `${item.code}：${item.location}`;
+        } else {
+            opt.textContent = item[textKey];
+        }
+
         el.appendChild(opt);
     });
 }
