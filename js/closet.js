@@ -358,11 +358,11 @@ function renderClosetItems() {
         return;
     }
     
+    console.log("favoriteItems =", state.favoriteItems);
+    console.log("currentMember =", currentMember);
     filteredItems.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'card';
-        card.style.padding = '8px';
-        card.style.border = '1px solid var(--border-dusty)';
+        card.className = 'closet-photo';
         
         let imageUrl = 'images/no-image.png';
         if (item.item_images && item.item_images.length > 0) {
@@ -375,35 +375,70 @@ function renderClosetItems() {
         const isFavorite = state.favoriteItems?.includes(item.id);
 
         card.innerHTML = `
-            <div style="text-align: center; margin-bottom: 5px;">
-                <img src="${imageUrl}" alt="衣装写真" style="width: 100%; height: 90px; object-fit: contain; border-radius: 6px; background: #f5f5f5;">
-            </div>
+            <div style="position:relative; width:100%; aspect-ratio:1 / 1;">
 
-            <div style="margin-top:5px; display:flex; justify-content:flex-end; gap:4px;">
+                <i
+                    class="${isFavorite ? 'fa-solid' : 'fa-regular'} fa-star"
+                    onclick="event.stopPropagation(); toggleFavorite('${item.id}')"
+                    style="
+                        position:absolute;
+                        top:10px;
+                        right:10px;
+                        z-index:2;
+                        font-size:14px;
+                        color:${isFavorite ? 'var(--pink-accent)' : '#ffffff'};
+                        text-shadow:
+                            -1px 0 rgba(0,0,0,.35),
+                            1px 0 rgba(0,0,0,.35),
+                            0 -1px rgba(0,0,0,.35),
+                            0 1px rgba(0,0,0,.35);
+                        cursor:pointer;
+                    ">
+                </i>
 
-                <button
-                    class="icon-btn-sm"
-                    title="お気に入り"
-                    onclick="toggleFavorite('${item.id}')"
-                    ${!currentMember?.id ? 'disabled' : ''}>
-
-                    <i class="${isFavorite ? 'fa-solid' : 'fa-regular'} fa-star"></i>
-
-                </button>
-
-                <button
-                    class="icon-btn-sm"
-                    title="編集"
+                <div
+                    style="cursor:pointer; width:100%; height:100%;"
                     onclick="editClosetItem('${item.id}')">
-                    <i class="fa-solid fa-pen"></i>
-                </button>
 
-                <button
-                    class="icon-btn-sm"
-                    title="削除"
-                    onclick="deleteClosetItem('${item.id}')">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
+                    ${
+                        item.item_images && item.item_images.length > 0
+                        ? `
+                            <img src="${imageUrl}"
+                                alt="衣装写真"
+                                style="
+                                    width:100%;
+                                    height:100%;
+                                    object-fit:cover;
+                                    display:block;
+                                ">
+                        `
+                        : `
+                            <div style="
+                                width:100%;
+                                height:100%;
+                                display:flex;
+                                flex-direction:column;
+                                justify-content:center;
+                                align-items:center;
+                                background:#f7f7f7;
+                                border:1px solid #ddd;
+                                box-sizing:border-box;
+                                text-align:center;
+                                padding:8px;
+                                font-size:0.9rem;
+                            ">
+                                <div style="font-weight:bold; font-size:1rem;">
+                                    ${item.item_number || '-'}
+                                </div>
+
+                                <div style="margin-top:8px;">
+                                    ${item.name || '名称未登録'}
+                                </div>
+                            </div>
+                        `
+                    }
+
+                </div>
 
             </div>
         `;
@@ -782,7 +817,7 @@ function editClosetItem(id) {
     console.log("edit", item.next_production_items);
     const nextProduction = item.next_production_items;
 
-    console.log(typeof nextProduction.usable, nextProduction.usable);
+    console.log(typeof nextProduction?.usable, nextProduction?.usable);
     document.getElementById('entry-next-usable').checked =
         nextProduction?.usable === true;
 
@@ -929,14 +964,18 @@ async function toggleFavorite(itemId) {
 
     } else {
 
-        await db
+        const { error } = await db
             .from('item_favorites')
             .insert({
                 member_id: currentMember.id,
                 item_id: itemId
             });
 
-        state.favoriteItems.push(itemId);
+        console.log("favorite insert error =", error);
+
+        if (!error) {
+            state.favoriteItems.push(itemId);
+        }
 
     }
 
