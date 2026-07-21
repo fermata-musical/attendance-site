@@ -129,27 +129,6 @@
                             </div>
                         </div>
 
-                        <hr style="margin:12px 0;">
-
-                        <table style="width:100%; font-size:0.85rem;">
-                            <tr>
-                                <td>作成者</td>
-                                <td id="info-created-by">-</td>
-                            </tr>
-                            <tr>
-                                <td>作成日時</td>
-                                <td id="info-created-at">-</td>
-                            </tr>
-                            <tr>
-                                <td>更新者</td>
-                                <td id="info-updated-by">-</td>
-                            </tr>
-                            <tr>
-                                <td>更新日時</td>
-                                <td id="info-updated-at">-</td>
-                            </tr>
-                        </table>
-
                     </div>
 
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
@@ -163,6 +142,14 @@
                                 style="flex:1;"
                                 onclick="document.querySelector('#closet-entry-form button[type=&quot;submit&quot;]').click();">
                                 <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
+                            </button>
+
+                            <button
+                                type="button"
+                                class="puffy-btn blue"
+                                style="flex:1;"
+                                onclick="document.getElementById('new-entry-btn').click();">
+                                <i class="fa-solid fa-plus"></i> 新規登録
                             </button>
 
                             <button
@@ -203,6 +190,7 @@
                                 </div>
 
                                 <div style="display: flex; gap: 10px;">
+
                                     <div style="flex: 1;">
                                         <label>大項目 <span style="color:red">*</span></label>
                                         <select id="entry-large-category" class="cute-input" required>
@@ -223,21 +211,22 @@
                                         <select id="entry-small-category" class="cute-input">
                                             <option value="">選択</option>
                                         </select>
-
-                                        <div id="small-category-example"
-                                            style="
-                                                display:none;
-                                                margin-top:6px;
-                                                padding:8px 10px;
-                                                font-size:0.85rem;
-                                                color:#666;
-                                                background:#fff8fb;
-                                                border:1px solid #f3d7e4;
-                                                border-radius:8px;
-                                                line-height:1.5;
-                                            ">
-                                        </div>
                                     </div>
+
+                                </div>
+
+                                <div id="small-category-example"
+                                    style="
+                                        display:none;
+                                        margin-top:10px;
+                                        padding:10px 12px;
+                                        font-size:0.9rem;
+                                        color:#666;
+                                        background:#fff8fb;
+                                        border:1px solid #f3d7e4;
+                                        border-radius:8px;
+                                        line-height:1.6;
+                                    ">
                                 </div>
 
                                 <div style="margin-top: 15px; border-top: 1px dashed var(--border-dusty); padding-top: 15px;">
@@ -418,47 +407,116 @@
                                     <label>備考</label>
                                     <textarea id="entry-remarks" class="cute-input" rows="3" placeholder="特記事項があれば入力"></textarea>
 
-                                </div>
+                                    </div>
 
-                                <div class="button-area">
+                                    <div class="card" id="item-management-panel" style="display:none; margin-top:20px;">
 
-                                    <button
-                                        type="submit"
-                                        class="puffy-btn pink"
-                                        style="flex:1;">
-                                        <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
-                                    </button>
+                                        <div class="section-header">
+                                            <h3><i class="fa-solid fa-circle-info"></i> 管理情報</h3>
+                                        </div>
 
-                                    <button
-                                        type="button"
-                                        id="cancel-edit-btn"
-                                        class="puffy-btn gray"
-                                        style="flex:1;">
-                                        キャンセル
-                                    </button>
+                                        <table style="width:100%; font-size:0.9rem;">
+                                            <tr>
+                                                <td style="width:120px;">作成者</td>
+                                                <td id="info-created-by">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>作成日時</td>
+                                                <td id="info-created-at">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>更新者</td>
+                                                <td id="info-updated-by">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>更新日時</td>
+                                                <td id="info-updated-at">-</td>
+                                            </tr>
+                                        </table>
 
-                                </div>
+                                    </div>
+
+                                    <div class="button-area">
+
+                                        <button
+                                            type="submit"
+                                            class="puffy-btn pink"
+                                            style="flex:1;">
+                                            <i class="fa-solid fa-cloud-arrow-up"></i> 登録する
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="delete-item-btn"
+                                            class="puffy-btn"
+                                            style="
+                                                display:none;
+                                                flex:1;
+                                                background:#d9534f;
+                                                color:white;">
+                                            <i class="fa-solid fa-trash"></i> 削除
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="new-entry-btn"
+                                            class="puffy-btn blue"
+                                            style="
+                                                display:none;
+                                                flex:1;">
+                                            <i class="fa-solid fa-plus"></i> 新規登録
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            id="cancel-edit-btn"
+                                            class="puffy-btn gray"
+                                            style="
+                                                display:none;
+                                                flex:1;">
+                                            キャンセル
+                                        </button>
+
+                                    </div>
                         </div>
                     </form>
                 </div>
             </div>
 
             <div id="closet-admin" class="tab-content">
-                <div class="card">
-                    <div class="section-header">
-                        <h2><i class="fa-solid fa-gear"></i> 管理</h2>
-                    </div>
-
                     <!-- サブタブ -->
                     <div style="display:flex; gap:10px; margin-bottom:20px;">
+
                         <button
                             class="puffy-btn pink admin-subtab active"
-                            data-admin-tab="storage">
-                            保管場所
+                            data-admin-tab="guide">
+                            入力例一覧
                         </button>
+
+                        <button
+                            class="puffy-btn pink admin-subtab"
+                            data-admin-tab="storage">
+                            項目管理
+                        </button>
+
                     </div>
 
-                    <!-- 保管場所サブタブ -->
+                    <!-- 入力例一覧 -->
+                    <div id="admin-guide" class="admin-tab-content">
+
+                        <h4 style="margin-top:0;">小項目</h4>
+                        <div id="guide-small-category"></div>
+
+                        <h4 style="margin-top:30px;">色</h4>
+                        <div id="guide-colors"></div>
+
+                        <h4 style="margin-top:30px;">雰囲気</h4>
+                        <div id="guide-moods"></div>
+
+                        <h4 style="margin-top:30px;">入手方法</h4>
+                        <div id="guide-acquisition"></div>
+
+                    </div>
                     <div id="admin-storage" class="admin-tab-content">
 
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -524,15 +582,101 @@
 
                             </div>
 
-                            <div id="storage-box-list">
-                                <!-- JavaScriptでカードを生成 -->
-                            </div>
+                        <div id="storage-box-list">
+                            <!-- JavaScriptでカードを生成 -->
+                        </div>
 
                     </div>
                 </div>
-            </div>
 
-        </main>
+                <!-- セット解除モーダル -->
+                <div id="unset-set-modal" class="modal-overlay" style="display:none;">
+
+                    <div class="modal-card">
+
+                        <h3 style="margin-top:0;">
+                            通常品へ変更
+                        </h3>
+
+                        <p>
+                            通常品として残す子番号を選択してください。
+                        </p>
+
+                        <div
+                            id="unset-set-list"
+                            style="margin:20px 0;">
+                            <!-- JavaScriptで生成 -->
+                        </div>
+
+                        <div
+                            style="display:flex;
+                                   justify-content:flex-end;
+                                   gap:10px;">
+
+                            <button
+                                type="button"
+                                class="puffy-btn gray"
+                                id="btn-cancel-unset-set">
+                                キャンセル
+                            </button>
+
+                            <button
+                                type="button"
+                                class="puffy-btn pink"
+                                id="btn-confirm-unset-set">
+                                通常品へ変更
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- セット数量変更モーダル -->
+                <div id="set-quantity-modal" class="modal-overlay" style="display:none;">
+
+                    <div class="modal-card">
+
+                        <h3 style="margin-top:0;">
+                            残す子番号を選択
+                        </h3>
+
+                        <p id="set-quantity-message">
+                            残す子番号を選択してください。
+                        </p>
+
+                        <div
+                            id="set-quantity-list"
+                            style="margin:20px 0;">
+                        </div>
+
+                        <div
+                            style="display:flex;
+                                   justify-content:flex-end;
+                                   gap:10px;">
+
+                            <button
+                                type="button"
+                                class="puffy-btn gray"
+                                id="btn-cancel-set-quantity">
+                                キャンセル
+                            </button>
+
+                            <button
+                                type="button"
+                                class="puffy-btn pink"
+                                id="btn-confirm-set-quantity">
+                                決定
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </main>
 
     </div>
 

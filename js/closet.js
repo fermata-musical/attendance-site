@@ -5,6 +5,11 @@ let currentEditingItemId = null;
 // 編集中に内容が変更されたか
 let hasEditChanges = false;
 
+// セット数量変更モーダル用
+let pendingSetQuantity = null;
+let pendingOriginalItem = null;
+let pendingResolveSetQuantity = null;
+
 // ページロード時の初期化処理
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded");
@@ -41,29 +46,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchNumber) searchNumber.addEventListener('input', renderClosetItems);
     if (searchCategory) searchCategory.addEventListener('change', renderClosetItems);
 
-    // キャンセルボタン
+    // 削除ボタン
+    const deleteBtn = document.getElementById('delete-item-btn');
+
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteClosetItem);
+    }
+
+    // キャンセル・新規登録ボタン
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const newEntryBtn = document.getElementById('new-entry-btn');
 
     if (cancelEditBtn) {
         cancelEditBtn.addEventListener('click', () => {
 
             if (currentEditingItemId && hasEditChanges) {
-                if (!confirm('変更内容を破棄してもよろしいですか？')) {
+                if (!confirm('変更内容を破棄しますか？')) {
                     return;
                 }
             }
 
             resetClosetEntryForm();
-
-            // 登録フォームの先頭へスクロール
-            document
-                .getElementById('closet-entry-form')
-                ?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+            document.querySelector('[data-tab="closet-list"]').click();
         });
     }
+
+    if (newEntryBtn) {
+        newEntryBtn.addEventListener('click', () => {
+
+            if (hasEditChanges) {
+                if (!confirm('入力内容を破棄して新規登録を開始しますか？')) {
+                    return;
+                }
+            }
+
+            resetClosetEntryForm(true);
+
+            // 登録タブを表示したままにする
+            const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
+            if (entryTabBtn) {
+                entryTabBtn.click();
+            }
+        });
+    }
+    
 
     // ログイン完了を監視して衣装データを自動取得
     const initInterval = setInterval(() => {
@@ -147,6 +173,7 @@ async function loadClosetMasterData() {
         populateDropdown('entry-middle-category', state.closetMaster.middle, 'id', 'name');
         populateDropdown('entry-small-category', state.closetMaster.small, 'id', 'name');
         populateDropdown('entry-storage', state.closetMaster.storage, 'id', 'location');
+        populateDropdown('entry-status', state.closetMaster.statuses, 'id', 'name');
         populateDropdown('closet-search-category', state.closetMaster.large, 'id', 'name');
 
         populateCheckboxes('entry-color-container', state.closetMaster.colors, 'color', 'id', 'name');
@@ -166,6 +193,7 @@ async function loadClosetMasterData() {
         }
 
         renderStorageBoxes();
+        renderGuideTables();
     } catch (error) {
         console.error('マスタデータ取得エラー', error);
     }
@@ -286,6 +314,14 @@ async function loadClosetItems() {
             next_production_items (
                 usable,
                 comment
+            ),
+
+            created_by_member:members!items_created_by_fkey (
+                name
+            ),
+
+            updated_by_member:members!items_updated_by_fkey (
+                name
             )
         `).order('item_number');
 
@@ -567,21 +603,222 @@ async function submitClosetEntry() {
         let insertedItem;
 
         if (currentEditingItemId) {
-            // 更新処理
-            const { data: updateData, error: updateError } = await db.from('items')
-                .update(itemDataPayload)
-                .eq('id', currentEditingItemId)
-                .select()
-                .single();
 
-            if (updateError) throw updateError;
+            const originalItem = state.closetItems.find(
+                x => x.id === currentEditingItemId
+            );
 
-            insertedItem = updateData;
+            const wasSet = !!originalItem?.is_set_item;
+            const willBeSet = isSetItem;
 
-            // 中間テーブルの既存データを削除
-            await db.from('item_colors').delete().eq('item_id', currentEditingItemId);
-            await db.from('item_acquisition_methods').delete().eq('item_id', currentEditingItemId);
-            await db.from('item_moods').delete().eq('item_id', currentEditingItemId);
+            if (!wasSet && !willBeSet) {
+
+                // 通常品 → 通常品
+                const { data: updateData, error: updateError } = await db.from('items')
+                    .update(itemDataPayload)
+                    .eq('id', currentEditingItemId)
+                    .select()
+                    .single();
+
+                if (updateError) throw updateError;
+
+                insertedItem = updateData;
+
+                await db.from('item_colors').delete().eq('item_id', currentEditingItemId);
+                await db.from('item_acquisition_methods').delete().eq('item_id', currentEditingItemId);
+                await db.from('item_moods').delete().eq('item_id', currentEditingItemId);
+
+            } else if (!wasSet && willBeSet) {
+
+                if (!confirm('通常品をセット品へ変更しますか？')) {
+                    return;
+                }
+
+                const { data: parentNumber, error } = await db.rpc(
+                    'register_set_items',
+                    {
+                        p_items: [itemDataPayload]
+                    }
+                );
+
+                if (error) throw error;
+
+                const { data: firstItem, error: fetchError } = await db
+                    .from('items')
+                    .select()
+                    .eq('parent_item_number', parentNumber)
+                    .eq('set_child_no', 1)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                insertedItem = firstItem;
+
+                const { error: deleteError } = await db
+                    .from('items')
+                    .delete()
+                    .eq('id', currentEditingItemId);
+
+                if (deleteError) throw deleteError;
+
+            } else if (wasSet && !willBeSet) {
+
+                if (!confirm('セット品を通常品へ変更しますか？')) {
+                    return;
+                }
+
+                const { data: setItems, error: setError } = await db
+                    .from('items')
+                    .select(`
+                        id,
+                        item_number,
+                        name,
+                        set_child_no
+                    `)
+                    .eq(
+                        'parent_item_number',
+                        originalItem.parent_item_number
+                    )
+                    .order('set_child_no');
+
+                if (setError) throw setError;
+                const selectedItemId =
+                    await showUnsetSetModal(setItems);
+
+                if (!selectedItemId) {
+                    return;
+                }
+
+                const keepItem = setItems.find(
+                    item => String(item.id) === String(selectedItemId)
+                );
+
+                if (!keepItem) {
+                    throw new Error('選択した子番号が見つかりません。');
+                }
+
+                const normalItemPayload = {
+                    ...itemDataPayload,
+
+                    is_set_item: false,
+                    parent_item_number: null,
+                    set_child_no: null,
+                    set_quantity: 1
+                };
+
+                const { data: updateData, error: updateError } = await db
+                    .from('items')
+                    .update({
+                        ...normalItemPayload,
+                        item_number: originalItem.parent_item_number,
+                        updated_by: currentMember.id,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', keepItem.id)
+                    .select()
+                    .single();
+
+                if (updateError) throw updateError;
+
+                insertedItem = updateData;
+
+                // 親番号を維持
+                insertedItem.item_number = originalItem.parent_item_number;
+
+                const { error: deleteError } = await db
+                    .from('items')
+                    .delete()
+                    .eq(
+                        'parent_item_number',
+                        originalItem.parent_item_number
+                    );
+
+                if (deleteError) throw deleteError;
+
+            } else {
+
+                const oldQty = originalItem.set_quantity || 1;
+                const newQty = setQuantity || 1;
+
+                if (oldQty === newQty) {
+                    // 数量変更なし
+                } else if (newQty > oldQty) {
+
+                    const addCount = newQty - oldQty;
+
+                    const { error } = await db.rpc(
+                        'add_set_items',
+                        {
+                            p_parent_item_number: originalItem.parent_item_number,
+                            p_add_count: addCount
+                        }
+                    );
+
+                    if (error) throw error;
+
+                    const { data: firstItem, error: fetchError } = await db
+                        .from('items')
+                        .select()
+                        .eq(
+                            'parent_item_number',
+                            originalItem.parent_item_number
+                        )
+                        .eq('set_child_no', 1)
+                        .single();
+
+                    if (fetchError) throw fetchError;
+
+                    insertedItem = firstItem;
+
+                } else {
+
+                    const { data: setItems, error: setError } = await db
+                        .from('items')
+                        .select('id, item_number, name, set_child_no')
+                        .eq(
+                            'parent_item_number',
+                            originalItem.parent_item_number
+                        )
+                        .order('set_child_no');
+
+                    if (setError) throw setError;
+
+                    const keepIds = await showSetQuantityModal(
+                        setItems,
+                        newQty
+                    );
+
+                    if (!keepIds) {
+                        return;
+                    }
+
+                    const { error } = await db.rpc(
+                        'reduce_set_items',
+                        {
+                            p_parent_item_number: originalItem.parent_item_number,
+                            p_keep_item_ids: keepIds
+                        }
+                    );
+
+                    if (error) throw error;
+
+                    const { data: firstItem, error: fetchError } = await db
+                        .from('items')
+                        .select()
+                        .eq(
+                            'parent_item_number',
+                            originalItem.parent_item_number
+                        )
+                        .eq('set_child_no', 1)
+                        .single();
+
+                    if (fetchError) throw fetchError;
+
+                    insertedItem = firstItem;
+
+                }
+
+            }
 
         } else {
             if (isSetItem) {
@@ -651,38 +888,100 @@ async function submitClosetEntry() {
             }
         }
         
+        let targetItems = [insertedItem];
+
+        if (insertedItem.is_set_item) {
+
+            const { data: setItems, error: setError } = await db
+                .from('items')
+                .select('id')
+                .eq('parent_item_number', insertedItem.parent_item_number)
+                .order('set_child_no');
+
+            if (setError) throw setError;
+
+            targetItems = setItems;
+        }
+
         // 中間テーブルへInsert
         const checkedColors = Array.from(document.querySelectorAll('input[name="color"]:checked')).map(cb => cb.value);
         const checkedAcqs = Array.from(document.querySelectorAll('input[name="acquisition"]:checked')).map(cb => cb.value);
         const checkedMoods = Array.from(document.querySelectorAll('input[name="mood"]:checked')).map(cb => cb.value);
         
         if (checkedColors.length > 0) {
-            await db.from('item_colors').insert(checkedColors.map(id => ({ item_id: insertedItem.id, color_id: id })));
+
+            const colorRows = [];
+
+            targetItems.forEach(item => {
+                checkedColors.forEach(colorId => {
+                    colorRows.push({
+                        item_id: item.id,
+                        color_id: colorId
+                    });
+                });
+            });
+
+            await db.from('item_colors').insert(colorRows);
         }
+
         if (checkedAcqs.length > 0) {
-            await db.from('item_acquisition_methods').insert(checkedAcqs.map(id => ({ item_id: insertedItem.id, acquisition_method_id: id })));
+
+            const acqRows = [];
+
+            targetItems.forEach(item => {
+                checkedAcqs.forEach(acquisitionId => {
+                    acqRows.push({
+                        item_id: item.id,
+                        acquisition_method_id: acquisitionId
+                    });
+                });
+            });
+
+            await db.from('item_acquisition_methods').insert(acqRows);
         }
+
         if (checkedMoods.length > 0) {
-            await db.from('item_moods').insert(checkedMoods.map(id => ({ item_id: insertedItem.id, mood_id: id })));
+
+            const moodRows = [];
+
+            targetItems.forEach(item => {
+                checkedMoods.forEach(moodId => {
+                    moodRows.push({
+                        item_id: item.id,
+                        mood_id: moodId
+                    });
+                });
+            });
+
+            await db.from('item_moods').insert(moodRows);
         }
         
         // 次回の公演情報を保存
-        await db
-            .from('next_production_items')
-            .upsert({
-                item_id: insertedItem.id,
-                usable: nextUsable,
-                comment: nextComment || null,
-                updated_by: currentMember?.id || null,
-                created_by: currentMember?.id || null
-            }, {
-                onConflict: 'item_id'
-            });
+        for (const item of targetItems) {
 
-        await saveItemImages(
-            insertedItem.id,
-            currentEditingItemId !== null
-        );
+            await db
+                .from('next_production_items')
+                .upsert({
+                    item_id: item.id,
+                    usable: nextUsable,
+                    comment: nextComment || null,
+                    updated_by: currentMember?.id || null,
+                    created_by: currentMember?.id || null
+                }, {
+                    onConflict: 'item_id'
+                });
+
+        }
+
+        for (const item of targetItems) {
+
+            await saveItemImages(
+                item.id,
+                currentEditingItemId !== null
+            );
+
+        }
+
         alert(currentEditingItemId ? '衣装を更新しました！' : '衣装を登録しました！');
 
         // 作成者・更新者名を取得するため再取得
@@ -715,6 +1014,7 @@ async function submitClosetEntry() {
         const latest = state.closetItems.find(i => String(i.id) === String(insertedItem.id));
 
         if (latest) {
+            currentEditingItemId = latest.id;
             editClosetItem(latest.id);
         }
 
@@ -734,9 +1034,14 @@ function resetClosetEntryForm(clearInfo = true) {
     currentEditingItemId = null;
     hasEditChanges = false;
 
+    // 削除ボタンを非表示
+    document.getElementById('delete-item-btn').style.display = 'none';
+
     if (clearInfo) {
         // 管理情報を非表示
         document.getElementById('item-info-panel').style.display = 'none';
+        document.getElementById('item-management-panel').style.display = 'none';
+
         document.getElementById('info-management-number').textContent = '-';
     }
 
@@ -767,10 +1072,15 @@ function resetClosetEntryForm(clearInfo = true) {
         submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 登録する';
     }
 
-    // キャンセルボタンは常に表示
+    // キャンセル・新規登録ボタンを非表示
     const cancelBtn = document.getElementById('cancel-edit-btn');
     if (cancelBtn) {
-        cancelBtn.style.display = 'block';
+        cancelBtn.style.display = 'none';
+    }
+
+    const newEntryBtn = document.getElementById('new-entry-btn');
+    if (newEntryBtn) {
+        newEntryBtn.style.display = 'none';
     }
 }
 
@@ -784,24 +1094,37 @@ function editClosetItem(id) {
 
     // 管理情報を表示
     document.getElementById('item-info-panel').style.display = 'block';
+    document.getElementById('item-management-panel').style.display = 'block';
+
+    // 削除ボタンを表示
+    document.getElementById('delete-item-btn').style.display = 'inline-flex';
+
     document.getElementById('info-management-number').textContent =
         item.item_number || '-';
 
-    document.getElementById('info-created-by').textContent =
-    item.created_by_member?.name || '-';
+    const createdBy = document.getElementById('info-created-by');
+    if (createdBy) {
+        createdBy.textContent = item.created_by_member?.name || '-';
+    }
 
-    document.getElementById('info-updated-by').textContent =
-        item.updated_by_member?.name || '-';
+    const updatedBy = document.getElementById('info-updated-by');
+    if (updatedBy) {
+        updatedBy.textContent = item.updated_by_member?.name || '-';
+    }
 
-    document.getElementById('info-created-at').textContent =
-        item.created_at
+    const createdAt = document.getElementById('info-created-at');
+    if (createdAt) {
+        createdAt.textContent = item.created_at
             ? new Date(item.created_at).toLocaleString('ja-JP')
             : '-';
+    }
 
-    document.getElementById('info-updated-at').textContent =
-        item.updated_at
+    const updatedAt = document.getElementById('info-updated-at');
+    if (updatedAt) {
+        updatedAt.textContent = item.updated_at
             ? new Date(item.updated_at).toLocaleString('ja-JP')
             : '-';
+    }
 
     // フォームに値をセット
     document.getElementById('entry-name').value = item.name || '';
@@ -841,6 +1164,11 @@ function editClosetItem(id) {
         nextProduction?.comment || '';
     
     document.getElementById('entry-is-set').checked = !!item.is_set_item;
+
+    const setCheckbox = document.getElementById('entry-is-set');
+    if (setCheckbox) {
+        setCheckbox.disabled = false;
+    }
 
     const parentNumber = document.getElementById('entry-parent-number');
     if (parentNumber) {
@@ -907,10 +1235,15 @@ function editClosetItem(id) {
         submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 更新する';
     }
 
-    // ★キャンセルボタンを表示
+    // キャンセル・新規登録ボタンを非表示
     const cancelBtn = document.getElementById('cancel-edit-btn');
     if (cancelBtn) {
-        cancelBtn.style.display = 'block';
+        cancelBtn.style.display = 'none';
+    }
+
+    const newEntryBtn = document.getElementById('new-entry-btn');
+    if (newEntryBtn) {
+        newEntryBtn.style.display = 'none';
     }
 
     // 登録タブへ切り替え
@@ -1214,4 +1547,490 @@ function updateSmallCategoryExample() {
     `;
 
     panel.style.display = 'block';
+}
+
+function renderGuideTables() {
+
+    renderSmallCategoryGuide();
+    renderColorGuide();
+    renderMoodGuide();
+    renderAcquisitionGuide();
+
+}
+
+// ===============================
+// 管理サブタブ切替
+// ===============================
+document.querySelectorAll('.admin-subtab').forEach(btn => {
+
+    btn.addEventListener('click', () => {
+
+        document.querySelectorAll('.admin-subtab').forEach(b =>
+            b.classList.remove('active')
+        );
+
+        btn.classList.add('active');
+
+        document.querySelectorAll('.admin-tab-content').forEach(tab =>
+            tab.style.display = 'none'
+        );
+
+        document.getElementById(
+            'admin-' + btn.dataset.adminTab
+        ).style.display = 'block';
+
+    });
+
+});
+
+// 初期表示
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.admin-tab-content').forEach(tab =>
+        tab.style.display = 'none'
+    );
+
+    const first = document.getElementById('admin-guide');
+
+    if (first) {
+        first.style.display = 'block';
+    }
+
+});
+
+function renderSmallCategoryGuide() {
+
+    const container = document.getElementById('guide-small-category');
+    if (!container) return;
+
+    const rows = state.closetMaster.small.map(item => {
+
+        const large = state.closetMaster.large.find(
+            x => x.id === item.large_category_id
+        );
+
+        return `
+            <tr>
+                <td>${large?.name || ''}</td>
+                <td>${item.name || ''}</td>
+                <td>${item.example || ''}</td>
+            </tr>
+        `;
+
+    }).join('');
+
+    container.innerHTML = `
+        <table class="simple-table">
+            <thead>
+                <tr>
+                    <th>大項目</th>
+                    <th>小項目</th>
+                    <th>例</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+
+}
+
+function renderSmallCategoryGuide() {
+
+    const container = document.getElementById('guide-small-category');
+    if (!container) return;
+
+    const rows = state.closetMaster.small.map(item => {
+
+        const large = state.closetMaster.large.find(
+            x => x.id === item.large_category_id
+        );
+
+        return `
+            <tr>
+                <td style="border:1px solid #eee;padding:10px;vertical-align:top;">
+                    ${large?.name || ''}
+                </td>
+
+                <td style="border:1px solid #eee;padding:10px;vertical-align:top;">
+                    ${item.name || ''}
+                </td>
+
+                <td style="
+                    border:1px solid #eee;
+                    padding:10px;
+                    vertical-align:top;
+                    white-space:normal;
+                    word-break:break-word;
+                    line-height:1.6;
+                ">
+                    ${item.example || ''}
+                </td>
+            </tr>
+        `;
+
+    }).join('');
+
+    container.innerHTML = `
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            table-layout:fixed;
+            font-size:14px;
+            background:#fff;
+        ">
+            <thead>
+                <tr style="background:#fbe3ec;">
+                    <th style="width:80px;padding:10px;border:1px solid #ddd;">大項目</th>
+                    <th style="width:140px;padding:10px;border:1px solid #ddd;">小項目</th>
+                    <th style="padding:10px;border:1px solid #ddd;">例</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+
+}
+
+function renderColorGuide() {
+
+    const container = document.getElementById('guide-colors');
+    if (!container) return;
+
+    const rows = state.closetMaster.colors.map(item => `
+        <tr>
+            <td style="border:1px solid #eee;padding:10px;vertical-align:top;width:140px;">
+                ${item.name || ''}
+            </td>
+
+            <td style="
+                border:1px solid #eee;
+                padding:10px;
+                vertical-align:top;
+                white-space:normal;
+                word-break:break-word;
+                line-height:1.6;
+            ">
+                ${item.example || ''}
+            </td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            table-layout:fixed;
+            font-size:14px;
+            background:#fff;
+        ">
+            <thead>
+                <tr style="background:#fbe3ec;">
+                    <th style="width:140px;padding:10px;border:1px solid #ddd;">色</th>
+                    <th style="padding:10px;border:1px solid #ddd;">例</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+
+}
+
+function renderMoodGuide() {
+
+    const container = document.getElementById('guide-moods');
+    if (!container) return;
+
+    const rows = state.closetMaster.moods.map(item => `
+        <tr>
+            <td style="border:1px solid #eee;padding:10px;vertical-align:top;width:140px;">
+                ${item.name || ''}
+            </td>
+
+            <td style="
+                border:1px solid #eee;
+                padding:10px;
+                vertical-align:top;
+                white-space:normal;
+                word-break:break-word;
+                line-height:1.6;
+            ">
+                ${item.example || ''}
+            </td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            table-layout:fixed;
+            font-size:14px;
+            background:#fff;
+        ">
+            <thead>
+                <tr style="background:#fbe3ec;">
+                    <th style="width:140px;padding:10px;border:1px solid #ddd;">雰囲気</th>
+                    <th style="padding:10px;border:1px solid #ddd;">例</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+
+}
+
+function renderAcquisitionGuide() {
+
+    const container = document.getElementById('guide-acquisition');
+    if (!container) return;
+
+    const rows = state.closetMaster.acquisition.map(item => `
+        <tr>
+            <td style="border:1px solid #eee;padding:10px;vertical-align:top;width:140px;">
+                ${item.name || ''}
+            </td>
+
+            <td style="
+                border:1px solid #eee;
+                padding:10px;
+                vertical-align:top;
+                white-space:normal;
+                word-break:break-word;
+                line-height:1.6;
+            ">
+                ${item.example || ''}
+            </td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+            table-layout:fixed;
+            font-size:14px;
+            background:#fff;
+        ">
+            <thead>
+                <tr style="background:#fbe3ec;">
+                    <th style="width:140px;padding:10px;border:1px solid #ddd;">入手方法</th>
+                    <th style="padding:10px;border:1px solid #ddd;">例</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+
+}
+
+async function deleteClosetItem() {
+
+    if (!currentEditingItemId) return;
+
+    if (!confirm('この備品を削除しますか？\n※画像も削除されます。')) {
+        return;
+    }
+
+    try {
+
+        const indicator = document.getElementById('sync-indicator');
+        if (indicator) indicator.classList.remove('hidden');
+
+        const item = state.closetItems.find(
+            i => i.id === currentEditingItemId
+        );
+
+        // Storageの画像削除
+        if (item?.item_images?.length) {
+
+            const paths = item.item_images
+                .map(x => x.storage_path)
+                .filter(Boolean);
+
+            if (paths.length) {
+                const { error } = await db.storage
+                    .from('item-images')
+                    .remove(paths);
+
+                if (error) throw error;
+            }
+        }
+
+        // 中間テーブル削除
+        await db.from('item_images').delete().eq('item_id', currentEditingItemId);
+        await db.from('item_colors').delete().eq('item_id', currentEditingItemId);
+        await db.from('item_acquisition_methods').delete().eq('item_id', currentEditingItemId);
+        await db.from('item_moods').delete().eq('item_id', currentEditingItemId);
+        await db.from('next_production_items').delete().eq('item_id', currentEditingItemId);
+        await db.from('item_favorites').delete().eq('item_id', currentEditingItemId);
+
+        // 本体削除
+        const { error } = await db
+            .from('items')
+            .delete()
+            .eq('id', currentEditingItemId);
+
+        if (error) throw error;
+
+        alert('削除しました。');
+
+        await loadClosetItems();
+
+        resetClosetEntryForm();
+
+        document.querySelector('[data-tab="closet-list"]').click();
+
+    } catch (error) {
+
+        console.error(error);
+        alert(error.message);
+
+    } finally {
+
+        const indicator = document.getElementById('sync-indicator');
+        if (indicator) indicator.classList.add('hidden');
+
+    }
+
+}
+
+async function showUnsetSetModal(setItems) {
+
+    return new Promise((resolve) => {
+
+        const modal = document.getElementById('unset-set-modal');
+        const list = document.getElementById('unset-set-list');
+
+        const cancelBtn = document.getElementById('btn-cancel-unset-set');
+        const okBtn = document.getElementById('btn-confirm-unset-set');
+
+        list.innerHTML = '';
+
+        setItems.forEach((item, index) => {
+
+            const label = document.createElement('label');
+
+            label.innerHTML = `
+                <input
+                    type="radio"
+                    name="unset-set-item"
+                    value="${item.id}"
+                    ${index === 0 ? 'checked' : ''}
+                >
+
+                ${item.item_number}
+               　${item.name || ''}
+            `;
+
+            list.appendChild(label);
+
+        });
+
+        modal.style.display = 'flex';
+
+        cancelBtn.onclick = () => {
+
+            modal.style.display = 'none';
+            resolve(null);
+
+        };
+
+        okBtn.onclick = () => {
+
+            const checked = document.querySelector(
+                'input[name="unset-set-item"]:checked'
+            );
+
+            modal.style.display = 'none';
+
+            resolve(checked ? checked.value : null);
+
+        };
+
+    });
+
+}
+
+async function showSetQuantityModal(setItems, remainCount) {
+
+    return new Promise((resolve) => {
+
+        const modal = document.getElementById('set-quantity-modal');
+        const list = document.getElementById('set-quantity-list');
+        const message = document.getElementById('set-quantity-message');
+
+        const cancelBtn = document.getElementById('btn-cancel-set-quantity');
+        const okBtn = document.getElementById('btn-confirm-set-quantity');
+
+        message.textContent =
+            `残す子番号を ${remainCount} 個選択してください。`;
+
+        list.innerHTML = '';
+
+        setItems.forEach((item) => {
+
+            const label = document.createElement('label');
+
+            label.style.display = 'block';
+            label.style.marginBottom = '8px';
+
+            label.innerHTML = `
+                <input
+                    type="checkbox"
+                    name="set-quantity-item"
+                    value="${item.id}"
+                >
+
+                ${item.item_number}
+                　${item.name || ''}
+            `;
+
+            list.appendChild(label);
+
+        });
+
+        modal.style.display = 'flex';
+
+        cancelBtn.onclick = () => {
+
+            modal.style.display = 'none';
+            resolve(null);
+
+        };
+
+        okBtn.onclick = () => {
+
+            const checked = [
+                ...document.querySelectorAll(
+                    'input[name="set-quantity-item"]:checked'
+                )
+            ];
+
+            if (checked.length !== remainCount) {
+
+                alert(`残す子番号を ${remainCount} 個選択してください。`);
+                return;
+
+            }
+
+            modal.style.display = 'none';
+
+            resolve(
+                checked.map(c => c.value)
+            );
+
+        };
+
+    });
+
 }

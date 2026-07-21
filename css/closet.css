@@ -271,3 +271,67 @@
     border-radius:0;
     overflow:hidden;
 }
+
+/* =========================
+   モーダル
+========================= */
+
+.modal-overlay{
+
+    position:fixed;
+    inset:0;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:rgba(0,0,0,.45);
+
+    z-index:10000;
+}
+
+.modal-card{
+
+    width:min(520px,90vw);
+
+    background:#fff;
+    border-radius:20px;
+
+    padding:24px;
+
+    box-shadow:
+        0 20px 40px rgba(0,0,0,.25);
+
+    max-height:80vh;
+    overflow:auto;
+}
+
+#unset-set-list{
+
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+#unset-set-list label{
+
+    display:flex;
+    align-items:center;
+
+    gap:10px;
+
+    padding:12px 14px;
+
+    border:1px solid var(--border-dusty);
+    border-radius:12px;
+
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+#unset-set-list label:hover{
+
+    border-color:var(--pink-accent);
+    background:#fff8fb;
+}
