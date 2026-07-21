@@ -153,18 +153,16 @@ async function loadClosetMasterData() {
         populateCheckboxes('entry-acquisition-container', state.closetMaster.acquisition, 'acquisition', 'id', 'name');
         populateCheckboxes('entry-mood-container', state.closetMaster.moods, 'mood', 'id', 'name');
 
-        populateDropdown(
-            'entry-status',
-            state.closetMaster.statuses,
-            'id',
-            'name'
-        );
-
         handleLargeCategoryChange();
 
         const largeCategory = document.getElementById('entry-large-category');
         if (largeCategory) {
             largeCategory.addEventListener('change', handleLargeCategoryChange);
+        }
+
+        const smallCategory = document.getElementById('entry-small-category');
+        if (smallCategory) {
+            smallCategory.addEventListener('change', updateSmallCategoryExample);
         }
 
         renderStorageBoxes();
@@ -246,6 +244,10 @@ function handleLargeCategoryChange() {
         'id',
         'name'
     );
+
+    // ★追加
+    document.getElementById('small-category-example').style.display = 'none';
+
 }
 
 // アイテムの取得
@@ -386,7 +388,7 @@ function renderClosetItems() {
                         right:10px;
                         z-index:2;
                         font-size:14px;
-                        color:${isFavorite ? 'var(--pink-accent)' : '#ffffff'};
+                        color:#ffffff;
                         text-shadow:
                             -1px 0 rgba(0,0,0,.35),
                             1px 0 rgba(0,0,0,.35),
@@ -706,21 +708,15 @@ async function submitClosetEntry() {
             return;
         }
 
-        // 編集状態を解除（フォーム内容は維持）
-        currentEditingItemId = null;
-
-        document.getElementById('info-management-number').textContent =
-            insertedItem.item_number || '-';
-
-        // フォームのリセットと状態の初期化
-        resetClosetEntryForm(false);
-
         // データを再取得して一覧を更新
         await loadClosetItems();
 
-        // 登録タブを表示したままにする
-        const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
-        if (entryTabBtn) entryTabBtn.click();
+        // 登録した最新データを取得
+        const latest = state.closetItems.find(i => String(i.id) === String(insertedItem.id));
+
+        if (latest) {
+            editClosetItem(latest.id);
+        }
 
     } catch (error) {
         console.error("衣装保存エラー:", error);
@@ -791,6 +787,22 @@ function editClosetItem(id) {
     document.getElementById('info-management-number').textContent =
         item.item_number || '-';
 
+    document.getElementById('info-created-by').textContent =
+    item.created_by_member?.name || '-';
+
+    document.getElementById('info-updated-by').textContent =
+        item.updated_by_member?.name || '-';
+
+    document.getElementById('info-created-at').textContent =
+        item.created_at
+            ? new Date(item.created_at).toLocaleString('ja-JP')
+            : '-';
+
+    document.getElementById('info-updated-at').textContent =
+        item.updated_at
+            ? new Date(item.updated_at).toLocaleString('ja-JP')
+            : '-';
+
     // フォームに値をセット
     document.getElementById('entry-name').value = item.name || '';
     document.getElementById('entry-large-category').value = item.large_category_id || '';
@@ -800,6 +812,10 @@ function editClosetItem(id) {
     
     document.getElementById('entry-middle-category').value = item.middle_category_id || '';
     document.getElementById('entry-small-category').value = item.small_category_id || '';
+
+    // ★追加
+    updateSmallCategoryExample();
+
     document.getElementById('entry-size').value = item.size || '';
     document.getElementById('entry-storage').value = item.storage_box_id || '';
     document.getElementById('entry-usage-history').value = item.usage_history || '';
@@ -1172,4 +1188,30 @@ async function moveStorageBox(id, direction) {
     await loadClosetMasterData();
     renderStorageBoxes();
 
+}
+
+// 小項目の例を表示
+function updateSmallCategoryExample() {
+
+    const select = document.getElementById('entry-small-category');
+    const panel = document.getElementById('small-category-example');
+
+    if (!select || !panel) return;
+
+    const item = state.closetMaster.small.find(
+        x => x.id === select.value
+    );
+
+    if (!item || !item.example) {
+        panel.style.display = 'none';
+        panel.textContent = '';
+        return;
+    }
+
+    panel.innerHTML = `
+        <strong>例</strong><br>
+        ${item.example}
+    `;
+
+    panel.style.display = 'block';
 }

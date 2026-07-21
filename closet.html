@@ -129,6 +129,27 @@
                             </div>
                         </div>
 
+                        <hr style="margin:12px 0;">
+
+                        <table style="width:100%; font-size:0.85rem;">
+                            <tr>
+                                <td>作成者</td>
+                                <td id="info-created-by">-</td>
+                            </tr>
+                            <tr>
+                                <td>作成日時</td>
+                                <td id="info-created-at">-</td>
+                            </tr>
+                            <tr>
+                                <td>更新者</td>
+                                <td id="info-updated-by">-</td>
+                            </tr>
+                            <tr>
+                                <td>更新日時</td>
+                                <td id="info-updated-at">-</td>
+                            </tr>
+                        </table>
+
                     </div>
 
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
@@ -198,9 +219,24 @@
 
                                     <div style="flex: 1;">
                                         <label>小項目</label>
+
                                         <select id="entry-small-category" class="cute-input">
                                             <option value="">選択</option>
                                         </select>
+
+                                        <div id="small-category-example"
+                                            style="
+                                                display:none;
+                                                margin-top:6px;
+                                                padding:8px 10px;
+                                                font-size:0.85rem;
+                                                color:#666;
+                                                background:#fff8fb;
+                                                border:1px solid #f3d7e4;
+                                                border-radius:8px;
+                                                line-height:1.5;
+                                            ">
+                                        </div>
                                     </div>
                                 </div>
 
