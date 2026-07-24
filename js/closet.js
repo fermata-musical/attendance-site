@@ -174,7 +174,32 @@ async function loadClosetMasterData() {
         populateDropdown('entry-small-category', state.closetMaster.small, 'id', 'name');
         populateDropdown('entry-storage', state.closetMaster.storage, 'id', 'location');
         populateDropdown('entry-status', state.closetMaster.statuses, 'id', 'name');
-        populateDropdown('closet-search-category', state.closetMaster.large, 'id', 'name');
+
+        populateDropdown('closet-filter-large', state.closetMaster.large, 'id', 'name');
+        populateDropdown('closet-filter-middle', state.closetMaster.middle, 'id', 'name');
+        populateSmallFilterCheckboxes(state.closetMaster.small);
+        populateDropdown('closet-filter-storage', state.closetMaster.storage, 'id', 'location');
+        populateStatusFilterCheckboxes(state.closetMaster.statuses);
+        populateCheckboxes(
+            'closet-filter-color-container',
+            state.closetMaster.colors,
+            'filter-color',
+            'id',
+            'name'
+        );
+
+        populateCheckboxes(
+            'closet-filter-mood-container',
+            state.closetMaster.moods,
+            'filter-mood',
+            'id',
+            'name'
+        );
+
+        const storageFilter = document.getElementById('closet-filter-storage');
+        if (storageFilter) {
+            storageFilter.options[0].textContent = '全ての保管ボックス';
+        }
 
         populateCheckboxes('entry-color-container', state.closetMaster.colors, 'color', 'id', 'name');
         populateCheckboxes('entry-acquisition-container', state.closetMaster.acquisition, 'acquisition', 'id', 'name');
@@ -192,6 +217,18 @@ async function loadClosetMasterData() {
             smallCategory.addEventListener('change', updateSmallCategoryExample);
         }
 
+        const filterLarge = document.getElementById('closet-filter-large');
+        if (filterLarge) {
+            filterLarge.addEventListener('change', handleClosetFilterLargeChange);
+        }
+
+        const filterMiddle = document.getElementById('closet-filter-middle');
+        if (filterMiddle) {
+            filterMiddle.addEventListener('change', handleClosetFilterMiddleChange);
+        }
+
+        handleClosetFilterLargeChange();
+
         renderStorageBoxes();
         renderGuideTables();
     } catch (error) {
@@ -199,17 +236,43 @@ async function loadClosetMasterData() {
     }
 }
 
+// ==========================================
+// マスタ名取得
+// ==========================================
+function getLargeCategoryName(id) {
+    return state.closetMaster.large.find(x => x.id === id)?.name || '-';
+}
+
+function getMiddleCategoryName(id) {
+    return state.closetMaster.middle.find(x => x.id === id)?.name || '-';
+}
+
+function getSmallCategoryName(id) {
+    return state.closetMaster.small.find(x => x.id === id)?.name || '-';
+}
+
+function getStorageBoxName(id) {
+    return state.closetMaster.storage.find(x => x.id === id)?.location || '-';
+}
+
 function populateDropdown(elementId, data, valKey, textKey) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    el.innerHTML = '<option value="">選択</option>';
+    let firstText = '選択';
+
+    if (elementId.startsWith('closet-filter-')) {
+        if (elementId === 'closet-filter-large') firstText = '全ての大項目';
+        if (elementId === 'closet-filter-middle') firstText = '全ての中項目';
+        if (elementId === 'closet-filter-small') firstText = '全ての小項目';
+    }
+
+    el.innerHTML = `<option value="">${firstText}</option>`;
 
     data.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item[valKey];
 
-        // 保管ボックスだけ「箱：保管場所」で表示
         if (elementId === 'entry-storage') {
             opt.textContent = `${item.code}：${item.location}`;
         } else {
@@ -243,39 +306,104 @@ function populateCheckboxes(containerId, data, namePrefix, valKey, textKey) {
     });
 }
 
-function handleLargeCategoryChange() {
-    const largeCatSelect = document.getElementById('entry-large-category');
-    const middleSelect = document.getElementById('entry-middle-category');
-    const wrapper = document.getElementById('middle-category-wrapper');
+function populateSmallFilterCheckboxes(items) {
 
-    if (!largeCatSelect || !wrapper) return;
+    const container = document.getElementById('closet-filter-small-container');
+    if (!container) return;
 
-    const selectedId = largeCatSelect.value;
-    const selectedOption = largeCatSelect.options[largeCatSelect.selectedIndex];
+    container.innerHTML = '';
 
-    // 中項目の表示制御
-    if (selectedOption && selectedOption.text === '衣裳') {
-        wrapper.style.display = 'block';
-    } else {
-        wrapper.style.display = 'none';
-        if (middleSelect) middleSelect.value = '';
+    items
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .forEach(item => {
+
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '4px';
+
+        label.innerHTML = `
+            <input
+                type="checkbox"
+                value="${item.id}"
+                class="filter-small-checkbox">
+            ${item.name}
+        `;
+
+        const checkbox = label.querySelector('input');
+
+        checkbox.addEventListener('change', renderClosetItems);
+
+        container.appendChild(label);
+
+    });
+
+}
+
+function populateStatusFilterCheckboxes(items) {
+    const container = document.getElementById('closet-filter-status-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    items
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .forEach(item => {
+            const label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.gap = '4px';
+
+            label.innerHTML = `
+                <input
+                    type="checkbox"
+                    class="filter-status-checkbox"
+                    value="${item.id}">
+                ${item.name}
+            `;
+
+            const checkbox = label.querySelector('input');
+            checkbox.addEventListener('change', renderClosetItems);
+
+            container.appendChild(label);
+        });
+}
+
+function handleClosetFilterLargeChange() {
+    const largeSelect = document.getElementById('closet-filter-large');
+    const middleSelect = document.getElementById('closet-filter-middle');
+    const middleWrapper = document.getElementById('closet-filter-middle-wrapper');
+
+    if (!largeSelect || !middleSelect) return;
+
+    const largeId = largeSelect.value;
+    const selectedOption = largeSelect.options[largeSelect.selectedIndex];
+
+    console.log(selectedOption?.text);
+
+    if (middleWrapper) {
+        if (selectedOption && selectedOption.text.trim() === '衣裳') {
+            middleWrapper.style.display = 'block';
+        } else {
+            middleWrapper.style.display = 'none';
+            middleSelect.value = '';
+        }
     }
 
-    // 小項目を大項目で絞り込み
-    const smallList = state.closetMaster.small.filter(
-        x => x.large_category_id === selectedId
-    );
+    const middleList = largeId
+        ? state.closetMaster.middle.filter(x => x.large_category_id === largeId)
+        : state.closetMaster.middle;
 
-    populateDropdown(
-        'entry-small-category',
-        smallList,
-        'id',
-        'name'
-    );
+    const smallList = largeId
+        ? state.closetMaster.small.filter(x => x.large_category_id === largeId)
+        : state.closetMaster.small;
 
-    // ★追加
-    document.getElementById('small-category-example').style.display = 'none';
+    populateDropdown('closet-filter-middle', middleList, 'id', 'name');
+    populateSmallFilterCheckboxes(smallList);
 
+    middleSelect.value = '';
+
+    renderClosetItems();
 }
 
 // アイテムの取得
@@ -307,7 +435,10 @@ async function loadClosetItems() {
         // items テーブルからデータ取得（画像・中間テーブル・次回の公演情報も同時に取得）
         const { data, error } = await db.from('items').select(`
             *,
-            item_images ( storage_path, image_order ),
+            item_images (
+                storage_path,
+                image_order
+            ),
             item_colors ( color_id ),
             item_acquisition_methods ( acquisition_method_id ),
             item_moods ( mood_id ),
@@ -378,23 +509,140 @@ function renderClosetItems() {
         return;
     }
     
-    const nameFilter = document.getElementById('closet-search-name')?.value.toLowerCase() || '';
+    const textFilter = document.getElementById('closet-search-text')?.value.toLowerCase() || '';
     const numberFilter = document.getElementById('closet-search-number')?.value.toLowerCase() || '';
-    const categoryFilter = document.getElementById('closet-search-category')?.value || '';
+    const largeFilter = document.getElementById('closet-filter-large')?.value || '';
+    const middleFilter = document.getElementById('closet-filter-middle')?.value || '';
+    const selectedSmalls =
+        Array.from(
+            document.querySelectorAll('#closet-filter-small-container input:checked')
+        ).map(cb => cb.value);
+    const storageFilter = document.getElementById('closet-filter-storage')?.value || '';
+
+    const selectedStatuses =
+        Array.from(
+            document.querySelectorAll('#closet-filter-status-container input:checked')
+        ).map(cb => cb.value);
+
+    const selectedColors =
+        Array.from(
+            document.querySelectorAll('#closet-filter-color-container input:checked')
+        ).map(cb => cb.value);
+
+    const selectedMoods =
+        Array.from(
+            document.querySelectorAll('#closet-filter-mood-container input:checked')
+        ).map(cb => cb.value);
+
+    const nextUsableFilter = document.getElementById('closet-filter-next-usable')?.value || '';
+    const favoriteFilter = document.getElementById('closet-filter-favorite')?.value || '';
+    const setFilter = document.getElementById('closet-filter-set')?.value || '';
     
     const filteredItems = items.filter(item => {
-        const matchName = !nameFilter || (item.name && item.name.toLowerCase().includes(nameFilter));
+        const searchText = [
+            item.name,
+            item.size,
+            item.usage_history,
+            item.remarks,
+            item.next_production_items?.comment
+        ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+        const matchText =
+            !textFilter ||
+            searchText.includes(textFilter);
         const matchNumber = !numberFilter ||
                     (item.item_number && item.item_number.toLowerCase().includes(numberFilter));
-        const matchCategory = !categoryFilter || (item.large_category_id === categoryFilter);
-        
-        return matchName && matchNumber && matchCategory;
+        const matchLarge = !largeFilter || (item.large_category_id === largeFilter);
+        const matchMiddle = !middleFilter || (item.middle_category_id === middleFilter);
+        const matchSmall =
+            selectedSmalls.length === 0 ||
+            selectedSmalls.includes(item.small_category_id);
+
+        const usable = item.next_production_items?.usable;
+
+        const matchStorage =
+            !storageFilter ||
+            (item.storage_box_id === storageFilter);
+
+        const matchStatus =
+            selectedStatuses.length === 0 ||
+            selectedStatuses.includes(item.status_id);
+
+        const matchColor =
+            selectedColors.length === 0 ||
+            item.item_colors?.some(
+                color => selectedColors.includes(color.color_id)
+            );
+
+        const matchMood =
+            selectedMoods.length === 0 ||
+            item.item_moods?.some(
+                mood => selectedMoods.includes(mood.mood_id)
+            );
+
+        const matchNextUsable =
+            !nextUsableFilter ||
+            String(usable) === nextUsableFilter;
+
+        const isFavorite = state.favoriteItems?.includes(item.id) ?? false;
+
+        const matchFavorite =
+            !favoriteFilter ||
+            String(isFavorite) === favoriteFilter;
+
+        const matchSet =
+            !setFilter ||
+            (
+                setFilter === 'parent' &&
+                item.is_set_item === true
+            );
+
+        return matchText &&
+               matchNumber &&
+               matchLarge &&
+               matchMiddle &&
+               matchSmall &&
+               matchStorage &&
+               matchStatus &&
+               matchColor &&
+               matchMood &&
+               matchNextUsable &&
+               matchFavorite &&
+               matchSet;
     });
 
     if (filteredItems.length === 0) {
         container.innerHTML = '<p style="color: var(--text-sub);">条件に一致する衣装がありません。</p>';
         return;
     }
+
+    const sortOrder = document.getElementById('closet-sort-order')?.value || 'management-asc';
+
+    filteredItems.sort((a, b) => {
+
+        if (sortOrder === 'management-asc') {
+            return Number(a.management_number || 0) -
+                   Number(b.management_number || 0);
+        }
+
+        if (sortOrder === 'name-asc') {
+            return (a.name || '').localeCompare(
+                b.name || '',
+                'ja'
+            );
+        }
+
+        if (sortOrder === 'updated-desc') {
+            return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+        }
+
+        return 0;
+    });
+
+    state.filteredClosetItems = filteredItems;
     
     console.log("favoriteItems =", state.favoriteItems);
     console.log("currentMember =", currentMember);
@@ -436,7 +684,7 @@ function renderClosetItems() {
 
                 <div
                     style="cursor:pointer; width:100%; height:100%;"
-                    onclick="editClosetItem('${item.id}')">
+                    onclick="showClosetDetail('${item.id}')">
 
                     ${
                         item.item_images && item.item_images.length > 0
@@ -510,6 +758,34 @@ function toggleLoanFields() {
     loanFields.style.display = statusId === loanId ? 'block' : 'none';
     disposedField.style.display = statusId === disposedId ? 'block' : 'none';
     lostField.style.display = statusId === lostId ? 'block' : 'none';
+}
+
+function handleLargeCategoryChange() {
+    const largeId = document.getElementById('entry-large-category').value;
+    const middleSelect = document.getElementById('entry-middle-category');
+    const smallSelect = document.getElementById('entry-small-category');
+
+    const middleList = (state.closetMaster.middle || []).filter(
+        x => x.large_category_id === largeId
+    );
+
+    populateDropdown('entry-middle-category', middleList, 'id', 'name');
+
+    middleSelect.value = '';
+    smallSelect.innerHTML = '<option value="">選択してください</option>';
+
+    updateSmallCategoryExample();
+}
+
+function updateSmallCategoryExample() {
+    const smallId = document.getElementById('entry-small-category').value;
+    const example = document.getElementById('entry-small-category-example');
+
+    if (!example) return;
+
+    const item = (state.closetMaster.small || []).find(x => x.id === smallId);
+
+    example.textContent = item?.example || '';
 }
 
 // 新規衣装データまたは更新データの保存
@@ -1046,7 +1322,16 @@ function resetClosetEntryForm(clearInfo = true) {
     }
 
     const form = document.getElementById('closet-entry-form');
-    if (form) form.reset();
+    if (form) {
+        form.reset();
+        form.style.display = 'block';
+    }
+    const entryCard = document.getElementById('closet-entry-card');
+    if (entryCard) entryCard.style.display = 'block';
+    const detailView = document.getElementById('closet-detail-view');
+    if (detailView) {
+        detailView.style.display = 'none';
+    }
 
     clearSelectedImages();
 
@@ -1084,9 +1369,365 @@ function resetClosetEntryForm(clearInfo = true) {
     }
 }
 
+// ==========================================
+// アイテム詳細表示
+// ==========================================
+function showClosetDetail(id) {
+
+    const displayItems = state.filteredClosetItems || state.closetItems;
+
+    const currentIndex = displayItems.findIndex(i => i.id === id);
+
+    const item = displayItems[currentIndex];
+    if (!item) return;
+
+    document.getElementById('closet-detail-view').style.display = 'block';
+    const entryCard = document.getElementById('closet-entry-card');
+    if (entryCard) entryCard.style.display = 'none';
+    const entryForm = document.getElementById('closet-entry-form');
+    if (entryForm) entryForm.style.display = 'none';
+
+    const contentArea = document.getElementById('detail-content-area');
+
+    const imageUrls = (item.item_images || []).map(image => getImageUrl(image.storage_path));
+    const imageUrl = imageUrls.length ? imageUrls[0] : '';
+    const categoryText = [getLargeCategoryName(item.large_category_id), getMiddleCategoryName(item.middle_category_id), getSmallCategoryName(item.small_category_id)].filter(x=>x&&x!=='-').join(' ＞ ');
+    const colorsText = (item.item_colors || []).map(c => state.closetMaster.colors.find(x => x.id === c.color_id)?.name).filter(Boolean).join('・') || '-';
+    const acqText = (item.item_acquisition_methods || []).map(a => state.closetMaster.acquisition.find(x => x.id === a.acquisition_method_id)?.name).filter(Boolean).join('・') || '-';
+    const moodsText = (item.item_moods || []).map(m => state.closetMaster.moods.find(x => x.id === m.mood_id)?.name).filter(Boolean).join('・') || '-';
+
+    contentArea.innerHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 2rem; font-weight: bold; color: var(--accent-pink, #e83e8c); letter-spacing: 1px;">${item.management_number || item.item_number || '-'}</div>
+            <div style="font-size: 1.2rem; font-weight: bold; color: var(--text-main); margin-top: 5px;">${item.name || '-'}</div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            ${imageUrl
+                ? `
+                    <img id="detail-main-image"
+                        src="${imageUrl}"
+                        style="width:100%; border-radius:12px; object-fit:cover; max-height:400px;"
+                        alt="">
+
+                    ${imageUrls.length > 1 ? `
+                        <div style="display:flex; gap:8px; margin-top:10px; overflow-x:auto;">
+                            ${imageUrls.map(url => `
+                                <img
+                                    src="${url}"
+                                    style="
+                                        width:70px;
+                                        height:70px;
+                                        object-fit:cover;
+                                        border-radius:8px;
+                                        border:2px solid transparent;
+                                        cursor:pointer;
+                                    "
+                                    class="detail-thumbnail">
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                `
+                : `<div style="
+                    width:100%;
+                    height:200px;
+                    background:#f9f9f9;
+                    border-radius:12px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;">
+                    画像なし
+                </div>`
+            }
+        </div>
+
+        <div style="margin-bottom: 20px; padding: 15px; border-radius: 12px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <i class="fa-solid fa-shirt" style="color:var(--accent-pink,#e83e8c); width:20px; text-align:center;"></i>
+                <span>
+                    ${[
+                        getLargeCategoryName(item.large_category_id),
+                        getMiddleCategoryName(item.middle_category_id),
+                        getSmallCategoryName(item.small_category_id)
+                    ].filter(name => name && name !== '-').join(' ＞ ')}
+                </span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                <i class="fa-solid fa-layer-group" style="color:var(--accent-pink,#e83e8c); width:20px; text-align:center;"></i>
+                <span>セット品：${item.is_set_item ? '〇' : '×'}</span>
+            </div>
+
+            ${item.is_set_item ? `
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-hashtag" style="color:var(--accent-pink,#e83e8c); width:20px; text-align:center;"></i>
+                    <span>数量：${item.set_quantity || '-'}</span>
+                </div>
+            ` : ''}
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                <i class="fa-solid fa-box-archive" style="color:var(--accent-pink,#e83e8c); width:20px; text-align:center;"></i>
+                <span>${getStorageBoxName(item.storage_box_id)}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px;">
+                <i class="fa-solid fa-circle-check" style="color:var(--accent-pink,#e83e8c); width:20px; text-align:center;"></i>
+                <span>${state.closetMaster.statuses.find(s => s.id === item.status_id)?.name || '-'}</span>
+            </div>
+
+        </div>
+
+        <div style="margin-bottom: 20px; padding: 15px; border-radius: 12px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <i class="fa-solid fa-circle-question" style="color:#8b5cf6; width:20px; text-align:center;"></i>
+                <span>次回公演で使えそう：${item.next_production_items?.usable ? '〇' : '×'}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                <i class="fa-solid fa-comment-dots" style="color:#8b5cf6; width:20px; text-align:center;"></i>
+                <span>使えるとしたら：${item.next_production_items?.comment || '-'}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                <i class="fa-solid fa-masks-theater" style="color:#8b5cf6; width:20px; text-align:center;"></i>
+                <span>${item.usage_history || '-'}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px;">
+                <i class="fa-solid fa-note-sticky" style="color:#8b5cf6; width:20px; text-align:center;"></i>
+                <span>${item.remarks || '-'}</span>
+            </div>
+
+        </div>
+
+        <div style="margin-bottom: 20px; padding: 15px; border-radius: 12px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <i class="fa-solid fa-ruler" style="color:#f59e0b; width:20px; text-align:center;"></i>
+                <span>${item.size || '-'}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color:#f59e0b; width:20px; text-align:center;"></i>
+                <span>${moodsText}</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px;">
+                <i class="fa-solid fa-palette" style="color:#f59e0b; width:20px; text-align:center;"></i>
+                <span>${colorsText}</span>
+            </div>
+
+        </div>
+
+        <details style="margin-bottom:20px;">
+            <summary style="
+                cursor:pointer;
+                padding:15px;
+                background:#f7f7f7;
+                border-radius:12px;
+                font-weight:bold;
+            ">
+                詳細情報
+            </summary>
+
+            <div style="
+                margin-top:12px;
+                padding:15px;
+                border-radius:12px;
+                background:#fff;
+                box-shadow:0 4px 15px rgba(0,0,0,.05);
+            ">
+
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <i class="fa-solid fa-cart-shopping" style="width:20px;"></i>
+                    <span>入手方法：${acqText}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-calendar-plus" style="width:20px;"></i>
+                    <span>入手日：${item.purchase_date ? item.purchase_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-yen-sign" style="width:20px;"></i>
+                    <span>価格：${item.purchase_price ? Number(item.purchase_price).toLocaleString() + '円' : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-handshake" style="width:20px;"></i>
+                    <span>貸出先：${item.loan_to || '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-calendar-day" style="width:20px;"></i>
+                    <span>貸出日：${item.loan_date ? item.loan_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-calendar-check" style="width:20px;"></i>
+                    <span>返却予定日：${item.return_due_date ? item.return_due_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-trash" style="width:20px;"></i>
+                    <span>破棄日：${item.disposed_date ? item.disposed_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="width:20px;"></i>
+                    <span>紛失日：${item.lost_date ? item.lost_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-calendar-days" style="width:20px;"></i>
+                    <span>最終使用日：${item.last_used_date ? item.last_used_date.replace(/-/g,'/') : '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-user-plus" style="width:20px;"></i>
+                    <span>作成者：${item.created_by || '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-clock" style="width:20px;"></i>
+                    <span>作成日時：${formatDateTime(item.created_at) || '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px; margin-bottom:12px;">
+                    <i class="fa-solid fa-user-pen" style="width:20px;"></i>
+                    <span>更新者：${item.updated_by || '-'}</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; border-top:1px dashed #eee; padding-top:12px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="width:20px;"></i>
+                    <span>更新日時：${formatDateTime(item.updated_at) || '-'}</span>
+                </div>
+
+            </div>
+
+        </details>
+    `;
+
+    const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
+    if (entryTabBtn) {
+        entryTabBtn.click();
+    }
+
+    window.scrollTo({
+        top: 0,
+        behavior: 'auto'
+    });
+
+    const backBtn = document.getElementById('detail-back-btn');
+
+    if (backBtn) {
+        backBtn.onclick = () => {
+
+            document.getElementById('closet-detail-view').style.display = 'none';
+            const entryCard = document.getElementById('closet-entry-card');
+            if (entryCard) entryCard.style.display = 'block';
+
+            const headerTitle = document.querySelector('#closet-entry .section-header h2');
+            if (headerTitle) {
+                headerTitle.innerHTML =
+                    '<i class="fa-solid fa-shirt"></i> 衣装登録';
+            }
+
+            const listTabBtn = document.querySelector('[data-tab="closet-list"]');
+            if (listTabBtn) {
+                listTabBtn.click();
+            }
+
+        };
+    }
+
+    document.querySelectorAll('.detail-thumbnail').forEach(img => {
+
+        img.onclick = () => {
+
+            document.getElementById('detail-main-image').src = img.src;
+
+            document.querySelectorAll('.detail-thumbnail').forEach(thumbnail => {
+                thumbnail.style.border = '2px solid transparent';
+            });
+
+            img.style.border = '2px solid var(--accent-pink, #e83e8c)';
+
+        };
+
+    });
+
+    const firstThumbnail = document.querySelector('.detail-thumbnail');
+
+    if (firstThumbnail) {
+        firstThumbnail.style.border = '2px solid var(--accent-pink, #e83e8c)';
+    }
+
+    console.log('currentIndex =', currentIndex);
+    console.log('displayItems =', displayItems);
+
+    const prevBtn = document.getElementById('detail-prev-btn');
+
+    if (prevBtn) {
+        prevBtn.disabled = currentIndex === 0;
+
+        prevBtn.onclick = () => {
+            if (currentIndex > 0) {
+                console.log('前へ', currentIndex - 1, displayItems[currentIndex - 1]);
+
+                showClosetDetail(displayItems[currentIndex - 1].id);
+            }
+        };
+    }
+
+    const nextBtn = document.getElementById('detail-next-btn');
+
+    if (nextBtn) {
+        nextBtn.disabled = currentIndex === displayItems.length - 1;
+
+        nextBtn.onclick = () => {
+            if (currentIndex < displayItems.length - 1) {
+                console.log('次へ', currentIndex + 1, displayItems[currentIndex + 1]);
+
+                showClosetDetail(displayItems[currentIndex + 1].id);
+            }
+        };
+    }
+
+    const newBtn = document.getElementById('detail-new-btn');
+
+    if (newBtn) {
+        newBtn.onclick = () => {
+            document.getElementById('closet-detail-view').style.display = 'none';
+            document.getElementById('closet-entry-card').style.display = '';
+            document.getElementById('new-entry-btn').click();
+        };
+    }
+
+    const editBtn = document.getElementById('detail-edit-btn');
+
+    if (editBtn) {
+        editBtn.onclick = () => {
+            editClosetItem(id);
+        };
+    }
+    hasEditChanges = false;
+}
+
 // アイテムの編集
 function editClosetItem(id) {
-    const item = state.closetItems.find(i => i.id === id);
+    const displayItems = state.filteredClosetItems || state.closetItems;
+
+    console.log('displayItems', displayItems);
+    console.log('id', id);
+
+    const currentIndex = displayItems.findIndex(i => i.id === id);
+
+    console.log('currentIndex', currentIndex);
+
+    const item = displayItems[currentIndex];
     if (!item) return;
 
     currentEditingItemId = id;
@@ -1246,11 +1887,32 @@ function editClosetItem(id) {
         newEntryBtn.style.display = 'none';
     }
 
+    // 詳細画面を閉じる
+    const detailView = document.getElementById('closet-detail-view');
+    if (detailView) {
+        detailView.style.display = 'none';
+    }
+
+    // 編集フォームを表示
+    const entryForm = document.getElementById('closet-entry-form');
+    if (entryForm) {
+        entryForm.style.display = 'block';
+    }
+    const entryCard = document.getElementById('closet-entry-card');
+    if (entryCard) {
+        entryCard.style.display = 'block';
+    }
+
     // 登録タブへ切り替え
     const entryTabBtn = document.querySelector('[data-tab="closet-entry"]');
     if (entryTabBtn) {
         entryTabBtn.click();
     }
+
+    window.scrollTo({
+        top: 0,
+        behavior: 'instant'
+    });
 }
 
 // アイテムの削除
@@ -1327,6 +1989,65 @@ async function toggleFavorite(itemId) {
         }
 
     }
+
+    renderClosetItems();
+}
+
+// 一覧検索条件リセット
+function resetClosetFilters() {
+
+    const ids = [
+        'closet-search-text',
+        'closet-search-number',
+        'closet-filter-large',
+        'closet-filter-middle',
+        'closet-filter-storage',
+        'closet-filter-color',
+        'closet-filter-next-usable',
+        'closet-filter-favorite',
+        'closet-filter-set',
+        'closet-sort-order'
+    ];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = '';
+        }
+    });
+
+    document
+        .querySelectorAll('#closet-filter-small-container input[type="checkbox"]')
+        .forEach(cb => {
+            cb.checked = false;
+        });
+
+    document
+        .querySelectorAll('#closet-filter-status-container input[type="checkbox"]')
+        .forEach(cb => {
+            cb.checked = false;
+        });
+
+    document
+        .querySelectorAll('#closet-filter-color-container input[type="checkbox"]')
+        .forEach(cb => {
+            cb.checked = false;
+        });
+
+    document
+        .querySelectorAll('#closet-filter-mood-container input[type="checkbox"]')
+        .forEach(cb => {
+            cb.checked = false;
+        });
+
+    // 並び替えは管理番号順に戻す
+    const sortSelect = document.getElementById('closet-sort-order');
+    if (sortSelect) {
+        sortSelect.value = 'management-asc';
+    }
+
+    // 中項目・小項目の表示状態を戻す
+    handleClosetFilterLargeChange();
 
     renderClosetItems();
 }
@@ -1524,29 +2245,23 @@ async function moveStorageBox(id, direction) {
 }
 
 // 小項目の例を表示
-function updateSmallCategoryExample() {
+function handleClosetFilterMiddleChange() {
+    const largeSelect = document.getElementById('closet-filter-large');
+    const middleSelect = document.getElementById('closet-filter-middle');
 
-    const select = document.getElementById('entry-small-category');
-    const panel = document.getElementById('small-category-example');
+    if (!largeSelect || !middleSelect) return;
 
-    if (!select || !panel) return;
+    const largeId = largeSelect.value;
 
-    const item = state.closetMaster.small.find(
-        x => x.id === select.value
-    );
+    const smallList = largeId
+        ? state.closetMaster.small.filter(
+            x => x.large_category_id === largeId
+        )
+        : state.closetMaster.small;
 
-    if (!item || !item.example) {
-        panel.style.display = 'none';
-        panel.textContent = '';
-        return;
-    }
+    populateSmallFilterCheckboxes(smallList);
 
-    panel.innerHTML = `
-        <strong>例</strong><br>
-        ${item.example}
-    `;
-
-    panel.style.display = 'block';
+    renderClosetItems();
 }
 
 function renderGuideTables() {
@@ -1594,6 +2309,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (first) {
         first.style.display = 'block';
+    }
+
+    const toggleBtn = document.getElementById('toggle-search-panel-btn');
+    const searchPanel = document.getElementById('closet-search-panel');
+
+    if (toggleBtn && searchPanel) {
+
+        const isHidden = localStorage.getItem('closetSearchPanelHidden') === 'true';
+
+        searchPanel.style.display = isHidden ? 'none' : '';
+
+        toggleBtn.innerHTML = isHidden
+            ? '<i class="fa-solid fa-chevron-right"></i> 検索条件を表示'
+            : '<i class="fa-solid fa-chevron-down"></i> 検索条件を隠す';
+
+        toggleBtn.onclick = () => {
+
+            const hidden = searchPanel.style.display === 'none';
+
+            searchPanel.style.display = hidden ? '' : 'none';
+
+            toggleBtn.innerHTML = hidden
+                ? '<i class="fa-solid fa-chevron-down"></i> 検索条件を隠す'
+                : '<i class="fa-solid fa-chevron-right"></i> 検索条件を表示';
+
+            localStorage.setItem('closetSearchPanelHidden', !hidden);
+        };
+
     }
 
 });
@@ -2032,5 +2775,27 @@ async function showSetQuantityModal(setItems, remainCount) {
         };
 
     });
+
+}
+
+// ==========================================
+// 日時表示
+// ==========================================
+function formatDateTime(value) {
+
+    if (!value) return '-';
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) return '-';
+
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mi = String(date.getMinutes()).padStart(2, '0');
+
+    return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 
 }

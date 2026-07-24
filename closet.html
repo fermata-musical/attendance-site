@@ -97,13 +97,237 @@
                         <h2><i class="fa-solid fa-shirt"></i> 衣装一覧</h2>
                     </div>
 
+                    <button
+                        type="button"
+                        id="toggle-search-panel-btn"
+                        class="puffy-btn gray"
+                        style="width:100%; margin-bottom:15px;">
+                        <i class="fa-solid fa-sliders"></i> 検索条件を隠す
+                    </button>
+
+                    <div id="closet-search-panel">
+
                     <div class="input-group-full" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <input type="text" id="closet-search-name" class="cute-input" placeholder="名称検索" style="flex: 1; min-width: 150px;">
-                        <input type="text" id="closet-search-number" class="cute-input" placeholder="管理番号検索" style="flex: 1; min-width: 120px;">
-                        <select id="closet-search-category" class="cute-input" style="flex: 1; min-width: 120px;">
-                            <option value="">全てのカテゴリー</option>
-                        </select>
-                        <button id="closet-search-btn" class="puffy-btn pink" onclick="renderClosetItems()"><i class="fa-solid fa-magnifying-glass"></i> 検索</button>
+                        <input type="text" id="closet-search-text" class="cute-input" placeholder="名称・サイズ・使用履歴・備考検索" style="flex: 1; min-width: 200px;">
+                        <div style="display:flex; gap:10px; width:100%;">
+
+                            <select id="closet-filter-large" class="cute-input" style="flex:1;">
+                                <option value="">全ての大項目</option>
+                            </select>
+
+                            <div id="closet-filter-middle-wrapper" style="flex:1;">
+                                <select id="closet-filter-middle" class="cute-input" style="width:100%;">
+                                    <option value="">全ての中項目</option>
+                                </select>
+                            </div>
+
+                        </div>
+
+                        <div style="width:100%;">
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                font-weight:600;
+                                color:#666;
+                                margin-bottom:8px;
+                            ">
+                                <i class="fa-solid fa-tags"></i>
+                                小項目
+                            </div>
+
+                            <div
+                                id="closet-filter-small-container"
+                                class="cute-input"
+                                style="
+                                    width:100%;
+                                    min-height:42px;
+                                    padding:8px 12px;
+                                    display:flex;
+                                    flex-wrap:wrap;
+                                    gap:8px 16px;
+                                    align-items:center;
+                                    box-sizing:border-box;
+                                ">
+                            </div>
+
+                        </div>
+
+                        <div style="width:100%;">
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                font-weight:600;
+                                color:#666;
+                                margin-bottom:8px;
+                            ">
+                                <i class="fa-solid fa-box-open"></i>
+                                管理状態
+                            </div>
+
+                            <div
+                                id="closet-filter-status-container"
+                                class="cute-input"
+                                style="
+                                    width:100%;
+                                    min-height:42px;
+                                    padding:8px 12px;
+                                    display:flex;
+                                    flex-wrap:wrap;
+                                    gap:8px 16px;
+                                    align-items:center;
+                                    box-sizing:border-box;
+                                ">
+                            </div>
+
+                        </div>
+
+                        <div style="width:100%;">
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                font-weight:600;
+                                color:#666;
+                                margin-bottom:8px;
+                            ">
+                                <i class="fa-solid fa-palette"></i>
+                                色
+                            </div>
+
+                            <div
+                                id="closet-filter-color-container"
+                                class="cute-input"
+                                style="
+                                    width:100%;
+                                    min-height:42px;
+                                    padding:8px 12px;
+                                    display:flex;
+                                    flex-wrap:wrap;
+                                    gap:10px 18px;
+                                    align-items:center;
+                                    box-sizing:border-box;
+                                ">
+                            </div>
+
+                        </div>
+
+                        <div style="width:100%;">
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                font-weight:600;
+                                color:#666;
+                                margin-bottom:8px;
+                            ">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                雰囲気
+                            </div>
+
+                            <div
+                                id="closet-filter-mood-container"
+                                class="cute-input"
+                                style="
+                                    width:100%;
+                                    min-height:42px;
+                                    padding:8px 12px;
+                                    display:flex;
+                                    flex-wrap:wrap;
+                                    gap:10px 18px;
+                                    align-items:center;
+                                    box-sizing:border-box;
+                                ">
+                            </div>
+
+                        </div>
+
+                        <div style="display:flex; gap:10px; width:100%;">
+
+                            <label
+                                class="cute-input"
+                                style="
+                                    flex:1;
+                                    display:flex;
+                                    align-items:center;
+                                    gap:8px;
+                                    cursor:pointer;
+                                    min-height:42px;
+                                    box-sizing:border-box;
+                                ">
+
+                                <input
+                                    type="checkbox"
+                                    id="closet-filter-show-children">
+
+                                子アイテムを表示
+
+                            </label>
+
+                            <select id="closet-filter-storage" class="cute-input" style="flex:1;">
+                                <option value="">全ての保管ボックス</option>
+                            </select>
+
+                        </div>
+
+                        <div style="display:flex; gap:10px; width:100%;">
+
+                            <select id="closet-filter-next-usable" class="cute-input" style="flex:1;">
+                                <option value="">次回公演（全て）</option>
+                                <option value="true">使えそう</option>
+                                <option value="false">使えなさそう</option>
+                            </select>
+
+                            <select id="closet-filter-favorite" class="cute-input" style="flex:1;">
+                                <option value="">お気に入り（全て）</option>
+                                <option value="true">お気に入りのみ</option>
+                                <option value="false">お気に入り以外</option>
+                            </select>
+
+                        </div>
+
+                        <div style="display:flex; gap:10px; width:100%;">
+
+                            <input
+                                type="text"
+                                id="closet-search-number"
+                                class="cute-input"
+                                placeholder="管理番号検索"
+                                style="flex:1;">
+
+                            <select id="closet-sort-order" class="cute-input" style="flex:1;">
+                                <option value="management-asc">管理番号順</option>
+                                <option value="name-asc">名称順</option>
+                                <option value="updated-desc">更新日時が新しい順</option>
+                            </select>
+
+                        </div>
+                        <div style="display:flex; gap:10px; width:100%;">
+
+                            <button
+                                id="closet-search-btn"
+                                class="puffy-btn pink"
+                                onclick="renderClosetItems()"
+                                style="flex:1;">
+                                <i class="fa-solid fa-magnifying-glass"></i> 検索
+                            </button>
+
+                            <button
+                                id="closet-reset-btn"
+                                class="puffy-btn"
+                                onclick="resetClosetFilters()"
+                                style="flex:1;">
+                                <i class="fa-solid fa-rotate-left"></i> リセット
+                            </button>
+
+                        </div>
+                    </div>
+
                     </div>
 
                     <div id="closet-items-container" style="display:grid; gap:1px; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); background:#e5e5e5;">
@@ -113,7 +337,56 @@
             </div>
 
             <div id="closet-entry" class="tab-content">
-                <div class="card">
+                <!-- 閲覧画面 -->
+                <div id="closet-detail-view" style="display:none;">
+
+                    <div id="detail-content-area"></div>
+
+                    <div class="button-area detail-button-area" style="margin-top:20px;">
+                        <button
+                            type="button"
+                            id="detail-prev-btn"
+                            class="puffy-btn gray"
+                            style="flex:1;">
+                            <i class="fa-solid fa-chevron-left"></i> 前へ
+                        </button>
+
+                        <button
+                            type="button"
+                            id="detail-back-btn"
+                            class="puffy-btn gray"
+                            style="flex:1;">
+                            <i class="fa-solid fa-arrow-left"></i> 一覧へ戻る
+                        </button>
+
+                        <button
+                            type="button"
+                            id="detail-new-btn"
+                            class="puffy-btn blue"
+                            style="flex:1;">
+                            <i class="fa-solid fa-plus"></i> 新規登録
+                        </button>
+
+                        <button
+                            type="button"
+                            id="detail-edit-btn"
+                            class="puffy-btn pink"
+                            style="flex:1;">
+                            <i class="fa-solid fa-pen"></i> 編集する
+                        </button>
+
+                        <button
+                            type="button"
+                            id="detail-next-btn"
+                            class="puffy-btn gray"
+                            style="flex:1;">
+                            次へ <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                </div>
+
+                <div class="card" id="closet-entry-card">
                     <div class="section-header">
                         <h2><i class="fa-solid fa-square-plus"></i> 衣装登録</h2>
                     </div>
@@ -130,6 +403,8 @@
                         </div>
 
                     </div>
+
+
 
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
                         
@@ -162,12 +437,14 @@
 
                         </div>
 
+
+
                             <div class="card" style="margin-top:20px;">
 
                                 <div class="section-header">
                                     <h3><i class="fa-solid fa-box"></i> 基本情報</h3>
                                 </div>
-
+                                                   
                                 <!-- 写真登録 (Step 5で実装) -->
                                 <div style="margin-top: 15px;">
                                     <label>写真</label>
