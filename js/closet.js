@@ -856,10 +856,10 @@ async function submitClosetEntry() {
         if (currentEditingItemId) {
 
             const originalItem = state.closetItems.find(
-                x => x.id === currentEditingItemId
+                x => String(x.id) === String(currentEditingItemId)
             );
 
-            const wasSet = !!originalItem?.is_set_item;
+            const wasSet = !!(originalItem && originalItem.is_set_item);
             const willBeSet = isSetItem;
 
             if (!wasSet && !willBeSet) {
@@ -1644,7 +1644,7 @@ function editClosetItem(id) {
     console.log('displayItems', displayItems);
     console.log('id', id);
 
-    const currentIndex = displayItems.findIndex(i => i.id === id);
+    const currentIndex = displayItems.findIndex(i => String(i.id) === String(id));
 
     console.log('currentIndex', currentIndex);
 
