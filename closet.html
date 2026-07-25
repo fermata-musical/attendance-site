@@ -775,6 +775,12 @@
                             data-admin-tab="storage">
                             項目管理
                         </button>
+                        
+                        <button
+                            class="puffy-btn pink admin-subtab"
+                            data-admin-tab="csv-import">
+                            <i class="fa-solid fa-file-csv"></i> CSV一括登録
+                        </button>
 
                     </div>
 
@@ -799,12 +805,19 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                             <h3>保管場所一覧</h3>
 
-                            <button
-                                class="puffy-btn pink"
-                                id="btn-add-storage"
-                                onclick="document.getElementById('storage-entry-form').style.display='block'; this.style.display='none';">
-                                <i class="fa-solid fa-plus"></i> 新規登録
-                            </button>
+                            <div style="display:flex; gap:10px;">
+                                <button
+                                    class="puffy-btn blue"
+                                    onclick="downloadMasterCsv('storage')">
+                                    <i class="fa-solid fa-download"></i> CSV出力
+                                </button>
+                                <button
+                                    class="puffy-btn pink"
+                                    id="btn-add-storage"
+                                    onclick="document.getElementById('storage-entry-form').style.display='block'; this.style.display='none';">
+                                    <i class="fa-solid fa-plus"></i> 新規登録
+                                </button>
+                            </div>
                         </div>
 
                         <!-- 登録フォーム -->
@@ -861,6 +874,55 @@
 
                         <div id="storage-box-list">
                             <!-- JavaScriptでカードを生成 -->
+                        </div>
+
+                    </div>
+                    
+                    <!-- CSV一括登録 -->
+                    <div id="admin-csv-import" class="admin-tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                            <h3><i class="fa-solid fa-file-csv"></i> CSV一括登録</h3>
+                            <button
+                                type="button"
+                                class="puffy-btn blue"
+                                onclick="downloadCsvTemplate()">
+                                <i class="fa-solid fa-download"></i> テンプレートDL
+                            </button>
+                        </div>
+                        
+                        <div class="card" style="margin-bottom: 20px;">
+                            <p style="margin-top:0; color:#555; font-size:0.9rem;">
+                                エクセル等で作成したCSVファイルを選択してください。<br>
+                                ヘッダー行（1行目）の名前を見て自動的に判定するため、列の順番は問いません。<br>
+                                ※本機能は「新規登録」専用です。管理番号は登録時に自動的に採番されます。
+                            </p>
+                            <input type="file" id="csv-file-input" accept=".csv" class="cute-input" style="width:100%; margin-top:10px;">
+                        </div>
+                        
+                        <!-- プレビューとエラー表示領域 -->
+                        <div id="csv-preview-area" style="display:none;">
+                            <h4 style="margin-bottom:10px;">プレビュー</h4>
+                            <div id="csv-error-message" style="color:#d9534f; background:#f9e2e2; padding:10px; border-radius:8px; margin-bottom:15px; display:none; font-size:0.9rem;">
+                                <!-- エラーメッセージをJSで挿入 -->
+                            </div>
+                            
+                            <div style="overflow-x:auto; margin-bottom:15px;">
+                                <table class="simple-table" id="csv-preview-table" style="width:100%; min-width:800px; font-size:0.85rem;">
+                                    <thead>
+                                        <tr id="csv-preview-head"></tr>
+                                    </thead>
+                                    <tbody id="csv-preview-body">
+                                        <!-- JSでプレビュー行を挿入 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                                <button type="button" class="puffy-btn gray" onclick="resetCsvImport()">キャンセル</button>
+                                <button type="button" class="puffy-btn pink" id="btn-execute-csv" onclick="executeCsvImport()">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> この内容で登録する
+                                </button>
+                            </div>
                         </div>
 
                     </div>
@@ -953,6 +1015,127 @@
 
                 </div>
 
+                <!-- 一括編集モーダル -->
+                <div id="bulk-edit-modal" class="modal-overlay" style="display:none;">
+                    <div class="modal-card" style="max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                        <h3 style="margin-top:0;">
+                            <i class="fa-solid fa-pen"></i> 一括編集
+                        </h3>
+                        <p id="bulk-edit-message">
+                            0件の衣装を更新します。変更したい項目にチェックを入れてください。
+                        </p>
+                        
+                        <form id="bulk-edit-form" onsubmit="event.preventDefault(); submitBulkEdit();">
+                            
+                            <!-- 保管場所 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-storage" onchange="toggleBulkField('storage')">
+                                    保管場所を一括更新する
+                                </label>
+                                <div id="bulk-field-storage" style="display:none; margin-top: 10px;">
+                                    <select id="bulk-input-storage" class="cute-input">
+                                        <option value="">（空欄にする）</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 色 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-color" onchange="toggleBulkField('color')">
+                                    色を一括更新する
+                                </label>
+                                <div id="bulk-field-color" style="display:none; margin-top: 10px;">
+                                    <div style="margin-bottom: 10px;">
+                                        <label><input type="radio" name="bulk-mode-color" value="replace" checked> 置き換え（上書き）</label>
+                                        <label><input type="radio" name="bulk-mode-color" value="add"> 追加</label>
+                                        <label><input type="radio" name="bulk-mode-color" value="remove"> 削除</label>
+                                    </div>
+                                    <div id="bulk-input-color-container" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 雰囲気 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-mood" onchange="toggleBulkField('mood')">
+                                    雰囲気を一括更新する
+                                </label>
+                                <div id="bulk-field-mood" style="display:none; margin-top: 10px;">
+                                    <div style="margin-bottom: 10px;">
+                                        <label><input type="radio" name="bulk-mode-mood" value="replace" checked> 置き換え（上書き）</label>
+                                        <label><input type="radio" name="bulk-mode-mood" value="add"> 追加</label>
+                                        <label><input type="radio" name="bulk-mode-mood" value="remove"> 削除</label>
+                                    </div>
+                                    <div id="bulk-input-mood-container" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 入手方法 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-acquisition" onchange="toggleBulkField('acquisition')">
+                                    入手方法を一括更新する
+                                </label>
+                                <div id="bulk-field-acquisition" style="display:none; margin-top: 10px;">
+                                    <div style="margin-bottom: 10px;">
+                                        <label><input type="radio" name="bulk-mode-acquisition" value="replace" checked> 置き換え（上書き）</label>
+                                        <label><input type="radio" name="bulk-mode-acquisition" value="add"> 追加</label>
+                                        <label><input type="radio" name="bulk-mode-acquisition" value="remove"> 削除</label>
+                                    </div>
+                                    <div id="bulk-input-acquisition-container" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 備考 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-remarks" onchange="toggleBulkField('remarks')">
+                                    備考を一括更新する
+                                </label>
+                                <div id="bulk-field-remarks" style="display:none; margin-top: 10px;">
+                                    <div style="margin-bottom: 10px;">
+                                        <label><input type="radio" name="bulk-mode-remarks" value="replace" checked> 置き換え（上書き）</label>
+                                        <label><input type="radio" name="bulk-mode-remarks" value="append"> 追記</label>
+                                    </div>
+                                    <textarea id="bulk-input-remarks" class="cute-input" rows="3"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- 使用履歴 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-usage" onchange="toggleBulkField('usage')">
+                                    使用履歴を一括更新する
+                                </label>
+                                <div id="bulk-field-usage" style="display:none; margin-top: 10px;">
+                                    <div style="margin-bottom: 10px;">
+                                        <label><input type="radio" name="bulk-mode-usage" value="replace" checked> 置き換え（上書き）</label>
+                                        <label><input type="radio" name="bulk-mode-usage" value="append"> 追記</label>
+                                    </div>
+                                    <textarea id="bulk-input-usage" class="cute-input" rows="3"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top: 20px;">
+                                <button type="button" class="puffy-btn gray" onclick="closeBulkEditModal()">キャンセル</button>
+                                <button type="submit" class="puffy-btn pink">実行する</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 一括操作アクションバー -->
+                <div id="bulk-action-bar" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 10px 20px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1000; align-items: center; gap: 15px; border: 2px solid var(--accent-pink, #e83e8c);">
+                    <span id="bulk-selection-count" style="font-weight: bold; color: #555;">0件選択中</span>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="puffy-btn blue" onclick="selectAllVisibleItems()" style="padding: 5px 15px; font-size: 0.9em;">全選択</button>
+                        <button type="button" class="puffy-btn gray" onclick="clearBulkSelection()" style="padding: 5px 15px; font-size: 0.9em;">解除</button>
+                        <button type="button" class="puffy-btn pink" onclick="openBulkEditModal()" style="padding: 5px 15px; font-size: 0.9em;"><i class="fa-solid fa-pen"></i> 一括操作</button>
+                    </div>
+                </div>
+
             </main>
 
     </div>
@@ -972,6 +1155,8 @@
     <script src="js/past.js"></script>
     <script src="js/practice.js"></script>
     <script src="js/image-manager.js"></script>
+    <script src="js/api/closet-api.js"></script>
+    <script src="js/closet-csv.js"></script>
     <script src="js/closet.js"></script>
 
     <script src="js/main.js"></script>

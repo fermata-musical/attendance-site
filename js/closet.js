@@ -134,40 +134,10 @@ async function loadClosetMasterData() {
 
     if (!window.db) return;
     try {
-        const [
-            largeRes, middleRes, smallRes, storageRes,
-            colorsRes, acqRes, moodsRes, statusRes
-        ] = await Promise.all([
-            db.from('category_large').select('*').order('sort_order', { ascending: true }),
-            db.from('category_middle').select('*').order('sort_order', { ascending: true }),
-            db.from('category_small').select('*').order('sort_order', { ascending: true }),
-            db.from('storage_boxes').select('*').order('sort_order', { ascending: true }),
-            db.from('colors').select('*').order('id', { ascending: true }),
-            db.from('acquisition_methods').select('*').order('sort_order', { ascending: true }),
-            db.from('moods').select('*').order('sort_order', { ascending: true }),
-            db.from('item_statuses').select('*').order('sort_order', { ascending: true })
-        ]);
-
-        console.log("largeRes", largeRes);
-        console.log("middleRes", middleRes);
-        console.log("smallRes", smallRes);
-        console.log("storageRes", storageRes);
-        console.log("colorsRes", colorsRes);
-        console.log("acqRes", acqRes);
-        console.log("moodsRes", moodsRes);
-        console.log("statusRes", statusRes);
+        const masterData = await window.closetApi.fetchMasterData();
 
         if (typeof state === 'undefined') window.state = {};
-        state.closetMaster = {
-            large: largeRes.data || [],
-            middle: middleRes.data || [],
-            small: smallRes.data || [],
-            storage: storageRes.data || [],
-            colors: colorsRes.data || [],
-            acquisition: acqRes.data || [],
-            moods: moodsRes.data || [],
-            statuses: statusRes.data || []
-        };
+        state.closetMaster = masterData;
 
         populateDropdown('entry-large-category', state.closetMaster.large, 'id', 'name');
         populateDropdown('entry-middle-category', state.closetMaster.middle, 'id', 'name');
@@ -391,11 +361,11 @@ function handleClosetFilterLargeChange() {
     }
 
     const middleList = largeId
-        ? state.closetMaster.middle.filter(x => x.large_category_id === largeId)
+        ? state.closetMaster.middle.filter(x => String(x.large_category_id) === String(largeId))
         : state.closetMaster.middle;
 
     const smallList = largeId
-        ? state.closetMaster.small.filter(x => x.large_category_id === largeId)
+        ? state.closetMaster.small.filter(x => String(x.large_category_id) === String(largeId))
         : state.closetMaster.small;
 
     populateDropdown('closet-filter-middle', middleList, 'id', 'name');
@@ -432,56 +402,24 @@ async function loadClosetItems() {
             console.log(state.closetMaster);
         }
         
-        // items テーブルからデータ取得（画像・中間テーブル・次回の公演情報も同時に取得）
-        const { data, error } = await db.from('items').select(`
-            *,
-            item_images (
-                storage_path,
-                image_order
-            ),
-            item_colors ( color_id ),
-            item_acquisition_methods ( acquisition_method_id ),
-            item_moods ( mood_id ),
-            next_production_items (
-                usable,
-                comment
-            ),
+        // items テーブルと関連データの取得（API経由）
+        const itemsData = await window.closetApi.fetchItems();
 
-            created_by_member:members!items_created_by_fkey (
-                name
-            ),
-
-            updated_by_member:members!items_updated_by_fkey (
-                name
-            )
-        `).order('item_number');
-
-        if (error) {
-            console.log(error);
-            throw error;
+        if (itemsData.length > 0) {
+            console.log("next=", itemsData[0].next_production_items);
         }
-
-        console.log("next=", data[0].next_production_items);
 
         if (typeof state !== 'undefined') {
-            state.closetItems = data;
+            state.closetItems = itemsData;
         }
+        
         // お気に入り一覧取得
         currentMember = getCurrentMember();
 
         if (currentMember?.id) {
-
-            const { data: favorites } = await db
-                .from('item_favorites')
-                .select('item_id')
-                .eq('member_id', currentMember.id);
-
-            state.favoriteItems = (favorites || []).map(f => f.item_id);
-
+            state.favoriteItems = await window.closetApi.fetchFavoriteItemIds(currentMember.id);
         } else {
-
             state.favoriteItems = [];
-
         }
 
         renderClosetItems();
@@ -660,8 +598,24 @@ function renderClosetItems() {
 
         const isFavorite = state.favoriteItems?.includes(item.id);
 
+        const isSelected = state.selectedItems && state.selectedItems.has(item.id);
+
         card.innerHTML = `
             <div style="position:relative; width:100%; aspect-ratio:1 / 1;">
+                
+                <input type="checkbox" class="bulk-select-checkbox" 
+                    ${isSelected ? 'checked' : ''}
+                    onclick="event.stopPropagation(); toggleBulkSelection('${item.id}', this.checked)"
+                    style="
+                        position:absolute;
+                        top:10px;
+                        left:10px;
+                        z-index:2;
+                        width: 20px;
+                        height: 20px;
+                        cursor: pointer;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    ">
 
                 <i
                     class="${isFavorite ? 'fa-solid' : 'fa-regular'} fa-star"
@@ -761,18 +715,38 @@ function toggleLoanFields() {
 }
 
 function handleLargeCategoryChange() {
-    const largeId = document.getElementById('entry-large-category').value;
+    const largeSelect = document.getElementById('entry-large-category');
     const middleSelect = document.getElementById('entry-middle-category');
     const smallSelect = document.getElementById('entry-small-category');
+    const middleWrapper = document.getElementById('middle-category-wrapper');
+
+    if (!largeSelect) return;
+
+    const largeId = largeSelect.value;
+    const selectedOption = largeSelect.options[largeSelect.selectedIndex];
+
+    if (middleWrapper) {
+        if (selectedOption && selectedOption.text.trim() === '衣裳') {
+            middleWrapper.style.display = 'block';
+        } else {
+            middleWrapper.style.display = 'none';
+            if (middleSelect) middleSelect.value = '';
+        }
+    }
 
     const middleList = (state.closetMaster.middle || []).filter(
-        x => x.large_category_id === largeId
+        x => String(x.large_category_id) === String(largeId)
+    );
+
+    const smallList = (state.closetMaster.small || []).filter(
+        x => String(x.large_category_id) === String(largeId)
     );
 
     populateDropdown('entry-middle-category', middleList, 'id', 'name');
+    populateDropdown('entry-small-category', smallList, 'id', 'name');
 
-    middleSelect.value = '';
-    smallSelect.innerHTML = '<option value="">選択してください</option>';
+    if (middleSelect) middleSelect.value = '';
+    if (smallSelect) smallSelect.value = '';
 
     updateSmallCategoryExample();
 }
@@ -877,6 +851,7 @@ async function submitClosetEntry() {
         };
 
         let insertedItem;
+        let newlyInsertedItems = [];
 
         if (currentEditingItemId) {
 
@@ -890,19 +865,8 @@ async function submitClosetEntry() {
             if (!wasSet && !willBeSet) {
 
                 // 通常品 → 通常品
-                const { data: updateData, error: updateError } = await db.from('items')
-                    .update(itemDataPayload)
-                    .eq('id', currentEditingItemId)
-                    .select()
-                    .single();
-
-                if (updateError) throw updateError;
-
-                insertedItem = updateData;
-
-                await db.from('item_colors').delete().eq('item_id', currentEditingItemId);
-                await db.from('item_acquisition_methods').delete().eq('item_id', currentEditingItemId);
-                await db.from('item_moods').delete().eq('item_id', currentEditingItemId);
+                insertedItem = await window.closetApi.updateItem(currentEditingItemId, itemDataPayload);
+                await window.closetApi.deleteItemRelations(currentEditingItemId);
 
             } else if (!wasSet && willBeSet) {
 
@@ -910,32 +874,38 @@ async function submitClosetEntry() {
                     return;
                 }
 
-                const { data: parentNumber, error } = await db.rpc(
-                    'register_set_items',
-                    {
-                        p_items: [itemDataPayload]
-                    }
-                );
+                const parentNumber = originalItem.item_number;
 
-                if (error) throw error;
+                // 枝番-01 の作成（元のアイテムをUPDATE）
+                insertedItem = await window.closetApi.updateItem(currentEditingItemId, {
+                    ...itemDataPayload,
+                    is_set_item: true,
+                    parent_item_number: parentNumber,
+                    item_number: `${parentNumber}-01`,
+                    set_child_no: 1,
+                    set_quantity: setQuantity,
+                    updated_by: window.currentMember ? window.currentMember.id : null,
+                    updated_at: new Date().toISOString()
+                });
+                insertedItem.item_number = `${parentNumber}-01`;
 
-                const { data: firstItem, error: fetchError } = await db
-                    .from('items')
-                    .select()
-                    .eq('parent_item_number', parentNumber)
-                    .eq('set_child_no', 1)
-                    .single();
+                await window.closetApi.deleteItemRelations(currentEditingItemId);
 
-                if (fetchError) throw fetchError;
-
-                insertedItem = firstItem;
-
-                const { error: deleteError } = await db
-                    .from('items')
-                    .delete()
-                    .eq('id', currentEditingItemId);
-
-                if (deleteError) throw deleteError;
+                // 枝番-02 以降の作成（INSERT）
+                for (let i = 2; i <= setQuantity; i++) {
+                    const branchNoStr = i.toString().padStart(2, '0');
+                    const newItem = await window.closetApi.insertItem({
+                        ...itemDataPayload,
+                        is_set_item: true,
+                        parent_item_number: parentNumber,
+                        item_number: `${parentNumber}-${branchNoStr}`,
+                        set_child_no: i,
+                        set_quantity: setQuantity,
+                        created_by: window.currentMember ? window.currentMember.id : null,
+                        updated_by: window.currentMember ? window.currentMember.id : null
+                    });
+                    newlyInsertedItems.push(newItem);
+                }
 
             } else if (wasSet && !willBeSet) {
 
@@ -943,240 +913,205 @@ async function submitClosetEntry() {
                     return;
                 }
 
-                const { data: setItems, error: setError } = await db
-                    .from('items')
-                    .select(`
-                        id,
-                        item_number,
-                        name,
-                        set_child_no
-                    `)
-                    .eq(
-                        'parent_item_number',
-                        originalItem.parent_item_number
-                    )
-                    .order('set_child_no');
-
-                if (setError) throw setError;
-                const selectedItemId =
-                    await showUnsetSetModal(setItems);
+                const setItems = await window.closetApi.fetchSetItems(originalItem.parent_item_number);
+                const selectedItemId = await showUnsetSetModal(setItems);
 
                 if (!selectedItemId) {
                     return;
                 }
 
-                const keepItem = setItems.find(
-                    item => String(item.id) === String(selectedItemId)
-                );
-
+                const keepItem = setItems.find(item => String(item.id) === String(selectedItemId));
                 if (!keepItem) {
                     throw new Error('選択した子番号が見つかりません。');
                 }
 
-                const normalItemPayload = {
-                    ...itemDataPayload,
+                // 選択されなかったアイテムを削除
+                const itemsToDelete = setItems.filter(item => String(item.id) !== String(selectedItemId));
+                for (const item of itemsToDelete) {
+                    await window.closetApi.deleteItem(item.id);
+                }
 
+                // 選択されたアイテムを通常品に戻す（枝番を外して親番号にする）
+                insertedItem = await window.closetApi.updateItem(keepItem.id, {
+                    ...itemDataPayload,
                     is_set_item: false,
                     parent_item_number: null,
+                    item_number: originalItem.parent_item_number,
                     set_child_no: null,
-                    set_quantity: 1
-                };
-
-                const { data: updateData, error: updateError } = await db
-                    .from('items')
-                    .update({
-                        ...normalItemPayload,
-                        item_number: originalItem.parent_item_number,
-                        updated_by: currentMember.id,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', keepItem.id)
-                    .select()
-                    .single();
-
-                if (updateError) throw updateError;
-
-                insertedItem = updateData;
-
-                // 親番号を維持
+                    set_quantity: 1,
+                    updated_by: window.currentMember ? window.currentMember.id : null,
+                    updated_at: new Date().toISOString()
+                });
                 insertedItem.item_number = originalItem.parent_item_number;
 
-                const { error: deleteError } = await db
-                    .from('items')
-                    .delete()
-                    .eq(
-                        'parent_item_number',
-                        originalItem.parent_item_number
-                    );
-
-                if (deleteError) throw deleteError;
+                await window.closetApi.deleteItemRelations(keepItem.id);
 
             } else {
 
                 const oldQty = originalItem.set_quantity || 1;
                 const newQty = setQuantity || 1;
+                const parentNumber = originalItem.parent_item_number;
+
+                const setItems = await window.closetApi.fetchSetItems(parentNumber);
 
                 if (oldQty === newQty) {
-                    // 数量変更なし
-                } else if (newQty > oldQty) {
-
-                    const addCount = newQty - oldQty;
-
-                    const { error } = await db.rpc(
-                        'add_set_items',
-                        {
-                            p_parent_item_number: originalItem.parent_item_number,
-                            p_add_count: addCount
+                    // 数量変更なし - 現在編集中のアイテムのみ全項目UPDATE、他はset_quantity等のみ
+                    for (const item of setItems) {
+                        if (item.id === currentEditingItemId) {
+                            const updated = await window.closetApi.updateItem(item.id, {
+                                ...itemDataPayload,
+                                is_set_item: true,
+                                parent_item_number: parentNumber,
+                                item_number: item.item_number,
+                                set_child_no: item.set_child_no,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
+                            await window.closetApi.deleteItemRelations(item.id);
+                            insertedItem = updated;
+                            insertedItem.item_number = item.item_number;
+                        } else {
+                            await window.closetApi.updateItem(item.id, {
+                                set_quantity: newQty,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
                         }
-                    );
+                    }
+                    if (!insertedItem) insertedItem = await window.closetApi.fetchFirstSetItem(parentNumber);
 
-                    if (error) throw error;
+                } else if (newQty > oldQty) {
+                    // 数量増加
+                    // 既存の最大枝番を取得
+                    let maxChildNo = 0;
+                    setItems.forEach(item => {
+                        if (item.set_child_no > maxChildNo) maxChildNo = item.set_child_no;
+                    });
 
-                    const { data: firstItem, error: fetchError } = await db
-                        .from('items')
-                        .select()
-                        .eq(
-                            'parent_item_number',
-                            originalItem.parent_item_number
-                        )
-                        .eq('set_child_no', 1)
-                        .single();
-
-                    if (fetchError) throw fetchError;
-
-                    insertedItem = firstItem;
-
-                } else {
-
-                    const { data: setItems, error: setError } = await db
-                        .from('items')
-                        .select('id, item_number, name, set_child_no')
-                        .eq(
-                            'parent_item_number',
-                            originalItem.parent_item_number
-                        )
-                        .order('set_child_no');
-
-                    if (setError) throw setError;
-
-                    const keepIds = await showSetQuantityModal(
-                        setItems,
-                        newQty
-                    );
-
-                    if (!keepIds) {
-                        return;
+                    // 既存分をUPDATE
+                    for (const item of setItems) {
+                        if (item.id === currentEditingItemId) {
+                            const updated = await window.closetApi.updateItem(item.id, {
+                                ...itemDataPayload,
+                                is_set_item: true,
+                                parent_item_number: parentNumber,
+                                item_number: item.item_number,
+                                set_child_no: item.set_child_no,
+                                set_quantity: newQty,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
+                            await window.closetApi.deleteItemRelations(item.id);
+                            insertedItem = updated;
+                            insertedItem.item_number = item.item_number;
+                        } else {
+                            await window.closetApi.updateItem(item.id, {
+                                set_quantity: newQty,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
+                        }
                     }
 
-                    const { error } = await db.rpc(
-                        'reduce_set_items',
-                        {
-                            p_parent_item_number: originalItem.parent_item_number,
-                            p_keep_item_ids: keepIds
+                    // 増える分だけINSERT
+                    const addCount = newQty - oldQty;
+                    for (let i = 1; i <= addCount; i++) {
+                        const newChildNo = maxChildNo + i;
+                        const branchNoStr = newChildNo.toString().padStart(2, '0');
+                        const newItem = await window.closetApi.insertItem({
+                            ...itemDataPayload,
+                            is_set_item: true,
+                            parent_item_number: parentNumber,
+                            item_number: `${parentNumber}-${branchNoStr}`,
+                            set_child_no: newChildNo,
+                            set_quantity: newQty,
+                            created_by: window.currentMember ? window.currentMember.id : null,
+                            updated_by: window.currentMember ? window.currentMember.id : null
+                        });
+                        newlyInsertedItems.push(newItem);
+                    }
+                    if (!insertedItem) insertedItem = await window.closetApi.fetchFirstSetItem(parentNumber);
+
+                } else {
+                    // 数量減少
+                    const keepIds = await showSetQuantityModal(setItems, newQty);
+                    if (!keepIds) return;
+
+                    const itemsToDelete = setItems.filter(item => !keepIds.includes(String(item.id)));
+                    for (const item of itemsToDelete) {
+                        await window.closetApi.deleteItem(item.id);
+                    }
+
+                    const itemsToKeep = setItems.filter(item => keepIds.includes(String(item.id)));
+                    for (const item of itemsToKeep) {
+                        if (item.id === currentEditingItemId) {
+                            const updated = await window.closetApi.updateItem(item.id, {
+                                ...itemDataPayload,
+                                is_set_item: true,
+                                parent_item_number: parentNumber,
+                                item_number: item.item_number,
+                                set_child_no: item.set_child_no,
+                                set_quantity: newQty,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
+                            await window.closetApi.deleteItemRelations(item.id);
+                            insertedItem = updated;
+                            insertedItem.item_number = item.item_number;
+                        } else {
+                            await window.closetApi.updateItem(item.id, {
+                                set_quantity: newQty,
+                                updated_by: window.currentMember ? window.currentMember.id : null,
+                                updated_at: new Date().toISOString()
+                            });
                         }
-                    );
-
-                    if (error) throw error;
-
-                    const { data: firstItem, error: fetchError } = await db
-                        .from('items')
-                        .select()
-                        .eq(
-                            'parent_item_number',
-                            originalItem.parent_item_number
-                        )
-                        .eq('set_child_no', 1)
-                        .single();
-
-                    if (fetchError) throw fetchError;
-
-                    insertedItem = firstItem;
-
+                    }
+                    if (!insertedItem) insertedItem = await window.closetApi.fetchFirstSetItem(parentNumber);
                 }
-
             }
 
         } else {
+            // 新規作成時
             if (isSetItem) {
-
-                const { error } = await db.rpc('register_set_items', {
-                    p_items: [itemDataPayload]
+                // まず通常品として1つ目をINSERTし、自動採番されたitem_numberを取得する
+                const tempPayload = { ...itemDataPayload, is_set_item: false, parent_item_number: null, set_child_no: null };
+                const firstItem = await window.closetApi.insertItem(tempPayload);
+                const parentNumber = firstItem.item_number; // DBで自動採番された番号
+                
+                // 1つ目をUPDATEして枝番-01にする
+                insertedItem = await window.closetApi.updateItem(firstItem.id, {
+                    is_set_item: true,
+                    parent_item_number: parentNumber,
+                    item_number: `${parentNumber}-01`,
+                    set_child_no: 1,
+                    set_quantity: setQuantity
                 });
+                insertedItem.item_number = `${parentNumber}-01`;
 
-                if (error) throw error;
-
-                // 作成されたセットの先頭データを取得
-                const { data } = await db
-                    .from('items')
-                    .select('*')
-                    .eq('parent_item_number',
-                        parentItemNumber || (
-                            await db
-                                .from('items')
-                                .select('parent_item_number')
-                                .order('created_at', { ascending: false })
-                                .limit(1)
-                                .single()
-                        ).data.parent_item_number
-                    )
-                    .order('set_child_no')
-                    .limit(1)
-                    .single();
-
-                insertedItem = data;
+                // 2つ目以降をINSERT
+                for (let i = 2; i <= setQuantity; i++) {
+                    const branchNoStr = i.toString().padStart(2, '0');
+                    const newItem = await window.closetApi.insertItem({
+                        ...itemDataPayload,
+                        is_set_item: true,
+                        parent_item_number: parentNumber,
+                        item_number: `${parentNumber}-${branchNoStr}`,
+                        set_child_no: i,
+                        set_quantity: setQuantity,
+                        created_by: window.currentMember ? window.currentMember.id : null,
+                        updated_by: window.currentMember ? window.currentMember.id : null
+                    });
+                    newlyInsertedItems.push(newItem);
+                }
 
             } else {
-
-                if (isSetItem) {
-
-                    const { data: parentNumber, error } = await db.rpc(
-                        'register_set_items',
-                        {
-                            p_items: [itemDataPayload]
-                        }
-                    );
-
-                    if (error) throw error;
-
-                    const { data: firstItem, error: fetchError } = await db
-                        .from('items')
-                        .select()
-                        .eq('parent_item_number', parentNumber)
-                        .eq('set_child_no', 1)
-                        .single();
-
-                    if (fetchError) throw fetchError;
-
-                    insertedItem = firstItem;
-
-                } else {
-
-                    const { data: insertData, error: insertError } = await db
-                        .from('items')
-                        .insert([itemDataPayload])
-                        .select()
-                        .single();
-
-                    if (insertError) throw insertError;
-
-                    insertedItem = insertData;
-                }
+                insertedItem = await window.closetApi.insertItem(itemDataPayload);
             }
         }
         
         let targetItems = [insertedItem];
-
-        if (insertedItem.is_set_item) {
-
-            const { data: setItems, error: setError } = await db
-                .from('items')
-                .select('id')
-                .eq('parent_item_number', insertedItem.parent_item_number)
-                .order('set_child_no');
-
-            if (setError) throw setError;
-
-            targetItems = setItems;
+        if (newlyInsertedItems.length > 0) {
+            targetItems = targetItems.concat(newlyInsertedItems);
         }
 
         // 中間テーブルへInsert
@@ -1197,7 +1132,7 @@ async function submitClosetEntry() {
                 });
             });
 
-            await db.from('item_colors').insert(colorRows);
+            await window.closetApi.insertColors(colorRows);
         }
 
         if (checkedAcqs.length > 0) {
@@ -1213,7 +1148,7 @@ async function submitClosetEntry() {
                 });
             });
 
-            await db.from('item_acquisition_methods').insert(acqRows);
+            await window.closetApi.insertAcquisitions(acqRows);
         }
 
         if (checkedMoods.length > 0) {
@@ -1229,25 +1164,18 @@ async function submitClosetEntry() {
                 });
             });
 
-            await db.from('item_moods').insert(moodRows);
+            await window.closetApi.insertMoods(moodRows);
         }
         
         // 次回の公演情報を保存
-        for (const item of targetItems) {
-
-            await db
-                .from('next_production_items')
-                .upsert({
-                    item_id: item.id,
-                    usable: nextUsable,
-                    comment: nextComment || null,
-                    updated_by: currentMember?.id || null,
-                    created_by: currentMember?.id || null
-                }, {
-                    onConflict: 'item_id'
-                });
-
-        }
+        const nextProductionRows = targetItems.map(item => ({
+            item_id: item.id,
+            usable: nextUsable,
+            comment: nextComment || null,
+            updated_by: currentMember?.id || null,
+            created_by: currentMember?.id || null
+        }));
+        await window.closetApi.upsertNextProductionItems(nextProductionRows);
 
         for (const item of targetItems) {
 
@@ -1261,18 +1189,11 @@ async function submitClosetEntry() {
         alert(currentEditingItemId ? '衣装を更新しました！' : '衣装を登録しました！');
 
         // 作成者・更新者名を取得するため再取得
-        const { data: latestItem } = await db
-        .from('items')
-        .select(`
-            *,
-            created_by_member:members!items_created_by_fkey(name),
-            updated_by_member:members!items_updated_by_fkey(name)
-        `)
-        .eq('id', insertedItem.id)
-        .single();
-
-        if (latestItem) {
-            insertedItem = latestItem;
+        try {
+            const latestItem = await window.closetApi.fetchItemWithRelations(insertedItem.id);
+            if (latestItem) insertedItem = latestItem;
+        } catch (e) {
+            console.warn('Failed to fetch related data:', e);
         }
 
         // 登録情報を表示
@@ -1928,16 +1849,13 @@ async function deleteClosetItem(id) {
         // 中間テーブルや画像の外部キーにCASCADEがない場合を想定し明示的に削除
         const item = state.closetItems.find(i => i.id === id);
         
-        await db.from('item_colors').delete().eq('item_id', id);
-        await db.from('item_acquisition_methods').delete().eq('item_id', id);
-        await db.from('item_moods').delete().eq('item_id', id);
+        await window.closetApi.deleteItemRelations(id);
 
         if (item && item.item_images && item.item_images.length > 0) {
-            await db.from('item_images').delete().eq('item_id', id);
+            await window.closetApi.deleteItemImages(id);
         }
 
-        const { error } = await db.from('items').delete().eq('id', id);
-        if (error) throw error;
+        await window.closetApi.deleteItem(id);
 
         alert('削除しました。');
         await loadClosetItems();
@@ -2799,3 +2717,244 @@ function formatDateTime(value) {
     return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 
 }
+
+// ==========================================
+// 一括編集機能
+// ==========================================
+
+function toggleBulkSelection(itemId, isChecked) {
+    if (!state.selectedItems) state.selectedItems = new Set();
+    
+    if (isChecked) {
+        state.selectedItems.add(itemId);
+    } else {
+        state.selectedItems.delete(itemId);
+    }
+    updateBulkActionBar();
+}
+
+function updateBulkActionBar() {
+    const count = state.selectedItems ? state.selectedItems.size : 0;
+    const bar = document.getElementById('bulk-action-bar');
+    const countSpan = document.getElementById('bulk-selection-count');
+    
+    if (count > 0) {
+        bar.style.display = 'flex';
+        countSpan.textContent = `${count}件選択中`;
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+function selectAllVisibleItems() {
+    if (!state.selectedItems) state.selectedItems = new Set();
+    
+    // 一旦現在の選択をクリアしてから、現在表示されているアイテムのみを選択する
+    state.selectedItems.clear();
+    
+    const items = state.filteredClosetItems || state.closetItems || [];
+    items.forEach(item => state.selectedItems.add(item.id));
+    
+    renderClosetItems();
+    updateBulkActionBar();
+}
+
+function clearBulkSelection() {
+    if (state.selectedItems) state.selectedItems.clear();
+    renderClosetItems();
+    updateBulkActionBar();
+}
+
+function openBulkEditModal() {
+    const modal = document.getElementById('bulk-edit-modal');
+    if (!modal) return;
+    
+    // 保管場所プルダウンの初期化
+    const storageSelect = document.getElementById('bulk-input-storage');
+    storageSelect.innerHTML = '<option value="">（空欄にする）</option>';
+    (state.closetMaster.storage || []).forEach(s => {
+        storageSelect.innerHTML += `<option value="${s.id}">${s.location}</option>`;
+    });
+    
+    // 色の初期化
+    const colorContainer = document.getElementById('bulk-input-color-container');
+    colorContainer.innerHTML = '';
+    (state.closetMaster.colors || []).forEach(c => {
+        colorContainer.innerHTML += `<label><input type="checkbox" name="bulk-color" value="${c.id}"> ${c.name}</label>`;
+    });
+    
+    // 雰囲気の初期化
+    const moodContainer = document.getElementById('bulk-input-mood-container');
+    moodContainer.innerHTML = '';
+    (state.closetMaster.moods || []).forEach(m => {
+        moodContainer.innerHTML += `<label><input type="checkbox" name="bulk-mood" value="${m.id}"> ${m.name}</label>`;
+    });
+
+    // 入手方法の初期化
+    const acqContainer = document.getElementById('bulk-input-acquisition-container');
+    acqContainer.innerHTML = '';
+    (state.closetMaster.acquisition || []).forEach(a => {
+        acqContainer.innerHTML += `<label><input type="checkbox" name="bulk-acquisition" value="${a.id}"> ${a.name}</label>`;
+    });
+
+    // フォームのリセット
+    document.getElementById('bulk-edit-form').reset();
+    
+    // すべての項目を一旦非表示に
+    ['storage', 'color', 'mood', 'acquisition', 'remarks', 'usage'].forEach(field => {
+        document.getElementById(`bulk-field-${field}`).style.display = 'none';
+        document.getElementById(`bulk-check-${field}`).checked = false;
+    });
+
+    document.getElementById('bulk-edit-message').textContent = `${state.selectedItems.size}件の衣装を更新します。変更したい項目にチェックを入れてください。`;
+    modal.style.display = 'flex';
+}
+
+function closeBulkEditModal() {
+    document.getElementById('bulk-edit-modal').style.display = 'none';
+}
+
+function toggleBulkField(field) {
+    const isChecked = document.getElementById(`bulk-check-${field}`).checked;
+    document.getElementById(`bulk-field-${field}`).style.display = isChecked ? 'block' : 'none';
+}
+
+async function submitBulkEdit() {
+    if (!state.selectedItems || state.selectedItems.size === 0) return;
+    
+    const count = state.selectedItems.size;
+    if (!confirm(`${count}件のアイテムを更新します。よろしいですか？`)) {
+        return;
+    }
+    
+    try {
+        const indicator = document.getElementById('sync-indicator');
+        if (indicator) indicator.classList.remove('hidden');
+        
+        currentMember = getCurrentMember();
+        
+        const updateStorage = document.getElementById('bulk-check-storage').checked;
+        const updateColor = document.getElementById('bulk-check-color').checked;
+        const updateMood = document.getElementById('bulk-check-mood').checked;
+        const updateAcquisition = document.getElementById('bulk-check-acquisition').checked;
+        const updateRemarks = document.getElementById('bulk-check-remarks').checked;
+        const updateUsage = document.getElementById('bulk-check-usage').checked;
+
+        // 値の取得
+        const storageVal = document.getElementById('bulk-input-storage').value;
+        const colorMode = document.querySelector('input[name="bulk-mode-color"]:checked')?.value;
+        const moodMode = document.querySelector('input[name="bulk-mode-mood"]:checked')?.value;
+        const acqMode = document.querySelector('input[name="bulk-mode-acquisition"]:checked')?.value;
+        const remarksMode = document.querySelector('input[name="bulk-mode-remarks"]:checked')?.value;
+        const usageMode = document.querySelector('input[name="bulk-mode-usage"]:checked')?.value;
+        
+        const selectedColors = Array.from(document.querySelectorAll('input[name="bulk-color"]:checked')).map(cb => cb.value);
+        const selectedMoods = Array.from(document.querySelectorAll('input[name="bulk-mood"]:checked')).map(cb => cb.value);
+        const selectedAcqs = Array.from(document.querySelectorAll('input[name="bulk-acquisition"]:checked')).map(cb => cb.value);
+        
+        const remarksVal = document.getElementById('bulk-input-remarks').value;
+        const usageVal = document.getElementById('bulk-input-usage').value;
+
+        const targetIds = Array.from(state.selectedItems);
+        
+        for (const itemId of targetIds) {
+            // 現在のアイテム情報を取得（追記や関連テーブルの操作に必要）
+            const item = await window.closetApi.fetchItemWithRelations(itemId);
+            if (!item) continue;
+            
+            // 1. itemsテーブル自体の更新用ペイロード
+            let itemPayload = {};
+            let hasPayload = false;
+            
+            if (updateStorage) {
+                itemPayload.storage_box_id = storageVal ? storageVal : null;
+                hasPayload = true;
+            }
+            
+            if (updateRemarks) {
+                if (remarksMode === 'append' && remarksVal) {
+                    const currentRemarks = item.remarks || '';
+                    itemPayload.remarks = currentRemarks ? `${currentRemarks}\n${remarksVal}` : remarksVal;
+                } else {
+                    itemPayload.remarks = remarksVal;
+                }
+                hasPayload = true;
+            }
+            
+            if (updateUsage) {
+                if (usageMode === 'append' && usageVal) {
+                    const currentUsage = item.usage_history || '';
+                    itemPayload.usage_history = currentUsage ? `${currentUsage}\n${usageVal}` : usageVal;
+                } else {
+                    itemPayload.usage_history = usageVal;
+                }
+                hasPayload = true;
+            }
+            
+            if (hasPayload) {
+                itemPayload.updated_by = currentMember?.id || null;
+                itemPayload.updated_at = new Date().toISOString();
+                await window.closetApi.updateItem(itemId, itemPayload);
+            }
+            
+            // 2. 関連テーブルの更新
+            if (updateColor) {
+                await processBulkRelationUpdate(itemId, 'item_colors', 'color_id', colorMode, selectedColors, item.item_colors);
+            }
+            if (updateMood) {
+                await processBulkRelationUpdate(itemId, 'item_moods', 'mood_id', moodMode, selectedMoods, item.item_moods);
+            }
+            if (updateAcquisition) {
+                await processBulkRelationUpdate(itemId, 'item_acquisition_methods', 'acquisition_method_id', acqMode, selectedAcqs, item.item_acquisition_methods);
+            }
+        }
+        
+        alert(`${count}件の更新が完了しました。`);
+        closeBulkEditModal();
+        clearBulkSelection();
+        await loadClosetItems();
+        
+    } catch (error) {
+        console.error("一括更新エラー:", error);
+        alert('更新中にエラーが発生しました。');
+    } finally {
+        const indicator = document.getElementById('sync-indicator');
+        if (indicator) indicator.classList.add('hidden');
+    }
+}
+
+// 関連テーブルの置き換え・追加・削除ロジック
+async function processBulkRelationUpdate(itemId, tableName, columnIdName, mode, selectedIds, currentRelations) {
+    if (mode === 'replace') {
+        // すべて削除して新規追加
+        if (tableName === 'item_colors') await window.closetApi.deleteAllColors(itemId);
+        if (tableName === 'item_moods') await window.closetApi.deleteAllMoods(itemId);
+        if (tableName === 'item_acquisition_methods') await window.closetApi.deleteAllAcquisitions(itemId);
+        
+        if (selectedIds.length > 0) {
+            const rows = selectedIds.map(id => ({ item_id: itemId, [columnIdName]: id }));
+            if (tableName === 'item_colors') await window.closetApi.insertColors(rows);
+            if (tableName === 'item_moods') await window.closetApi.insertMoods(rows);
+            if (tableName === 'item_acquisition_methods') await window.closetApi.insertAcquisitions(rows);
+        }
+    } else if (mode === 'add') {
+        // 既存にないものだけ追加
+        const existingIds = (currentRelations || []).map(r => String(r[columnIdName]));
+        const toAdd = selectedIds.filter(id => !existingIds.includes(String(id)));
+        
+        if (toAdd.length > 0) {
+            const rows = toAdd.map(id => ({ item_id: itemId, [columnIdName]: id }));
+            if (tableName === 'item_colors') await window.closetApi.insertColors(rows);
+            if (tableName === 'item_moods') await window.closetApi.insertMoods(rows);
+            if (tableName === 'item_acquisition_methods') await window.closetApi.insertAcquisitions(rows);
+        }
+    } else if (mode === 'remove') {
+        // 選択されたものを削除
+        if (selectedIds.length > 0) {
+            if (tableName === 'item_colors') await window.closetApi.deleteSpecificColors(itemId, selectedIds);
+            if (tableName === 'item_moods') await window.closetApi.deleteSpecificMoods(itemId, selectedIds);
+            if (tableName === 'item_acquisition_methods') await window.closetApi.deleteSpecificAcquisitions(itemId, selectedIds);
+        }
+    }
+}
+
