@@ -2769,6 +2769,22 @@ function openBulkEditModal() {
     const modal = document.getElementById('bulk-edit-modal');
     if (!modal) return;
     
+    // 大項目の初期化
+    const largeSelect = document.getElementById('bulk-input-large-category');
+    if (largeSelect) {
+        largeSelect.innerHTML = '<option value="">（空欄にする）</option>';
+        (state.closetMaster.large || []).forEach(l => {
+            largeSelect.innerHTML += `<option value="${l.id}">${l.name}</option>`;
+        });
+        largeSelect.onchange = handleBulkLargeCategoryChange;
+    }
+
+    // 中項目・小項目のリセット
+    const middleSelect = document.getElementById('bulk-input-middle-category');
+    if (middleSelect) middleSelect.innerHTML = '<option value="">（空欄にする）</option>';
+    const smallSelect = document.getElementById('bulk-input-small-category');
+    if (smallSelect) smallSelect.innerHTML = '<option value="">（空欄にする）</option>';
+    
     // 保管場所プルダウンの初期化
     const storageSelect = document.getElementById('bulk-input-storage');
     storageSelect.innerHTML = '<option value="">（空欄にする）</option>';
@@ -2801,13 +2817,39 @@ function openBulkEditModal() {
     document.getElementById('bulk-edit-form').reset();
     
     // すべての項目を一旦非表示に
-    ['storage', 'color', 'mood', 'acquisition', 'remarks', 'usage'].forEach(field => {
+    ['large-category', 'middle-category', 'small-category', 'storage', 'color', 'mood', 'acquisition', 'remarks', 'usage'].forEach(field => {
         document.getElementById(`bulk-field-${field}`).style.display = 'none';
         document.getElementById(`bulk-check-${field}`).checked = false;
     });
 
     document.getElementById('bulk-edit-message').textContent = `${state.selectedItems.size}件の衣装を更新します。変更したい項目にチェックを入れてください。`;
     modal.style.display = 'flex';
+}
+
+function handleBulkLargeCategoryChange() {
+    const largeId = document.getElementById('bulk-input-large-category').value;
+    const middleSelect = document.getElementById('bulk-input-middle-category');
+    const smallSelect = document.getElementById('bulk-input-small-category');
+
+    if (middleSelect) {
+        middleSelect.innerHTML = '<option value="">（空欄にする）</option>';
+        if (largeId) {
+            const middleList = state.closetMaster.middle.filter(x => String(x.large_category_id) === String(largeId));
+            middleList.forEach(m => {
+                middleSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+            });
+        }
+    }
+
+    if (smallSelect) {
+        smallSelect.innerHTML = '<option value="">（空欄にする）</option>';
+        if (largeId) {
+            const smallList = state.closetMaster.small.filter(x => String(x.large_category_id) === String(largeId));
+            smallList.forEach(s => {
+                smallSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+        }
+    }
 }
 
 function closeBulkEditModal() {
@@ -2833,6 +2875,10 @@ async function submitBulkEdit() {
         
         currentMember = getCurrentMember();
         
+        const updateLarge = document.getElementById('bulk-check-large-category')?.checked;
+        const updateMiddle = document.getElementById('bulk-check-middle-category')?.checked;
+        const updateSmall = document.getElementById('bulk-check-small-category')?.checked;
+        
         const updateStorage = document.getElementById('bulk-check-storage').checked;
         const updateColor = document.getElementById('bulk-check-color').checked;
         const updateMood = document.getElementById('bulk-check-mood').checked;
@@ -2841,6 +2887,10 @@ async function submitBulkEdit() {
         const updateUsage = document.getElementById('bulk-check-usage').checked;
 
         // 値の取得
+        const largeVal = document.getElementById('bulk-input-large-category')?.value;
+        const middleVal = document.getElementById('bulk-input-middle-category')?.value;
+        const smallVal = document.getElementById('bulk-input-small-category')?.value;
+        
         const storageVal = document.getElementById('bulk-input-storage').value;
         const colorMode = document.querySelector('input[name="bulk-mode-color"]:checked')?.value;
         const moodMode = document.querySelector('input[name="bulk-mode-mood"]:checked')?.value;
@@ -2865,6 +2915,22 @@ async function submitBulkEdit() {
             // 1. itemsテーブル自体の更新用ペイロード
             let itemPayload = {};
             let hasPayload = false;
+            
+            if (updateLarge) {
+                itemPayload.large_category_id = largeVal ? largeVal : null;
+                // 大項目を更新する場合、安全のため、明示的に指定されていなければ中・小項目をリセットする
+                if (!updateMiddle) itemPayload.middle_category_id = null;
+                if (!updateSmall) itemPayload.small_category_id = null;
+                hasPayload = true;
+            }
+            if (updateMiddle) {
+                itemPayload.middle_category_id = middleVal ? middleVal : null;
+                hasPayload = true;
+            }
+            if (updateSmall) {
+                itemPayload.small_category_id = smallVal ? smallVal : null;
+                hasPayload = true;
+            }
             
             if (updateStorage) {
                 itemPayload.storage_box_id = storageVal ? storageVal : null;

@@ -1026,6 +1026,44 @@
                         </p>
                         
                         <form id="bulk-edit-form" onsubmit="event.preventDefault(); submitBulkEdit();">
+                            <!-- 大項目 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-large-category" onchange="toggleBulkField('large-category')">
+                                    大項目を一括更新する
+                                </label>
+                                <div id="bulk-field-large-category" style="display:none; margin-top: 10px;">
+                                    <select id="bulk-input-large-category" class="cute-input">
+                                        <option value="">（空欄にする）</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 中項目 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-middle-category" onchange="toggleBulkField('middle-category')">
+                                    中項目を一括更新する
+                                </label>
+                                <div id="bulk-field-middle-category" style="display:none; margin-top: 10px;">
+                                    <select id="bulk-input-middle-category" class="cute-input">
+                                        <option value="">（空欄にする）</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 小項目 -->
+                            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-weight:bold; cursor:pointer;">
+                                    <input type="checkbox" id="bulk-check-small-category" onchange="toggleBulkField('small-category')">
+                                    小項目を一括更新する
+                                </label>
+                                <div id="bulk-field-small-category" style="display:none; margin-top: 10px;">
+                                    <select id="bulk-input-small-category" class="cute-input">
+                                        <option value="">（空欄にする）</option>
+                                    </select>
+                                </div>
+                            </div>
                             
                             <!-- 保管場所 -->
                             <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
