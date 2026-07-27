@@ -21,7 +21,8 @@ async function loadCloud() {
             catRes,
             castRes,
             profileRes,
-            linkRes
+            linkRes,
+            memoImgRes
         ] = await Promise.all([
             db.from('members').select('*'),
             db.from('practices').select('*').order('sort_order', { ascending: true }),
@@ -36,8 +37,8 @@ async function loadCloud() {
             db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
             db.from('cast_master').select('*').order('sort_order', { ascending: true }),
             db.from('self_profiles').select('*'),
-            db.from('links').select('*').order('display_order', { ascending: true })
-
+            db.from('links').select('*').order('display_order', { ascending: true }),
+            db.from('memo_files').select('*').order('sort_order', { ascending: true })
         ]);
 
         if (mRes.error) throw mRes.error;
@@ -172,6 +173,13 @@ async function loadCloud() {
         // メモ区分
         if (catRes.data) {
             state.settings.memoCategories = catRes.data;
+        }
+
+        // メモ画像（ファイル）
+        if (memoImgRes && memoImgRes.data) {
+            state.memoFiles = memoImgRes.data;
+        } else if (memoImgRes && memoImgRes.error) {
+            console.warn("memo_files取得エラー:", memoImgRes.error);
         }
 
         if (state.auth.isLoggedIn) { 

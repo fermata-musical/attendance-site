@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/closet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
@@ -269,8 +270,17 @@
                                     <input type="text" id="memo-target-range" class="cute-input" placeholder="例: p.15〜18, M32, シーン3" style="width: 100%;">
                                 </div>
                                 <div>
-                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">内容 <span style="color:red;">*</span></label>
-                                    <textarea id="memo-content" class="cute-input" rows="4" placeholder="具体的な指示内容を入力" style="width: 100%; resize: vertical;"></textarea>
+                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">タイトル <span style="color:red;">*</span></label>
+                                    <input type="text" id="memo-title" class="cute-input" placeholder="最大50文字" maxlength="50" style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">本文 <span style="color:red;">*</span></label>
+                                    <textarea id="memo-content" class="cute-input" rows="4" placeholder="具体的な指示やメモ" style="width: 100%; resize: vertical;"></textarea>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--text-sub);">添付ファイル（画像・PDFなど / 合計100MBまで）</label>
+                                    <input type="file" id="memo-file-input" multiple accept="image/*,application/pdf,.heic" onchange="handleImageSelect(event, 0, 100)" class="cute-input" style="width: 100%;">
+                                    <div id="entry-image-preview" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;"></div>
                                 </div>
                                 <div style="display: flex; gap: 10px; margin-top: 5px;">
                                     <button id="save-memo-btn" class="puffy-btn pink" style="flex: 1;"><i class="fa-solid fa-paper-plane"></i> 登録する</button>
@@ -620,11 +630,15 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
     <script src="js/config.js"></script>
     <script src="js/state.js"></script>
     <script src="js/common.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/cloud.js"></script>
+    <script src="js/image-manager.js"></script>
 
     <script src="js/profile.js"></script>
     <script src="js/cast.js"></script>

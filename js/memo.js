@@ -15,7 +15,8 @@ window.renderRehearsalMemos = () => {
             const range = (m.target_range || '').toLowerCase();
             const person = (m.target_person || '').toLowerCase();
             const content = (m.content || '').toLowerCase();
-            if (!range.includes(keyword) && !person.includes(keyword) && !content.includes(keyword)) {
+            const title = (m.title || '').toLowerCase();
+            if (!range.includes(keyword) && !person.includes(keyword) && !content.includes(keyword) && !title.includes(keyword)) {
                 return false;
             }
         }
@@ -148,14 +149,77 @@ window.renderRehearsalMemos = () => {
         const lines = (m.content || '').split('\n').length;
         const isLong = lines > 3 || (m.content || '').length > 100;
         
+        const titleHtml = m.title ? `<strong style="font-size: 1.05rem; display: block; margin-bottom: 5px; color: var(--text-main);">${m.title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong>` : '';
+
         const contentHtml = `
             <div class="memo-content-short">
+                ${titleHtml}
                 ${m.content
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/\n/g, '<br>')}
             </div>
         `;
+
+        let imagesHtml = '';
+        if (state.memoFiles) {
+            const memoFiles = state.memoFiles.filter(img => String(img.memo_id) === String(m.id));
+            if (memoFiles.length > 0) {
+                imagesHtml = '<div class="memo-image-gallery" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">';
+                memoFiles.forEach(img => {
+                    const originalUrl = typeof getImageUrl === 'function' ? getImageUrl(img.storage_path, 'memo-files') : '';
+                    if (originalUrl) {
+                        const mimeType = img.mime_type || '';
+                        const fileName = (img.file_name || '').toLowerCase();
+                        
+                        const isImage = mimeType.startsWith('image/') || 
+                                        fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
+                                        fileName.endsWith('.png') || fileName.endsWith('.gif') || 
+                                        fileName.endsWith('.webp') || fileName.endsWith('.heic');
+                        
+                        if (isImage) {
+                            const thumbUrl = typeof getImageUrl === 'function' ? getImageUrl(img.storage_path, 'memo-files', { width: 300, height: 300, resize: 'cover' }) : '';
+                            imagesHtml += `
+                                <a href="${originalUrl}" class="glightbox" data-gallery="gallery-${m.id}" data-title="${m.content.substring(0, 20)}...">
+                                    <img src="${thumbUrl || originalUrl}" style="width:100px; height:100px; object-fit:cover; border-radius:8px; border:1px solid #ccc; background:#fff;">
+                                </a>
+                            `;
+                        } else {
+                            const shortName = img.file_name ? (img.file_name.length > 15 ? img.file_name.substring(0, 15) + '...' : img.file_name) : 'ファイル';
+                            
+                            let iconClass = 'fa-file';
+                            let iconColor = '#888';
+                            
+                            if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
+                                iconClass = 'fa-file-pdf';
+                                iconColor = '#e25241';
+                            } else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
+                                iconClass = 'fa-file-word';
+                                iconColor = '#2b579a';
+                            } else if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) {
+                                iconClass = 'fa-file-excel';
+                                iconColor = '#217346';
+                            } else if (fileName.endsWith('.zip')) {
+                                iconClass = 'fa-file-zipper';
+                                iconColor = '#f3c42e';
+                            }
+
+                            imagesHtml += `
+                                <a href="${originalUrl}" target="_blank" rel="noopener noreferrer" title="${img.file_name || ''}" style="text-decoration:none;">
+                                    <div style="width:100px; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-soft, #f0f0f0); border-radius:8px; border:1px solid var(--border-dusty, #ccc);">
+                                        <i class="fa-solid ${iconClass}" style="font-size:2rem; color:${iconColor};"></i>
+                                        <span style="font-size:0.65rem; color:var(--text-sub, #555); text-align:center; word-break:break-all; padding:0 4px; margin-top:6px; max-height:2.6em; overflow:hidden;">
+                                            ${shortName}
+                                        </span>
+                                    </div>
+                                </a>
+                            `;
+                        }
+                    }
+                });
+                imagesHtml += '</div>';
+            }
+        }
 
         const toggleButtonHtml = `
         <button class="memo-toggle-btn"
@@ -215,6 +279,7 @@ window.renderRehearsalMemos = () => {
                 <span style="margin-left: auto; font-weight: bold;"><i class="fa-solid fa-pen-nib"></i> ${m.author_name || '不明'}</span>
             </div>
             ${contentHtml}
+            ${imagesHtml}
             ${toggleButtonHtml}
             ${reactionsHtml}
             ${commentsHtml}
@@ -222,6 +287,15 @@ window.renderRehearsalMemos = () => {
         `;
         container.appendChild(card);
     });
+
+    // Lightbox の再初期化
+    if (typeof GLightbox !== 'undefined') {
+        if (window.memoLightbox) {
+            window.memoLightbox.reload();
+        } else {
+            window.memoLightbox = GLightbox({ selector: '.glightbox' });
+        }
+    }
 };
 
 renderRehearsalMemos = window.renderRehearsalMemos;
@@ -242,9 +316,14 @@ window.saveMemo = async () => {
     const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
     const category = categories.join(',');
     
+    const title = $('memo-title').value.trim();
     const content = $('memo-content').value.trim();
-    if (categories.length === 0 || !content) {
-        alert('区分と内容は必須です。');
+    if (categories.length === 0 || !content || !title) {
+        alert('タイトル、区分、内容は必須です。');
+        return;
+    }
+    if (title.length > 50) {
+        alert('タイトルは50文字以内で入力してください。');
         return;
     }
     
@@ -258,6 +337,7 @@ window.saveMemo = async () => {
     const memoData = {
         author_id: state.currentMember || null,
         author_name: author,
+        title: title,
         category: category,
         target_person: targetPerson,
         target_range: targetRange,
@@ -274,15 +354,38 @@ window.saveMemo = async () => {
         $('save-memo-btn').disabled = true;
         
         let error;
+        let memoId = editId;
         if (editId) {
-            const res = await db.from('rehearsal_memos').update(memoData).eq('id', editId);
+            const res = await db.from('rehearsal_memos').update(memoData).eq('id', editId).select();
             error = res.error;
         } else {
-            const res = await db.from('rehearsal_memos').insert([memoData]);
+            const res = await db.from('rehearsal_memos').insert([memoData]).select();
             error = res.error;
+            if (res.data && res.data.length > 0) {
+                memoId = res.data[0].id;
+            }
         }
         
         if (error) throw error;
+
+        // 画像のアップロード処理
+        if (typeof uploadImages === 'function' && memoId) {
+            try {
+                await uploadImages(memoId, { 
+                    bucket: 'memo-files', 
+                    table: 'memo_files', 
+                    foreignKey: 'memo_id', 
+                    hasMetadata: true 
+                });
+            } catch (uploadErr) {
+                console.error("ファイル保存エラー:", uploadErr);
+                // 新規作成時でファイルアップロードに失敗した場合は、ロールバックしてメモも削除する
+                if (!editId) {
+                    await db.from('rehearsal_memos').delete().eq('id', memoId);
+                }
+                throw new Error("ファイルの保存中にエラーが発生しました。");
+            }
+        }
 
         if (editId) {
             memoUpdatedStatus[editId] = true;
@@ -321,10 +424,20 @@ window.editMemo = (id) => {
     });
     $('memo-target-person').value = memo.target_person || '';
     $('memo-target-range').value = memo.target_range || '';
+    $('memo-title').value = memo.title || '';
     $('memo-content').value = memo.content || '';
     
     $('cancel-memo-btn').classList.remove('hidden');
     $('save-memo-btn').innerHTML = '<i class="fa-solid fa-pen"></i> 更新する';
+    
+    // 画像選択状態をリセット (ファイル追加用のクリア)
+    if (typeof selectedImages !== 'undefined') {
+        selectedImages = [];
+    }
+    const previewContainer = $('memo-image-preview');
+    if (previewContainer) previewContainer.innerHTML = '';
+    const fileInput = $('memo-image-upload');
+    if (fileInput) fileInput.value = '';
     
     // フォームを開く
     $('memo-form-container').classList.remove('hidden');
@@ -335,9 +448,16 @@ window.editMemo = (id) => {
 };
 
 window.deleteMemo = async (id) => {
-    if (!confirm('本当にこのメモを削除しますか？')) return;
+    if (!confirm('本当にこのメモを削除しますか？\n（一緒に使用している添付ファイルも削除されます）')) return;
     
     try {
+        // 先にStorageのファイルを削除する
+        const filesToDel = state.memoFiles ? state.memoFiles.filter(img => String(img.memo_id) === String(id)) : [];
+        if (filesToDel.length > 0 && typeof deleteImagesFromStorage === 'function') {
+            const paths = filesToDel.map(img => img.storage_path);
+            await deleteImagesFromStorage('memo-files', paths);
+        }
+
         const { error } = await db.from('rehearsal_memos').delete().eq('id', id);
         if (error) throw error;
         
@@ -356,7 +476,17 @@ window.resetMemoForm = () => {
     document.querySelectorAll('.memo-category-check').forEach(cb => cb.checked = false);
     $('memo-target-person').value = '';
     $('memo-target-range').value = '';
+    $('memo-title').value = '';
     $('memo-content').value = '';
+    
+    // 画像選択状態をリセット
+    if (typeof selectedImages !== 'undefined') {
+        selectedImages = [];
+    }
+    const previewContainer = $('memo-image-preview');
+    if (previewContainer) previewContainer.innerHTML = '';
+    const fileInput = $('memo-image-upload');
+    if (fileInput) fileInput.value = '';
     
     $('cancel-memo-btn').classList.add('hidden');
     $('save-memo-btn').innerHTML = '<i class="fa-solid fa-paper-plane"></i> 登録する';

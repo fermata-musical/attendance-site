@@ -1,7 +1,7 @@
 // js/api/closet-api.js
 
 /**
- * 衣装管理に関するSupabaseとの通信処理（API）をまとめたファイルです。
+ * 備品管理に関するSupabaseとの通信処理（API）をまとめたファイルです。
  * グローバル変数 `window.closetApi` として公開します。
  */
 window.closetApi = {
@@ -38,7 +38,7 @@ window.closetApi = {
     },
 
     // ----------------------------------------------------
-    // 衣装アイテム一覧の取得
+    // 備品アイテム一覧の取得
     // ----------------------------------------------------
     fetchItems: async function() {
         if (!window.db) throw new Error("Supabase client (db) is not initialized.");

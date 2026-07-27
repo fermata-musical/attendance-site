@@ -1,18 +1,56 @@
 // ========================================
 // image-manager.js
-// 共通画像管理
+// 共通画像管理 (汎用化版)
 // ========================================
 
 let selectedImages = [];
 
-function handleImageSelect(event) {
+// プレビューコンテナのID
+const PREVIEW_CONTAINER_ID = "entry-image-preview";
+
+async function handleImageSelect(event, maxCount = 5, maxSizeMB = 0) {
     const files = Array.from(event.target.files);
 
-    files.forEach(file => {
-        if (selectedImages.length < 5) {
+    // 容量制限チェック
+    if (maxSizeMB > 0) {
+        let currentSize = selectedImages.reduce((sum, f) => sum + (f.size || f.file_size || 0), 0);
+        let newSize = files.reduce((sum, f) => sum + f.size, 0);
+        if (currentSize + newSize > maxSizeMB * 1024 * 1024) {
+            alert(`合計容量が制限（${maxSizeMB}MB）を超えています。別のファイルを選択するか、減らしてください。`);
+            event.target.value = "";
+            return;
+        }
+    }
+
+    for (let file of files) {
+        if (maxCount > 0 && selectedImages.length >= maxCount) {
+            break;
+        }
+
+        // HEIC画像の変換処理
+        if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+            try {
+                if (typeof heic2any === 'undefined') {
+                    throw new Error("heic2any library is not loaded.");
+                }
+                const convertedBlob = await heic2any({
+                    blob: file,
+                    toType: "image/jpeg",
+                    quality: 0.8
+                });
+                
+                const newFileName = file.name.replace(/\.heic$/i, '.jpg');
+                // ブラウザによってはFileコンストラクタが使えない場合があるが、モダンブラウザならOK
+                const convertedFile = new File([convertedBlob], newFileName, { type: "image/jpeg" });
+                selectedImages.push(convertedFile);
+            } catch (err) {
+                console.error("HEIC変換エラー:", err);
+                alert(`${file.name}の変換に失敗しました。JPEG等をお試しください。`);
+            }
+        } else {
             selectedImages.push(file);
         }
-    });
+    }
 
     renderImagePreview();
 
@@ -20,34 +58,40 @@ function handleImageSelect(event) {
     event.target.value = "";
 }
 
-function renderImagePreview() {
-    const preview = document.getElementById("entry-image-preview");
+function renderImagePreview(bucketName = 'item-images') {
+    const preview = document.getElementById(PREVIEW_CONTAINER_ID);
     if (!preview) return;
 
     preview.innerHTML = "";
 
     selectedImages.forEach((file, index) => {
-
         const reader = new FileReader();
 
-        reader.onload = function (e) {
-
+        const createPreviewElement = (srcUrl, fileType, fileName) => {
             const div = document.createElement("div");
-
             div.style.position = "relative";
             div.style.display = "inline-block";
+            div.title = fileName || '';
+            
+            let contentHtml = '';
+            if (fileType === 'application/pdf' || (fileName && fileName.toLowerCase().endsWith('.pdf'))) {
+                const shortName = fileName ? (fileName.length > 15 ? fileName.substring(0, 15) + '...' : fileName) : 'PDF';
+                contentHtml = `
+                    <div style="width:120px; height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-soft, #f0f0f0); border-radius:8px; border:1px solid var(--border-dusty, #ccc);">
+                        <i class="fa-solid fa-file-pdf" style="font-size:2.5rem; color:#e25241;"></i>
+                        <span style="font-size:0.7rem; color:var(--text-sub, #555); text-align:center; word-break:break-all; padding:0 5px; margin-top:10px; max-height:2.8em; overflow:hidden;">
+                            ${shortName}
+                        </span>
+                    </div>
+                `;
+            } else {
+                contentHtml = `
+                    <img src="${srcUrl}" style="width:120px; height:120px; object-fit:cover; border-radius:8px; border:1px solid #ccc;">
+                `;
+            }
 
             div.innerHTML = `
-                <img
-                    src="${e.target.result}"
-                    style="
-                        width:120px;
-                        height:120px;
-                        object-fit:cover;
-                        border-radius:8px;
-                        border:1px solid #ccc;
-                    ">
-
+                ${contentHtml}
                 <button
                     type="button"
                     onclick="removeImage(${index})"
@@ -66,57 +110,27 @@ function renderImagePreview() {
                     ×
                 </button>
             `;
-
-            preview.appendChild(div);
+            return div;
         };
 
         if (file.isExisting) {
-
-            const div = document.createElement("div");
-
-            div.style.position = "relative";
-            div.style.display = "inline-block";
-
-            div.innerHTML = `
-                <img
-                    src="${getImageUrl(file.storage_path)}"
-                    style="
-                        width:120px;
-                        height:120px;
-                        object-fit:cover;
-                        border-radius:8px;
-                        border:1px solid #ccc;
-                    ">
-
-                <button
-                    type="button"
-                    onclick="removeImage(${index})"
-                    style="
-                        position:absolute;
-                        top:2px;
-                        right:2px;
-                        width:22px;
-                        height:22px;
-                        border:none;
-                        border-radius:50%;
-                        background:red;
-                        color:white;
-                        cursor:pointer;
-                    ">
-                    ×
-                </button>
-            `;
-
-            preview.appendChild(div);
-
+            // file.bucketName があればそれを使う、なければ引数の bucketName (互換性用)
+            const targetBucket = file.bucketName || bucketName;
+            const previewEl = createPreviewElement(getImageUrl(file.storage_path, targetBucket), file.mime_type, file.file_name);
+            preview.appendChild(previewEl);
         } else {
-
-            reader.readAsDataURL(file);
-
+            if (file.type === 'application/pdf') {
+                const previewEl = createPreviewElement('', file.type, file.name);
+                preview.appendChild(previewEl);
+            } else {
+                reader.onload = function (e) {
+                    const previewEl = createPreviewElement(e.target.result, file.type, file.name);
+                    preview.appendChild(previewEl);
+                };
+                reader.readAsDataURL(file);
+            }
         }
-
     });
-
 }
 
 function removeImage(index) {
@@ -126,101 +140,170 @@ function removeImage(index) {
 
 function clearSelectedImages() {
     selectedImages = [];
-
-    const preview = document.getElementById("entry-image-preview");
+    const preview = document.getElementById(PREVIEW_CONTAINER_ID);
     if (preview) {
         preview.innerHTML = "";
     }
 }
 
-async function uploadSelectedImages(itemId) {
-    for (let i = 0; i < selectedImages.length; i++) {
+/**
+ * 汎用画像アップロード処理
+ * @param {string} targetId - 紐付ける親データのID (例: item_id, memo_id)
+ * @param {Object} config - { bucket, table, foreignKey, hasMetadata }
+ */
+async function uploadImages(targetId, config) {
+    const uploadedPaths = [];
 
+    for (let i = 0; i < selectedImages.length; i++) {
         const imageFile = selectedImages[i];
 
         if (imageFile.isExisting) {
+            // 既存画像の場合はレコードを再登録する (storageにはすでに存在する)
+            const insertData = {
+                [config.foreignKey]: targetId,
+                storage_path: imageFile.storage_path,
+                sort_order: i + 1
+            };
+            
+            if (config.hasMetadata) {
+                insertData.file_name = imageFile.file_name || '';
+                insertData.file_size = imageFile.file_size || 0;
+                insertData.mime_type = imageFile.mime_type || '';
+            }
 
-            await db
-                .from('item_images')
-                .insert([{
-                    item_id: itemId,
-                    storage_path: imageFile.storage_path,
-                    image_order: i + 1
-                }]);
+            const { error: imageInsertError } = await db
+                .from(config.table)
+                .insert([insertData]);
 
-            continue;
-        }
+            if (imageInsertError) {
+                console.error("既存画像のDB再登録エラー:", imageInsertError);
+                await rollbackUploadedImages(uploadedPaths, config.bucket);
+                throw new Error("既存画像のDB登録エラー: " + imageInsertError.message);
+            }
+        } else {
+            // 新規画像のアップロード
+            const fileExt = imageFile.name.split('.').pop();
+            const fileName = `${targetId}-${Date.now()}-${i}.${fileExt}`;
 
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${itemId}-${Date.now()}-${i}.${fileExt}`;
+            const { error: uploadError } = await db.storage
+                .from(config.bucket)
+                .upload(fileName, imageFile);
 
-        const { error: uploadError } = await db.storage
-            .from('item-images')
-            .upload(fileName, imageFile);
+            if (uploadError) {
+                console.error("画像アップロードエラー:", uploadError);
+                await rollbackUploadedImages(uploadedPaths, config.bucket);
+                throw new Error("画像アップロードエラー: " + uploadError.message);
+            }
 
-        if (uploadError) {
-            console.error("画像アップロードエラー:", uploadError);
-            alert(JSON.stringify(uploadError));
-            continue;
-        }
+            // ロールバック用に記録
+            uploadedPaths.push(fileName);
 
-        const { error: imageInsertError } = await db
-            .from('item_images')
-            .insert([{
-                item_id: itemId,
+            // DBへ登録
+            const insertData = {
+                [config.foreignKey]: targetId,
                 storage_path: fileName,
-                image_order: i + 1
-            }]);
+                sort_order: i + 1
+            };
+            
+            if (config.hasMetadata) {
+                insertData.file_name = imageFile.name;
+                insertData.file_size = imageFile.size;
+                insertData.mime_type = imageFile.type;
+            }
 
-        if (imageInsertError) {
-            console.error("画像データ登録エラー:", imageInsertError);
-            alert(JSON.stringify(imageInsertError));
+            const { error: imageInsertError } = await db
+                .from(config.table)
+                .insert([insertData]);
+
+            if (imageInsertError) {
+                console.error("画像データ登録エラー:", imageInsertError);
+                // DB登録失敗時はロールバック
+                await rollbackUploadedImages(uploadedPaths, config.bucket);
+                throw new Error("画像データ登録エラー: " + imageInsertError.message);
+            }
         }
     }
 }
 
-async function getItemImages(itemId) {
+/**
+ * アップロード済み画像をStorageから削除する（エラー時のロールバック処理）
+ */
+async function rollbackUploadedImages(paths, bucketName) {
+    if (!paths || paths.length === 0) return;
+    
+    console.warn("ロールバック処理を実行します。対象:", paths);
+    const { error } = await db.storage.from(bucketName).remove(paths);
+    if (error) {
+        console.error("ロールバック（Storage削除）に失敗しました:", error);
+    } else {
+        console.log("ロールバック完了");
+    }
+}
 
+/**
+ * 対象の画像データをDBから取得する汎用関数
+ */
+async function getImages(targetId, config) {
     const { data, error } = await db
-        .from('item_images')
+        .from(config.table)
         .select('*')
-        .eq('item_id', itemId)
-        .order('image_order');
+        .eq(config.foreignKey, targetId)
+        .order('sort_order');
 
     if (error) {
         console.error(error);
         return [];
     }
-
     return data;
-
 }
 
-function getImageUrl(storagePath) {
-
-    console.log("storagePath:", storagePath);
-
+/**
+ * Storageパスから公開URLを取得する汎用関数
+ * @param {string} storagePath - Storage内のパス
+ * @param {string} bucketName - バケット名 (デフォルト: 'item-images')
+ * @param {Object} transformOptions - SupabaseのTransformオプション (例: { width: 200, height: 200 })
+ */
+function getImageUrl(storagePath, bucketName = 'item-images', transformOptions = null) {
+    if (!storagePath) return '';
+    
+    let options = undefined;
+    if (transformOptions) {
+        options = { transform: transformOptions };
+    }
+    
     const { data } = db.storage
-        .from('item-images')
-        .getPublicUrl(storagePath);
-
-    console.log("publicUrl:", data.publicUrl);
-
+        .from(bucketName)
+        .getPublicUrl(storagePath, options);
+        
     return data.publicUrl;
-
 }
 
+// ==========================================
+// closet.js 用の互換ラッパー関数
+// ==========================================
 async function saveItemImages(itemId, isEdit) {
+    const config = {
+        bucket: 'item-images',
+        table: 'item_images',
+        foreignKey: 'item_id',
+        hasMetadata: false
+    };
 
-    if (!isEdit) {
-        await uploadSelectedImages(itemId);
-        return;
-    }
-
-        await db.from('item_images')
+    if (isEdit) {
+        // 編集時は既存のDBレコードを一旦すべて削除
+        await db.from(config.table)
             .delete()
-            .eq('item_id', itemId);
-
-        await uploadSelectedImages(itemId);
-
+            .eq(config.foreignKey, itemId);
     }
+
+    // 汎用アップロード処理を呼び出し
+    await uploadImages(itemId, config);
+}
+
+async function getItemImages(itemId) {
+    const config = {
+        table: 'item_images',
+        foreignKey: 'item_id'
+    };
+    return await getImages(itemId, config);
+}

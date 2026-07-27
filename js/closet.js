@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
 
-    // ログイン完了を監視して衣装データを自動取得
+    // ログイン完了を監視して備品データを自動取得
     const initInterval = setInterval(() => {
         console.log("db:", !!window.db, "state:", typeof state);
 
@@ -424,7 +424,7 @@ async function loadClosetItems() {
 
         renderClosetItems();
     } catch (error) {
-        console.error("衣装データ取得エラー:", error);
+        console.error("備品データ取得エラー:", error);
         console.log("message =", error.message);
         console.log("details =", error.details);
         console.log("hint =", error.hint);
@@ -443,7 +443,7 @@ function renderClosetItems() {
     
     const items = typeof state !== 'undefined' ? state.closetItems : [];
     if (!items || items.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-sub);">登録されている衣装がありません。</p>';
+        container.innerHTML = '<p style="color: var(--text-sub);">登録されている備品がありません。</p>';
         return;
     }
     
@@ -553,7 +553,7 @@ function renderClosetItems() {
     });
 
     if (filteredItems.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-sub);">条件に一致する衣装がありません。</p>';
+        container.innerHTML = '<p style="color: var(--text-sub);">条件に一致する備品がありません。</p>';
         return;
     }
 
@@ -644,7 +644,7 @@ function renderClosetItems() {
                         item.item_images && item.item_images.length > 0
                         ? `
                             <img src="${imageUrl}"
-                                alt="衣装写真"
+                                alt="備品写真"
                                 style="
                                     width:100%;
                                     height:100%;
@@ -762,7 +762,7 @@ function updateSmallCategoryExample() {
     example.textContent = item?.example || '';
 }
 
-// 新規衣装データまたは更新データの保存
+// 新規備品データまたは更新データの保存
 async function submitClosetEntry() {
     if (!window.db) {
         alert('データベースに接続されていません。');
@@ -1186,7 +1186,7 @@ async function submitClosetEntry() {
 
         }
 
-        alert(currentEditingItemId ? '衣装を更新しました！' : '衣装を登録しました！');
+        alert(currentEditingItemId ? '備品を更新しました！' : '備品を登録しました！');
 
         // 作成者・更新者名を取得するため再取得
         try {
@@ -1216,7 +1216,7 @@ async function submitClosetEntry() {
         }
 
     } catch (error) {
-        console.error("衣装保存エラー:", error);
+        console.error("備品保存エラー:", error);
         alert(error.message || JSON.stringify(error));
     } finally {
         const indicator = document.getElementById('sync-indicator');
@@ -1270,7 +1270,7 @@ function resetClosetEntryForm(clearInfo = true) {
     // UIを「登録」に戻す
     const headerTitle = document.querySelector('#closet-entry .section-header h2');
     if (headerTitle) {
-        headerTitle.innerHTML = '<i class="fa-solid fa-square-plus"></i> 衣装登録';
+        headerTitle.innerHTML = '<i class="fa-solid fa-square-plus"></i> 備品登録';
     }
 
     const submitBtn = document.querySelector('#closet-entry-form button[type="submit"]');
@@ -1553,7 +1553,7 @@ function showClosetDetail(id) {
             const headerTitle = document.querySelector('#closet-entry .section-header h2');
             if (headerTitle) {
                 headerTitle.innerHTML =
-                    '<i class="fa-solid fa-shirt"></i> 衣装登録';
+                    '<i class="fa-solid fa-shirt"></i> 備品登録';
             }
 
             const listTabBtn = document.querySelector('[data-tab="closet-list"]');
@@ -1789,7 +1789,7 @@ function editClosetItem(id) {
     // UIを「更新」に変更
     const headerTitle = document.querySelector('#closet-entry .section-header h2');
     if (headerTitle) {
-        headerTitle.innerHTML = '<i class="fa-solid fa-pen"></i> 衣装編集';
+        headerTitle.innerHTML = '<i class="fa-solid fa-pen"></i> 備品編集';
     }
 
     const submitBtn = document.querySelector('#closet-entry-form button[type="submit"]');
@@ -1838,7 +1838,7 @@ function editClosetItem(id) {
 
 // アイテムの削除
 async function deleteClosetItem(id) {
-    if (!confirm('この衣装を削除しますか？\n※関連する画像データや中間データも削除されます。')) {
+    if (!confirm('この備品を削除しますか？\n※関連する画像データや中間データも削除されます。')) {
         return;
     }
 
@@ -2822,7 +2822,7 @@ function openBulkEditModal() {
         document.getElementById(`bulk-check-${field}`).checked = false;
     });
 
-    document.getElementById('bulk-edit-message').textContent = `${state.selectedItems.size}件の衣装を更新します。変更したい項目にチェックを入れてください。`;
+    document.getElementById('bulk-edit-message').textContent = `${state.selectedItems.size}件の備品を更新します。変更したい項目にチェックを入れてください。`;
     modal.style.display = 'flex';
 }
 
