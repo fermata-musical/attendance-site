@@ -159,10 +159,11 @@ async function uploadImages(targetId, config) {
 
         if (imageFile.isExisting) {
             // 既存画像の場合はレコードを再登録する (storageにはすでに存在する)
+            const orderCol = config.orderColumn || 'sort_order';
             const insertData = {
                 [config.foreignKey]: targetId,
                 storage_path: imageFile.storage_path,
-                sort_order: i + 1
+                [orderCol]: i + 1
             };
             
             if (config.hasMetadata) {
@@ -199,10 +200,11 @@ async function uploadImages(targetId, config) {
             uploadedPaths.push(fileName);
 
             // DBへ登録
+            const orderCol = config.orderColumn || 'sort_order';
             const insertData = {
                 [config.foreignKey]: targetId,
                 storage_path: fileName,
-                sort_order: i + 1
+                [orderCol]: i + 1
             };
             
             if (config.hasMetadata) {
@@ -244,11 +246,12 @@ async function rollbackUploadedImages(paths, bucketName) {
  * 対象の画像データをDBから取得する汎用関数
  */
 async function getImages(targetId, config) {
+    const orderCol = config.orderColumn || 'sort_order';
     const { data, error } = await db
         .from(config.table)
         .select('*')
         .eq(config.foreignKey, targetId)
-        .order('sort_order');
+        .order(orderCol);
 
     if (error) {
         console.error(error);
@@ -286,6 +289,7 @@ async function saveItemImages(itemId, isEdit) {
         bucket: 'item-images',
         table: 'item_images',
         foreignKey: 'item_id',
+        orderColumn: 'image_order',
         hasMetadata: false
     };
 
@@ -303,7 +307,8 @@ async function saveItemImages(itemId, isEdit) {
 async function getItemImages(itemId) {
     const config = {
         table: 'item_images',
-        foreignKey: 'item_id'
+        foreignKey: 'item_id',
+        orderColumn: 'image_order'
     };
     return await getImages(itemId, config);
 }

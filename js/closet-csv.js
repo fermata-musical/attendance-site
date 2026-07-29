@@ -58,7 +58,7 @@ function parseCSV(text) {
 function downloadCsvTemplate() {
     const headers = [
         "名称", "大項目", "中項目", "小項目", "サイズ", 
-        "保管場所", "状態", "購入日", "購入金額", "最終使用日", 
+        "箱", "状態", "購入日", "購入金額", "最終使用日", 
         "備考", "使用履歴", "色", "雰囲気", "入手方法",
         "セット登録", "セット数量"
     ];
@@ -90,7 +90,7 @@ function downloadMasterCsv(type) {
         headers = ["箱のコード", "保管場所名"];
         filename = 'storage_master.csv';
         if (state.closetMaster && state.closetMaster.storage) {
-            rows = state.closetMaster.storage.map(s => [s.box_code || '', s.location || '']);
+            rows = state.closetMaster.storage.map(s => [s.code || '', s.location || '']);
         }
     } else if (type === 'colors') {
         headers = ["色名"];
@@ -198,7 +198,7 @@ function processCsvText(text) {
         const middleName = getVal("中項目");
         const smallName = getVal("小項目");
         const size = getVal("サイズ");
-        const storageStr = getVal("保管場所");
+        const boxStr = getVal("箱");
         const statusName = getVal("状態");
         const purchaseDate = getVal("購入日");
         const purchasePrice = getVal("購入金額");
@@ -249,10 +249,10 @@ function processCsvText(text) {
         }
 
         let storage_box_id = null;
-        if (storageStr) {
-            const m = state.closetMaster.storage.find(s => s.box_code === storageStr || s.location === storageStr);
+        if (boxStr) {
+            const m = state.closetMaster.storage.find(s => s.code === boxStr);
             if (m) storage_box_id = m.id;
-            else rowErrors.push(`保管場所「${storageStr}」が存在しません`);
+            else rowErrors.push(`箱「${boxStr}」が存在しません`);
         }
 
         let item_status_id = null;
