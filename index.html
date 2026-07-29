@@ -54,7 +54,12 @@
                     <span class="main-txt">出欠管理サイト</span>
                     <span class="sub-txt">音楽集団フェルマータ</span>
                 </div>
-                <button id="logout-btn" class="icon-btn-sm"><i class="fa-solid fa-door-open"></i></button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="open-closet-btn" class="puffy-btn pink puffy-btn-sm" style="font-size:0.5rem; padding:2px 6px; box-shadow: 0 2px 5px rgba(233,101,153,0.3);">
+                        <i class="fa-solid fa-shirt"></i> 備品管理へ
+                    </button>
+                    <button id="logout-btn" class="icon-btn-sm"><i class="fa-solid fa-door-open"></i></button>
+                </div>
             </div>
             <nav>
                 <button class="nav-tab active" data-tab="attendance-input"><i class="fa-solid fa-pen-to-square"></i><br>出欠入力<span class="lock-icon hidden"><i class="fa-solid fa-lock"></i></span></button>
@@ -112,14 +117,6 @@
                                         </div>
                                         <div id="member-action-container" class="member-action-grid"></div>
                                     </div>
-
-                                    <button
-                                        id="open-closet-btn"
-                                        class="puffy-btn pink"
-                                        style="width:100%; margin-top:12px; display:none;">
-                                        <i class="fa-solid fa-shirt"></i>
-                                        備品管理へ
-                                    </button>
 
                                     <div id="add-member-form" class="hidden" style="margin-top:15px; border-top:1px dashed #DDD; padding-top:15px;">
                                         <input type="text" id="new-member-name" class="cute-input" placeholder="新しい氏名を入力" style="width:100%; margin-bottom:10px;">
