@@ -51,6 +51,11 @@ function showTab(tabId) {
         });
         target.classList.add('active');
         target.style.display = 'block';
+        // Auto-select 新規登録 subtab when opening closet-image tab
+        if (tabId === 'closet-image') {
+            const entryBtn = document.querySelector('.costume-subtab[data-costume-tab="entry"]');
+            if (entryBtn) entryBtn.click();
+        }
     }
 }
 
@@ -345,6 +350,11 @@ function initTabs() {
             tab.classList.add('active'); 
             
             showTab(id);
+
+            if (id === "costume-image") {
+                document.querySelector('.costume-subtab[data-costume-tab="list"]')?.click();
+            }
+
             isLocked = false;
             renderTab(id);
             isLocked = true;
@@ -503,6 +513,21 @@ function renderTab(id) {
 
     if (id === 'admin-panel') renderAdminPanel();
     if (id === 'past-records') renderPastRecords();
+    if (id === 'costume-image') {
+        document.querySelectorAll('.costume-tab-content')
+            .forEach(c => c.style.display = 'none');
+
+        document.getElementById('costume-entry').style.display = 'block';
+
+        document.querySelectorAll('.costume-subtab')
+            .forEach(t => t.classList.remove('active'));
+
+        document
+            .querySelector('.costume-subtab[data-costume-tab="entry"]')
+            .classList.add('active');
+
+        loadCostumeMemberSelect();
+    }
 }
 
 function renderAdminPanel() {
