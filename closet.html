@@ -86,7 +86,10 @@
                 <button class="nav-tab" data-tab="closet-admin">
                     <i class="fa-solid fa-gear"></i><br>管理
                 </button>
-            </nav>
+            <button class="nav-tab" data-tab="closet-image">
+    <i class="fa-solid fa-image"></i><br>衣裳イメージ
+</button>
+</nav>
         </header>
 
         <main>
@@ -1174,7 +1177,336 @@
                     </div>
                 </div>
 
-            </main>
+            <div id="closet-image" class="tab-content">
+        <!-- サブタブ -->
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+
+            <button
+                class="puffy-btn pink costume-subtab active"
+                data-costume-tab="list">
+
+                一覧
+
+            </button>
+
+            <button
+                class="puffy-btn pink costume-subtab"
+                data-costume-tab="entry">
+                新規登録
+            </button>
+
+            <button
+                class="puffy-btn pink costume-subtab"
+                data-costume-tab="admin">
+                管理
+            </button>
+
+        </div>
+
+        <!-- 一覧 -->
+        <div id="costume-list" class="costume-tab-content" style="display:none;">
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>
+                        <i class="fa-solid fa-image"></i>
+                        衣裳イメージ一覧
+                    </h2>
+                </div>
+
+                <div id="costume-image-list-container">
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="costume-image-modal" class="costume-image-modal">
+            <span id="costume-image-modal-close">×</span>
+            <img id="costume-image-modal-img">
+        </div>
+
+        <!-- 新規登録 -->
+        <div id="costume-entry" class="costume-tab-content">
+
+            <div class="card">
+
+                <div class="section-header">
+                    <h2>
+                        <i class="fa-solid fa-image"></i>
+                        衣裳イメージ登録
+                    </h2>
+                </div>
+
+                <form id="costume-image-form" onsubmit="event.preventDefault(); submitCostumeImage();">
+
+
+                    <div class="input-group-full">
+
+                        <label>氏名</label>
+
+                        <select
+                            id="costume-member-select"
+                            class="cute-input">
+
+                            <option value="">選択してください</option>
+
+                        </select>
+
+                    </div>
+                    <div class="input-group-full">
+
+                        <label>衣裳名</label>
+
+                        <input
+                            type="text"
+                            id="costume-name"
+                            class="cute-input"
+                            placeholder="例：ベル町娘衣裳">
+
+                    </div>
+
+
+                    <div class="input-group-full">
+
+                        <label>キャストコメント</label>
+
+                        <textarea
+                            id="costume-cast-comment"
+                            class="cute-input"
+                            rows="3"></textarea>
+
+                    </div>
+
+
+                    <div class="input-group-full">
+
+                        <label>衣裳担当コメント</label>
+
+                        <textarea
+                            id="costume-staff-comment"
+                            class="cute-input"
+                            rows="3"></textarea>
+
+                    </div>
+
+
+                    <div class="section-header">
+
+                        <h3>個別項目</h3>
+
+                    </div>
+
+                    <div id="costume-items-container">
+                        <div class="costume-item-block">
+                            <div class="input-group-full">
+                                <label>大項目</label>
+                                <select
+                                    class="costume-item-category cute-input">
+                                    <option value="">選択してください</option>
+                                    <option value="全身">全身</option>
+                                    <option value="ウィッグ">ウィッグ</option>
+                                    <option value="衣裳">衣裳</option>
+                                    <option value="靴">靴</option>
+                                    <option value="アクセ/小物">アクセ/小物</option>
+                                </select>
+
+                            </div>
+                            
+                            <div class="input-group-full">
+                                <label>画像</label>
+                                <input
+                                    type="file"
+                                    class="costume-item-images cute-input"
+                                    accept="image/*"
+                                    multiple
+                                    onchange="handleCostumeImageSelect(event)">
+                            </div>
+
+                            <div class="input-group-full">
+                                <label>URLタイトル</label>
+                                <input
+                                    type="text"
+                                    class="costume-item-url-title cute-input">
+                            </div>
+
+                            <div class="input-group-full">
+                                <label>URL</label>
+                                <input
+                                    type="text"
+                                    class="costume-item-url cute-input">
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <button
+                    type="button"
+                    id="add-costume-item-btn"
+                    class="puffy-btn gray"
+                    onclick="addCostumeItem()">
+                    ＋個別項目追加
+                </button>
+
+                    <div
+                        class="button-area"
+                        style="margin-top:20px;">
+
+                        <button
+                            type="submit"
+                            id="costume-image-submit"
+                            class="puffy-btn pink">
+
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            登録する
+
+                        </button>
+
+                        <button
+                            type="button"
+                            class="puffy-btn gray"
+                            onclick="resetCostumeForm()">
+
+                            キャンセル
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+        <!-- 管理 -->
+        <div
+            id="costume-admin"
+            class="costume-tab-content"
+            style="display:none;">
+
+            <div class="card">
+
+                <div
+                    style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        margin-bottom:15px;">
+
+                    <h2 class="main-txt">
+
+                        <i class="fa-solid fa-gear"></i>
+
+                        配役管理
+
+                    </h2>
+
+                    <button
+                        id="add-cast-btn"
+                        class="puffy-btn pink"
+                        type="button">
+
+                        新規追加
+
+                    </button>
+
+                </div>
+
+                <div
+                    id="cast-edit-area"
+                    style="display:none; margin-bottom:20px; padding:15px; border:1px solid #ddd; border-radius:8px;">
+
+                    <h3>配役編集</h3>
+
+                    <div class="input-group">
+                        <label>表示順</label>
+                        <input type="number" id="edit-sort-order" class="cute-input">
+                    </div>
+
+                    <div class="input-group">
+                        <label>役ID</label>
+                        <input type="number" id="edit-role-id" class="cute-input">
+                    </div>
+
+                    <div class="input-group">
+                        <label>役名</label>
+                        <input type="text" id="edit-role-name" class="cute-input">
+                    </div>
+
+                    <div class="input-group">
+                        <label>メンバーID</label>
+                        <input type="text" id="edit-member-id" class="cute-input">
+                    </div>
+
+                    <div class="input-group">
+                        <label>メンバー名</label>
+                        <input type="text" id="edit-member-name" class="cute-input">
+                    </div>
+
+                    <div class="input-group">
+                        <label>組</label>
+                        <input type="text" id="edit-group-name" class="cute-input">
+                    </div>
+
+                    <input type="hidden" id="edit-cast-id">
+
+                    <div class="button-area">
+                        <button
+                            type="button"
+                            id="update-cast-btn"
+                            class="puffy-btn pink">
+
+                            更新する
+
+                        </button>
+
+                        <button
+                            type="button"
+                            id="cancel-cast-btn"
+                            class="puffy-btn gray">
+
+                            キャンセル
+
+                        </button>
+                    </div>
+
+                </div>
+
+                <table
+                    class="table table-hover"
+                    id="costume-admin-cast-list">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>表示順</th>
+                            <th>役ID</th>
+                            <th>役名</th>
+                            <th>メンバーID</th>
+                            <th>メンバー名</th>
+                            <th>組</th>
+                            <th>編集</th>
+                            <th>削除</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+    </div>
+    </main>
 
     </div>
 
@@ -1197,6 +1529,7 @@
     <script src="js/closet-csv.js?v=1.2"></script>
     <script src="js/closet.js?v=1.2"></script>
 
+        <script src="js/costume_image.js"></script>
     <script src="js/main.js"></script>
 
 </body>
