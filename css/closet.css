@@ -620,13 +620,14 @@
 
 .costume-item-images {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    justify-content: center;
 }
 
 .costume-list-image {
-    width: 120px;
-    height: 120px;
+    width: 100%;
+    max-width: 140px;
+    aspect-ratio: 3 / 4;
+    height: auto;
     object-fit: cover;
     border-radius: 8px;
     cursor: pointer;
@@ -685,4 +686,17 @@
     cursor: pointer;
     font-size: 18px;
     color: #d96b9a;
+}
+
+@media (max-width: 768px) {
+
+    .costume-items-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .costume-item-display {
+        padding: 0 8px;
+    }
+
 }
