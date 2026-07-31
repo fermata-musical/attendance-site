@@ -618,6 +618,12 @@
     font-size: 15px;
 }
 
+.costume-comment h4 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+}
 .costume-item-images {
     display: flex;
     justify-content: center;
@@ -715,4 +721,10 @@
         gap: 4px;
     }
 
+}
+
+.costume-post-date {
+    font-size: 12px;
+    color: #888;
+    margin: 4px 0 12px;
 }
