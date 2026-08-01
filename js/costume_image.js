@@ -1,55 +1,77 @@
-// js/costume_image.js
-// Handles the independent image selection, preview, and form submission for the "衣裳イメージ" tab.
-// This file is deliberately isolated and does not touch the existing handleImageSelect() logic.
-
-let editingProjectId = null;
-
-/**
- * Preview selected image files.
- * @param {Event} event - The file input change event.
- */
 function handleCostumeImageSelect(event) {
     const input = event.target;
     const block = input.closest(".costume-item-block");
 
-    if (block) {
-        block.selectedImages = Array.from(input.files);
+    if (!block) return;
+
+    if (!block.selectedImages) {
+        block.selectedImages = [];
     }
 
-    const previewContainer = block
-        ? block.querySelector(".costume-image-preview")
-        : null;
+    const previewContainer = block.querySelector(".costume-image-preview");
 
-    if (previewContainer) {
-        previewContainer.innerHTML = "";
-    }
+    Array.from(input.files).forEach(file => {
 
-    const files = input.files;
-    if (!files) return;
-  Array.from(files).forEach((file) => {
-    if (!file.type.startsWith('image/')) return; // skip non‑image files
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      img.alt = file.name;
-      img.style.maxWidth = '150px';
-      img.style.maxHeight = '150px';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '8px';
-      img.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-      if (previewContainer) {
-          previewContainer.appendChild(img);
-      }
-    };
-    reader.readAsDataURL(file);
-  });
+        if (!file.type.startsWith("image/")) return;
+
+        block.selectedImages.push(file);
+
+        const reader = new FileReader();
+
+        reader.onload = e => {
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "costume-preview-item";
+            wrapper.style.position = "relative";
+            wrapper.style.display = "inline-block";
+            wrapper.style.margin = "4px";
+
+            const img = document.createElement("img");
+            img.src = e.target.result;
+            img.alt = file.name;
+            img.style.maxWidth = "150px";
+            img.style.maxHeight = "150px";
+            img.style.objectFit = "cover";
+            img.style.borderRadius = "8px";
+            img.style.boxShadow = "0 2px 6px rgba(0,0,0,.15)";
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = "×";
+            btn.style.position = "absolute";
+            btn.style.top = "4px";
+            btn.style.right = "4px";
+            btn.style.width = "24px";
+            btn.style.height = "24px";
+            btn.style.border = "none";
+            btn.style.borderRadius = "50%";
+            btn.style.background = "#e53935";
+            btn.style.color = "#fff";
+            btn.style.cursor = "pointer";
+
+            btn.onclick = () => {
+                const index = block.selectedImages.indexOf(file);
+
+                if (index !== -1) {
+                    block.selectedImages.splice(index, 1);
+                }
+
+                wrapper.remove();
+            };
+
+            wrapper.appendChild(img);
+            wrapper.appendChild(btn);
+            previewContainer.appendChild(wrapper);
+
+        };
+
+        reader.readAsDataURL(file);
+
+    });
+
+    input.value = "";
 }
 
-/**
- * Submit the costume image form.
- * For now we only log the selected files to the console, per the specification.
- */
 async function submitCostumeImage() {
 
     console.log("submitCostumeImage 実行");
@@ -216,6 +238,10 @@ function addCostumeItem() {
 
     clone.selectedImages = [];
 
+    clone.removeAttribute("data-project-item-id");
+    clone.dataset.existingImages = "[]";
+    clone.dataset.originalImages = "[]";
+
     clone.querySelectorAll("input").forEach(input => {
         input.value = "";
     });
@@ -223,6 +249,11 @@ function addCostumeItem() {
     clone.querySelectorAll("select").forEach(select => {
         select.value = "";
     });
+
+    const preview = clone.querySelector(".costume-image-preview");
+    if (preview) {
+        preview.innerHTML = "";
+    }
 
     container.appendChild(clone);
 }
@@ -302,6 +333,10 @@ async function renderCostumeImageList() {
     }
 
     console.log("一覧取得結果", data);
+
+    data.forEach(project => {
+        console.log(project.role_id, project.costume_image_items.length);
+    });
 
     console.log(JSON.stringify(data, null, 2));
     console.log("1件目", data[0]);
@@ -453,7 +488,7 @@ async function editCostumeImage(projectId) {
     console.log("編集対象 items =", items);
     console.log("件数 =", items?.length);
 
-    resetCostumeForm();
+    // resetCostumeForm();
 
     document.querySelector('[data-costume-tab="entry"]').click();
 
@@ -524,11 +559,37 @@ async function editCostumeImage(projectId) {
         if (preview && item.images) {
             preview.innerHTML = "";
 
-            item.images.forEach(image => {
+            item.images.forEach((image, index) => {
                 preview.insertAdjacentHTML(
                     "beforeend",
-                    `<img src="${image}" onclick="openCostumeImageModal('${image}')" style="max-width:150px;max-height:150px;object-fit:cover;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.15);cursor:pointer;">`
+                    `
+                    <div class="costume-preview-item" style="position:relative;display:inline-block;margin:4px;">
+                        <img
+                            src="${image}"
+                            onclick="openCostumeImageModal('${image}')"
+                            style="max-width:150px;max-height:150px;object-fit:cover;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.15);cursor:pointer;">
+
+                        <button
+                            type="button"
+                            class="costume-image-delete-btn"
+                            data-index="${index}"
+                            style="position:absolute;top:4px;right:4px;width:24px;height:24px;border:none;border-radius:50%;background:#e53935;color:#fff;cursor:pointer;">
+                            ×
+                        </button>
+                    </div>
+                    `
                 );
+            });
+
+            preview.querySelectorAll(".costume-image-delete-btn").forEach(btn => {
+                btn.onclick = () => {
+                    const index = Number(btn.dataset.index);
+
+                    item.images.splice(index, 1);
+                    block.dataset.existingImages = JSON.stringify(item.images);
+
+                    btn.parentElement.remove();
+                };
             });
         }
 
@@ -918,7 +979,7 @@ async function updateCostumeImage() {
 
         console.log("選択ファイル数", input?.files?.length);
 
-        if (input && input.files && input.files.length > 0) {
+        if (block.selectedImages && block.selectedImages.length > 0) {
 
             for (const file of block.selectedImages) {
 
@@ -964,8 +1025,7 @@ async function updateCostumeImage() {
         console.log("更新対象itemId", itemId);
 
         if (!itemId) {
-            console.log("個別項目IDなし");
-            continue;
+            console.log("新規個別項目です");
         }
         console.log("block data", block.dataset);
         console.log("existingImages", block.dataset.existingImages);
