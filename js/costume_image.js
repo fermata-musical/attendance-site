@@ -1,3 +1,5 @@
+let editingProjectId = null;
+
 function handleCostumeImageSelect(event) {
     const input = event.target;
     const block = input.closest(".costume-item-block");
@@ -94,7 +96,6 @@ async function submitCostumeImage() {
         cast_name: option.dataset.roleName,
         member_name: option.dataset.memberName,
         group_name: option.dataset.groupName,
-        scene: document.getElementById("costume-scene").value,
         scene: document.getElementById("costume-scene").value,
         costume_name: document.getElementById("costume-scene").value,
         cast_comment: document.getElementById("costume-cast-comment").value,
