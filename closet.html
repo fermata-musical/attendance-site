@@ -1212,13 +1212,71 @@
                     </h2>
                 </div>
 
+                <div
+                    id="costume-sort-area"
+                    style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                        margin-bottom:15px;
+                    ">
+
+                    <label
+                        style="
+                            font-weight:bold;
+                            color:#7b3f55;
+                        ">
+                        並び順
+                    </label>
+
+                    <select
+                        id="costume-sort-select"
+                        class="cute-input"
+                        style="flex:1;">
+
+                        <option value="role-id">
+                            役ID順
+                        </option>
+
+                        <option value="display-order">
+                            表示順
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="input-group-full">
+                    <label>シーン検索</label>
+                    <div>
+                        <label>
+                            <input type="checkbox" class="scene-filter" value="城_魔法にかかっている">
+                            城_魔法にかかっている
+                        </label>
+
+                        <label>
+                            <input type="checkbox" class="scene-filter" value="城_魔法がとけた">
+                            城_魔法がとけた
+                        </label>
+
+                        <label>
+                            <input type="checkbox" class="scene-filter" value="村">
+                            村
+                        </label>
+
+                        <label>
+                            <input type="checkbox" class="scene-filter" value="城と村">
+                            城と村
+                        </label>
+                    </div>
+                </div>
+
                 <div id="costume-image-list-container">
                 </div>
 
             </div>
 
         </div>
-
         <div id="costume-image-modal" class="costume-image-modal">
             <span id="costume-image-modal-close">×</span>
             <img id="costume-image-modal-img">
@@ -1252,19 +1310,24 @@
                         </select>
 
                     </div>
+
                     <div class="input-group-full">
 
-                        <label>衣裳名</label>
+                        <label>シーン</label>
 
-                        <input
-                            type="text"
-                            id="costume-name"
-                            class="cute-input"
-                            placeholder="例：ベル町娘衣裳">
+                        <select
+                            id="costume-scene"
+                            class="cute-input">
+
+                            <option value="">選択してください</option>
+                            <option value="城_魔法にかかっている">城_魔法にかかっている</option>
+                            <option value="城_魔法がとけた">城_魔法がとけた</option>
+                            <option value="村">村</option>
+                            <option value="城と村">城と村</option>
+
+                        </select>
 
                     </div>
-
-
                     <div class="input-group-full">
 
                         <label>キャストコメント</label>
@@ -1360,11 +1423,10 @@
                             登録する
 
                         </button>
-
                         <button
                             type="button"
                             class="puffy-btn gray"
-                            onclick="resetCostumeForm()">
+                            onclick="cancelCostumeEdit()">
 
                             キャンセル
 
@@ -1480,10 +1542,10 @@
 
                         <tr>
 
+                            <th></th>
                             <th>表示順</th>
                             <th>役ID</th>
                             <th>役名</th>
-                            <th>メンバーID</th>
                             <th>メンバー名</th>
                             <th>組</th>
                             <th>編集</th>

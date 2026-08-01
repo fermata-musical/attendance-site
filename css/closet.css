@@ -728,3 +728,114 @@
     color: #888;
     margin: 4px 0 12px;
 }
+
+.costume-item-block {
+    border: 1px solid #e8b7cb;
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 24px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(180, 120, 150, 0.08);
+}
+
+.costume-item-block::before {
+    content: "＋ 個別項目";
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    color: #d96f9b;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1d5df;
+}
+
+.costume-item-block {
+    border: 1px solid #ead5df;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: #fffafc;
+}
+
+.costume-add-item-btn {
+    border-radius: 999px;
+    border: 1px solid #e8b7cb;
+    background: #fff;
+    color: #7b3f55;
+    padding: 12px 24px;
+    font-weight: bold;
+}
+
+.costume-add-item-btn:hover {
+    background: #fff0f5;
+}
+
+.costume-list-image {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.costume-items-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-top:15px;
+}
+
+.costume-item-display {
+    padding:0;
+}
+
+.costume-item-display h4 {
+    margin:0 0 5px;
+    font-size:14px;
+}
+
+.costume-list-image {
+    width:100%;
+    aspect-ratio:1 / 1;
+    object-fit:cover;
+    border-radius:10px;
+}
+
+.costume-item-links {
+    margin-top:5px;
+    font-size:13px;
+}
+
+.costume-comment.staff-comment {
+    margin-top:15px;
+    padding:12px 15px;
+    border:1px solid #e8b7cb;
+    border-left:5px solid #e57aa6;
+    border-radius:10px;
+    background:#fff5f9;
+}
+
+.costume-comment.staff-comment h4 {
+    margin:0 0 8px;
+    color:#d96f9b;
+    font-size:14px;
+}
+
+.costume-comment.staff-comment p {
+    margin:0;
+    line-height:1.6;
+}
+
+.cast-order-buttons {
+    display:flex;
+    gap:8px;
+    align-items:center;
+}
+
+.delete-cast-btn {
+    color: #e57aa6;
+}
+
+.delete-cast-btn:hover {
+    color: #d96f9b;
+}
