@@ -158,7 +158,6 @@ async function submitCostumeImage() {
                 }
             ]
         });
-
     }
     console.log("itemBlocks数", itemBlocks.length);
     console.log("itemDataList", itemDataList);
@@ -192,7 +191,6 @@ async function submitCostumeImage() {
 
     alert("登録しました");
 }
-
 /**
  * Reset the form – clear the file input and the preview area.
  */
@@ -228,6 +226,8 @@ function resetCostumeForm() {
 
     container.appendChild(block);
 
+    updateCostumeItemMoveButtons();
+
     window.selectedCostumeImages = [];
 }
 
@@ -256,6 +256,8 @@ function addCostumeItem() {
     }
 
     container.appendChild(clone);
+
+    updateCostumeItemMoveButtons();
 }
 
 async function renderCostumeImageList() {
@@ -394,16 +396,20 @@ async function renderCostumeImageList() {
                                     class="costume-list-image">
                             `).join("")}
                         </div>
-
                         ${
                             item.urls && item.urls.length
                             ? `
                             <div class="costume-item-links">
-                                ${item.urls.map(u => `
-                                    <a href="${u.url}" target="_blank">
-                                        ${u.title || "リンク"}
-                                    </a>
-                                `).join("")}
+                                ${item.urls
+                                    .filter(u => (u.title || "").trim() || (u.url || "").trim())
+                                    .map(u => `
+                                        <a
+                                            href="${u.url}"
+                                            target="_blank"
+                                            rel="noopener noreferrer">
+                                            ${u.title || u.url}
+                                        </a>
+                                    `).join("")}
                             </div>
                             `
                             : ""
@@ -601,6 +607,8 @@ async function editCostumeImage(projectId) {
     if (saveBtn) {
         saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 更新する';
     }
+
+    updateCostumeItemMoveButtons();
 
     await renderCostumeImageList();
 
@@ -1017,7 +1025,6 @@ async function updateCostumeImage() {
                 }
             ]
         };
-
         console.log("更新itemData", itemData);
 
         const itemId = block.dataset.projectItemId || block.getAttribute("data-project-item-id");
@@ -1339,12 +1346,101 @@ async function moveCostumeCastOrder(id, direction) {
 
 window.moveCostumeCastOrder = moveCostumeCastOrder;
 
-document.addEventListener("change", (e) => {
+function moveCostumeItem(button, direction) {
+    const block = button.closest(".costume-item-block");
 
-    if (e.target.classList.contains("scene-filter")) {
+    if (!block) return;
 
-        renderCostumeImageList();
+    if (direction === "up") {
+        const previous = block.previousElementSibling;
 
+        if (previous) {
+            block.parentNode.insertBefore(block, previous);
+        }
+    } else {
+        const next = block.nextElementSibling;
+
+        if (next) {
+            block.parentNode.insertBefore(next, block);
+        }
+    }
+}
+
+window.moveCostumeItem = moveCostumeItem;
+
+function updateCostumeItemMoveButtons() {
+
+    return;
+
+    const blocks = document.querySelectorAll(".costume-item-block");
+    const area = document.getElementById("costume-item-move-buttons");
+
+    if (!area) return;
+
+    const active = document.activeElement;
+    const current = active
+        ? active.closest(".costume-item-block")
+        : null;
+
+    const index = current
+        ? Array.from(blocks).indexOf(current)
+        : 0;
+
+    area.innerHTML = `
+        <button
+            type="button"
+            class="icon-btn"
+            onclick="moveCostumeItemByIndex(${index}, 'up')"
+            ${index === 0 ? "disabled" : ""}>
+            ↑
+        </button>
+
+        <button
+            type="button"
+            class="icon-btn"
+            onclick="moveCostumeItemByIndex(${index}, 'down')"
+            ${index === blocks.length - 1 ? "disabled" : ""}>
+            ↓
+        </button>
+    `;
+
+}
+
+window.moveCostumeItem = moveCostumeItem;
+
+function deleteCostumeItem(button) {
+    const block = button.closest(".costume-item-block");
+
+    if (!block) return;
+
+    const container = document.getElementById("costume-items-container");
+
+    if (container.querySelectorAll(".costume-item-block").length === 1) {
+        alert("個別項目は1つ以上必要です。");
+        return;
     }
 
+    if (!confirm("この個別項目を削除しますか？")) {
+        return;
+    }
+
+    block.remove();
+}
+
+window.deleteCostumeItem = deleteCostumeItem;
+
+document.addEventListener("change", (e) => {
+    if (e.target.classList.contains("scene-filter")) {
+        renderCostumeImageList();
+    }
 });
+
+window.handleCostumeImageSelect = handleCostumeImageSelect;
+window.submitCostumeImage = submitCostumeImage;
+window.resetCostumeForm = resetCostumeForm;
+window.addCostumeItem = addCostumeItem;
+window.renderCostumeImageList = renderCostumeImageList;
+
+// -----------------------------
+// 衣裳イメージ サブタブ
+// -----------------------------
