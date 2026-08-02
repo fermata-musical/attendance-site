@@ -127,8 +127,13 @@ async function submitCostumeImage() {
 
             for (const file of block.selectedImages || []) {
 
+                const ext =
+                    file.name.substring(
+                        file.name.lastIndexOf(".") + 1
+                    );
+
                 const filePath =
-                    `costume-images/${crypto.randomUUID()}_${file.name}`;
+                    `${crypto.randomUUID()}.${ext}`;
 
                 const { error: uploadError } = await db.storage
                     .from("costume-images")
@@ -136,7 +141,10 @@ async function submitCostumeImage() {
 
                 if (uploadError) {
                     console.error(uploadError);
-                    alert("画像アップロードに失敗しました");
+                    alert(
+                        "画像アップロードに失敗しました。\n\n" +
+                        JSON.stringify(uploadError, null, 2)
+                    );
                     return;
                 }
 
@@ -276,6 +284,15 @@ async function renderCostumeImageList() {
         return;
     }
 
+    const { data: casts, error: castError } = await db
+        .from("costume_casts")
+        .select("*");
+
+    if (castError) {
+        console.error(castError);
+        return;
+    }
+
     const { data: items, error: itemError } = await db
         .from("costume_image_items")
         .select("*");
@@ -285,12 +302,23 @@ async function renderCostumeImageList() {
         return;
     }
 
-    let data = projects.map(project => ({
-        ...project,
-        costume_image_items: items.filter(item =>
-            item.project_id === project.id
-        )
-    }));
+    let data = projects.map(project => {
+
+        const cast = casts.find(c => c.id === project.member_id);
+
+        return {
+            ...project,
+            sort_order: cast?.sort_order ?? 9999,
+            role_id: cast?.role_id ?? project.role_id,
+            member_name: cast?.member_name ?? project.member_name,
+            role_name: cast?.role_name ?? project.cast_name,
+            group_name: cast?.group_name ?? project.group_name,
+            costume_image_items: items.filter(item =>
+                item.project_id === project.id
+            )
+        };
+
+    });
 
     const selectedScenes = Array.from(
         document.querySelectorAll(".scene-filter:checked")
@@ -315,24 +343,36 @@ async function renderCostumeImageList() {
     }
 
     const sortMode =
-        localStorage.getItem("costumeSortMode") || "role-id";
+        document.getElementById("costume-sort-select")?.value || "display-order";
 
-    const savedOrder = JSON.parse(
-        localStorage.getItem("costumeImageOrder") || "[]"
-    );
+    switch (sortMode) {
 
-    if (sortMode === "display-order" && savedOrder.length) {
+        case "display-order":
+            data.sort((a, b) =>
+                (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
+            );
+            break;
 
-        data.sort((a, b) => {
-            return savedOrder.indexOf(a.id) - savedOrder.indexOf(b.id);
-        });
+        case "member-name":
+            data.sort((a, b) =>
+                (a.member_name || "").localeCompare(
+                    b.member_name || "",
+                    "ja"
+                )
+            );
+            break;
 
-    } else {
+        case "role-id":
+            data.sort((a, b) =>
+                (a.role_id ?? 9999) - (b.role_id ?? 9999)
+            );
+            break;
 
-        data.sort((a, b) => {
-            return (a.role_id || 9999) - (b.role_id || 9999);
-        });
-
+        default:
+            data.sort((a, b) =>
+                (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
+            );
+            break;
     }
 
     console.log("一覧取得結果", data);
@@ -992,16 +1032,23 @@ async function updateCostumeImage() {
 
             for (const file of block.selectedImages) {
 
-                const filePath =
-                    `costume-images/${crypto.randomUUID()}_${file.name}`;
+                const ext =
+                    file.name.substring(
+                        file.name.lastIndexOf(".") + 1
+                    );
 
+                const filePath =
+                    `${crypto.randomUUID()}.${ext}`;
                 const { error: uploadError } = await db.storage
                     .from("costume-images")
                     .upload(filePath, file);
 
                 if (uploadError) {
                     console.error(uploadError);
-                    alert("画像アップロードに失敗しました");
+                    alert(
+                        "画像アップロードに失敗しました。\n\n" +
+                        JSON.stringify(uploadError, null, 2)
+                    );
                     return;
                 }
 
