@@ -2,6 +2,18 @@
 
 let currentEditingItemId = null;
 
+const TREASURE_MODE = true;
+
+// 掘り出し市終了後は false に戻す
+
+// 掘り出し市モード時のみお知らせを表示
+document.addEventListener('DOMContentLoaded', () => {
+    const notice = document.getElementById('treasure-mode-notice');
+    if (notice) {
+        notice.style.display = TREASURE_MODE ? 'block' : 'none';
+    }
+});
+
 // 編集中に内容が変更されたか
 let hasEditChanges = false;
 
@@ -13,6 +25,11 @@ let pendingResolveSetQuantity = null;
 // ページロード時の初期化処理
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded");
+
+    const notice = document.getElementById('treasure-mode-notice');
+    if (notice) {
+        notice.style.display = TREASURE_MODE ? 'block' : 'none';
+    }
 
     let currentMember = getCurrentMember();
 
@@ -766,6 +783,45 @@ function updateSmallCategoryExample() {
 
 // 新規備品データまたは更新データの保存
 async function submitClosetEntry() {
+
+    if (TREASURE_MODE) {
+
+        if (selectedImages.length === 0) {
+            alert('写真を登録してください。');
+            return;
+        }
+
+        if (!document.getElementById('entry-large-category').value) {
+            alert('大項目を選択してください。');
+            return;
+        }
+
+        if (!document.getElementById('entry-storage').value) {
+            alert('保管ボックスを選択してください。');
+            return;
+        }
+
+        if (!document.getElementById('entry-status').value) {
+            alert('管理状態を選択してください。');
+            return;
+        }
+
+        const statusSelect = document.getElementById('entry-status');
+
+        const statusText =
+            statusSelect.selectedOptions.length
+                ? statusSelect.selectedOptions[0].textContent
+                : '';
+
+        if (
+            statusText.includes('貸出') &&
+            !document.getElementById('entry-loan-to').value.trim()
+        ) {
+            alert('貸出先を入力してください。');
+            document.getElementById('entry-loan-to').focus();
+            return;
+        }
+    }
     if (!window.db) {
         alert('データベースに接続されていません。');
         return;
@@ -1233,6 +1289,11 @@ function resetClosetEntryForm(clearInfo = true) {
     currentEditingItemId = null;
     hasEditChanges = false;
 
+    const notice = document.getElementById('treasure-mode-notice');
+    if (notice) {
+        notice.style.display = TREASURE_MODE ? 'block' : 'none';
+    }
+
     // 削除ボタンを非表示
     document.getElementById('delete-item-btn').style.display = 'none';
 
@@ -1260,6 +1321,8 @@ function resetClosetEntryForm(clearInfo = true) {
 
     document.getElementById('entry-next-usable').checked = false;
     document.getElementById('entry-next-comment').value = '';
+
+    toggleLoanFields();
     
     // チェックボックスもリセット
     document.querySelectorAll('#closet-entry-form input[type="checkbox"]').forEach(cb => {

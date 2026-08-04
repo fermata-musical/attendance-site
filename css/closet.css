@@ -882,3 +882,16 @@
     background: #fde3eb;
 
 }
+
+/* ==========================================
+   掘り出し市モード
+========================================== */
+
+.treasure-required {
+    background:#fff0f8;
+    border:2px solid #ff8cc8;
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:20px;
+    box-shadow:0 4px 12px rgba(255,20,147,.12);
+}

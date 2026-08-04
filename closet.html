@@ -410,7 +410,30 @@
 
 
                     <form id="closet-entry-form" onsubmit="event.preventDefault(); submitClosetEntry();">
-                        
+
+                        <div id="treasure-mode-notice"
+                            class="card"
+                            style="display:none; margin-bottom:20px; background:#fff8d9; border:2px solid #f0c040;">
+
+                            <div class="section-header">
+                                <h3>📦 掘り出し市モード</h3>
+                            </div>
+
+                            <p style="margin:0; line-height:1.8;">
+                                持ち帰る衣裳は、まず次の5項目だけ登録してください。<br>
+                                その他の項目は後から入力できます。
+                            </p>
+
+                            <ul style="margin:12px 0 0; line-height:1.8;">
+                                <li>★ 写真</li>
+                                <li>★ 大項目</li>
+                                <li>★ 保管ボックス</li>
+                                <li>★ 管理状態</li>
+                                <li>★ 貸出先</li>
+                            </ul>
+
+                        </div>
+
                         <div class="input-group-full">
                         <div class="button-area" style="margin-bottom:20px;">
 
@@ -448,9 +471,14 @@
                                     <h3><i class="fa-solid fa-box"></i> 基本情報</h3>
                                 </div>
                                                    
+                                <div class="treasure-required">
+
                                 <!-- 写真登録 (Step 5で実装) -->
                                 <div style="margin-top: 15px;">
-                                    <label>写真</label>
+                                    <label>
+                                        <span style="color:#d32f2f; font-weight:bold;">★</span>
+                                        写真
+                                    </label>
                                     <input
                                         type="file"
                                         id="entry-image"
@@ -472,7 +500,10 @@
                                 <div style="display: flex; gap: 10px;">
 
                                     <div style="flex: 1;">
-                                        <label>大項目 <span style="color:red">*</span></label>
+                                        <label>
+                                            <span style="color:#d32f2f; font-weight:bold;">★</span>
+                                            大項目
+                                        </label>
                                         <select id="entry-large-category" class="cute-input" required>
                                             <option value="">選択</option>
                                         </select>
@@ -507,6 +538,8 @@
                                         border-radius:8px;
                                         line-height:1.6;
                                     ">
+                                </div>
+
                                 </div>
 
                                 <div style="margin-top: 15px; border-top: 1px dashed var(--border-dusty); padding-top: 15px;">
@@ -553,14 +586,21 @@
                                             <input type="text" id="entry-name" class="cute-input" placeholder="例：黒いハット">
                                         </div>
 
+                                <div class="treasure-required">
+
                                         <div style="display: flex; gap: 10px;">
                                             <div style="flex: 1;">
-                                                <label>保管ボックス</label>
+                                                <label>
+                                                    <span style="color:#d32f2f; font-weight:bold;">★</span>
+                                                    保管ボックス
+                                                </label>
                                                 <select id="entry-storage" class="cute-input">
                                                     <option value="">選択</option>
                                                 </select>
                                             </div>
                                         </div>
+
+                                </div>
 
                                         <div style="display: flex; gap: 10px;">
                                             <div style="flex: 1;">
@@ -627,37 +667,52 @@
                                     <h3><i class="fa-solid fa-clipboard-check"></i> 管理情報</h3>
                                 </div>
 
-                                <div style="display: flex; gap: 10px;">
-                                    <div style="flex: 1;">
-                                        <label>管理状態</label>
-                                        <select id="entry-status"
-                                            class="cute-input"
-                                            onchange="toggleLoanFields()">
-                                            <option value="">選択</option>
-                                        </select>
+                                <div class="treasure-required">
+
+                                    <div style="display: flex; gap: 10px;">
+                                        <div style="flex: 1;">
+                                            <label>
+                                                <span style="color:#d32f2f; font-weight:bold;">★</span>
+                                                管理状態
+                                            </label>
+                                            <select id="entry-status"
+                                                class="cute-input"
+                                                onchange="toggleLoanFields()">
+                                                <option value="">選択</option>
+                                            </select>
+                                        </div>
                                     </div>
+
                                 </div>
 
-                            <div id="loan-fields" style="display: none;">
+                                <div id="loan-fields" style="display: none;">
 
-                                <div style="display: flex; gap: 10px;">
-                                    <div style="flex: 1;">
-                                        <label>貸出先</label>
+                                    <div class="treasure-required">
+
+                                        <label>
+                                            <span style="color:#d32f2f; font-weight:bold;">★</span>
+                                            貸出先
+                                        </label>
+
                                         <input type="text" id="entry-loan-to" class="cute-input">
+
                                     </div>
 
-                                    <div style="flex: 1;">
-                                        <label>貸出日</label>
-                                        <input type="date" id="entry-loan-date" class="cute-input">
+                                    <div style="display: flex; gap: 10px; margin-top:15px;">
+
+                                        <div style="flex: 1;">
+                                            <label>貸出日</label>
+                                            <input type="date" id="entry-loan-date" class="cute-input">
+                                        </div>
+
+                                        <div style="flex: 1;">
+                                            <label>返却予定日</label>
+                                            <input type="date" id="entry-return-date" class="cute-input">
+                                        </div>
+
                                     </div>
 
-                                    <div style="flex: 1;">
-                                        <label>返却予定日</label>
-                                        <input type="date" id="entry-return-date" class="cute-input">
-                                    </div>
                                 </div>
-
-                            </div>
 
                             <div style="display: flex; gap: 10px;">
                                 <div id="disposed-field" style="flex: 1; display:none;">
