@@ -222,7 +222,9 @@ function getSmallCategoryName(id) {
 }
 
 function getStorageBoxName(id) {
-    return state.closetMaster.storage.find(x => x.id === id)?.location || '-';
+    const box = state.closetMaster.storage.find(x => x.id === id);
+    if (!box) return "-";
+    return `📦 ${box.code}　📍 ${box.location}`;
 }
 
 function populateDropdown(elementId, data, valKey, textKey) {
