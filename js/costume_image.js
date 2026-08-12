@@ -544,13 +544,13 @@ console.log("一覧取得結果", data);
                         <div class="costume-item-images">
                             ${
                                 item.images && item.images.length > 0
-                                    ? `
+                                    ? item.images.map(image => `
                                         <img
-                                            src="${item.images[0]}"
-                                            onclick="openCostumeImageModal('${item.images[0]}')"
+                                            src="${image}"
+                                            onclick="openCostumeImageModal('${image}')"
                                             class="costume-list-image"
                                             loading="lazy">
-                                    `
+                                    `).join("")
                                     : ""
                             }
                         </div>
