@@ -28,28 +28,42 @@ async function handleImageSelect(event, maxCount = 5, maxSizeMB = 0) {
         }
 
         // HEIC画像の変換処理
-        if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
-            try {
-                if (typeof heic2any === 'undefined') {
-                    throw new Error("heic2any library is not loaded.");
-                }
-                const convertedBlob = await heic2any({
-                    blob: file,
-                    toType: "image/jpeg",
-                    quality: 0.8
-                });
-                
-                const newFileName = file.name.replace(/\.heic$/i, '.jpg');
-                // ブラウザによってはFileコンストラクタが使えない場合があるが、モダンブラウザならOK
-                const convertedFile = new File([convertedBlob], newFileName, { type: "image/jpeg" });
-                selectedImages.push(convertedFile);
-            } catch (err) {
-                console.error("HEIC変換エラー:", err);
-                alert(`${file.name}の変換に失敗しました。JPEG等をお試しください。`);
+    if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+        try {
+            if (typeof heic2any === 'undefined') {
+                throw new Error("heic2any library is not loaded.");
             }
-        } else {
-            selectedImages.push(file);
+
+            const convertedBlob = await heic2any({
+                blob: file,
+                toType: "image/jpeg",
+                quality: 0.8
+            });
+
+            const newFileName = file.name.replace(/\.heic$/i, '.jpg');
+
+            const convertedFile = new File(
+                [convertedBlob],
+                newFileName,
+                { type: "image/jpeg" }
+            );
+
+            const resizedFile = await resizeImage(convertedFile);
+
+            selectedImages.push(resizedFile);
+
+        } catch (err) {
+            console.error("HEIC変換エラー:", err);
+            alert(`${file.name}の変換に失敗しました。JPEG等をお試しください。`);
         }
+
+    } else {
+
+        const resizedFile = await resizeImage(file);
+
+        selectedImages.push(resizedFile);
+
+    }
     }
 
     renderImagePreview();

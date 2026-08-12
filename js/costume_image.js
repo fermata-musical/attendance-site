@@ -1,6 +1,60 @@
 let editingProjectId = null;
 
-function handleCostumeImageSelect(event) {
+async function resizeImage(file, maxWidth = 1000, quality = 0.8) {
+
+    return new Promise((resolve) => {
+
+        const reader = new FileReader();
+
+        reader.onload = e => {
+
+            const img = new Image();
+
+            img.onload = () => {
+
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = Math.round(height * maxWidth / width);
+                    width = maxWidth;
+                }
+
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(blob => {
+
+                    const resizedFile = new File(
+                        [blob],
+                        file.name,
+                        {
+                            type: "image/jpeg",
+                            lastModified: Date.now()
+                        }
+                    );
+
+                    resolve(resizedFile);
+
+                }, "image/jpeg", quality);
+
+            };
+
+            img.src = e.target.result;
+
+        };
+
+        reader.readAsDataURL(file);
+
+    });
+
+}
+
+async function handleCostumeImageSelect(event) {
     const input = event.target;
     const block = input.closest(".costume-item-block");
 
@@ -12,11 +66,13 @@ function handleCostumeImageSelect(event) {
 
     const previewContainer = block.querySelector(".costume-image-preview");
 
-    Array.from(input.files).forEach(file => {
+    for (const file of Array.from(input.files)) {
 
-        if (!file.type.startsWith("image/")) return;
+        if (!file.type.startsWith("image/")) continue;
 
-        block.selectedImages.push(file);
+        const resizedFile = await resizeImage(file);
+
+        block.selectedImages.push(resizedFile);
 
         const reader = new FileReader();
 
@@ -30,7 +86,7 @@ function handleCostumeImageSelect(event) {
 
             const img = document.createElement("img");
             img.src = e.target.result;
-            img.alt = file.name;
+            img.alt = resizedFile.name;
             img.style.maxWidth = "150px";
             img.style.maxHeight = "150px";
             img.style.objectFit = "cover";
@@ -52,7 +108,7 @@ function handleCostumeImageSelect(event) {
             btn.style.cursor = "pointer";
 
             btn.onclick = () => {
-                const index = block.selectedImages.indexOf(file);
+                const index = block.selectedImages.indexOf(resizedFile);
 
                 if (index !== -1) {
                     block.selectedImages.splice(index, 1);
@@ -67,9 +123,9 @@ function handleCostumeImageSelect(event) {
 
         };
 
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(resizedFile);
 
-    });
+    }
 
     input.value = "";
 }
@@ -266,23 +322,67 @@ function addCostumeItem() {
 
     container.appendChild(clone);
 
-    updateCostumeItemMoveButtons();
+updateCostumeItemMoveButtons();
+
+}
+
+async function loadCostumeRoleFilter() {
+
+    const container = document.getElementById("costume-role-filter");
+
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    const { data, error } = await db
+        .from("costume_casts")
+        .select("role_name, sort_order")
+        .order("sort_order");
+
+    if (error) {
+        console.error("キャスト取得エラー", error);
+        return;
+    }
+
+    // 「全て」を追加
+    const allLabel = document.createElement("label");
+    allLabel.style.marginRight = "12px";
+    allLabel.style.fontWeight = "bold";
+
+    allLabel.innerHTML = `
+        <input
+            type="checkbox"
+            id="role-filter-all">
+        全て
+    `;
+
+    container.appendChild(allLabel);
+
+    // キャスト一覧
+    data.forEach(row => {
+
+        const label = document.createElement("label");
+
+        label.style.marginRight = "12px";
+
+        label.innerHTML = `
+            <input
+                type="checkbox"
+                class="role-filter"
+                value="${row.role_name}">
+            ${row.role_name}
+        `;
+
+        container.appendChild(label);
+
+    });
+
 }
 
 async function renderCostumeImageList() {
     const container = document.getElementById("costume-image-list-container");
 
     container.innerHTML = "";
-
-    const { data: projects, error: projectError } = await db
-        .from("costume_image_projects")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-    if (projectError) {
-        console.error(projectError);
-        return;
-    }
 
     const { data: casts, error: castError } = await db
         .from("costume_casts")
@@ -293,9 +393,42 @@ async function renderCostumeImageList() {
         return;
     }
 
+    const selectedRoles = Array.from(
+        document.querySelectorAll(".role-filter:checked")
+    ).map(el => el.value);
+
+    if (selectedRoles.length === 0) {
+
+        container.innerHTML = `
+            <p style="text-align:center;color:#888;padding:40px;">
+                キャストを選択してください。
+            </p>
+        `;
+
+        return;
+    }
+
+    const selectedMemberIds = casts
+        .filter(c => selectedRoles.includes(c.role_name))
+        .map(c => c.id);
+
+    const { data: projects, error: projectError } = await db
+        .from("costume_image_projects")
+        .select("*")
+        .in("member_id", selectedMemberIds)
+        .order("created_at", { ascending: false });
+
+    if (projectError) {
+        console.error(projectError);
+        return;
+    }
+
+    const projectIds = projects.map(project => project.id);
+
     const { data: items, error: itemError } = await db
         .from("costume_image_items")
-        .select("*");
+        .select("*")
+        .in("project_id", projectIds);
 
     if (itemError) {
         console.error(itemError);
@@ -319,28 +452,6 @@ async function renderCostumeImageList() {
         };
 
     });
-
-    const selectedScenes = Array.from(
-        document.querySelectorAll(".scene-filter:checked")
-    ).map(el => el.value);
-
-    if (selectedScenes.length > 0) {
-
-        data = data.filter(project => {
-
-            if (selectedScenes.includes("城と村")) {
-                return (
-                    project.scene === "城_魔法にかかっている" ||
-                    project.scene === "城_魔法がとけた" ||
-                    project.scene === "村"
-                );
-            }
-
-            return selectedScenes.includes(project.scene);
-
-        });
-
-    }
 
     const sortMode =
         document.getElementById("costume-sort-select")?.value || "display-order";
@@ -375,7 +486,8 @@ async function renderCostumeImageList() {
             break;
     }
 
-    console.log("一覧取得結果", data);
+console.log("一覧取得結果", data);
+
 
     data.forEach(project => {
         console.log(project.role_id, project.costume_image_items.length);
@@ -430,12 +542,17 @@ async function renderCostumeImageList() {
                         </h4>
 
                         <div class="costume-item-images">
-                            ${item.images.map(image => `
-                                <img
-                                    src="${image}"
-                                    onclick="openCostumeImageModal('${image}')"
-                                    class="costume-list-image">
-                            `).join("")}
+                            ${
+                                item.images && item.images.length > 0
+                                    ? `
+                                        <img
+                                            src="${item.images[0]}"
+                                            onclick="openCostumeImageModal('${item.images[0]}')"
+                                            class="costume-list-image"
+                                            loading="lazy">
+                                    `
+                                    : ""
+                            }
                         </div>
                         ${
                             item.urls && item.urls.length
@@ -685,7 +802,41 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("costume-" + target).style.display = "block";
 
             if (target === "list") {
-                await renderCostumeImageList();
+
+                await loadCostumeRoleFilter();
+
+                // 初期状態では一覧を表示しない
+                document.getElementById("costume-image-list-container").innerHTML = "";
+
+                // 「全て」
+                const allCheckbox = document.getElementById("role-filter-all");
+
+                allCheckbox.onchange = () => {
+
+                    document.querySelectorAll(".role-filter").forEach(cb => {
+                        cb.checked = allCheckbox.checked;
+                    });
+
+                    renderCostumeImageList();
+
+                };
+
+                // 個別チェック
+                document.querySelectorAll(".role-filter").forEach(cb => {
+
+                    cb.onchange = () => {
+
+                        const boxes = document.querySelectorAll(".role-filter");
+                        const checked = document.querySelectorAll(".role-filter:checked");
+
+                        allCheckbox.checked = boxes.length === checked.length;
+
+                        renderCostumeImageList();
+
+                    };
+
+                });
+
             }
 
             if (target === "entry") {

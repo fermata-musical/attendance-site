@@ -468,6 +468,7 @@ function renderClosetItems() {
     
     const textFilter = document.getElementById('closet-search-text')?.value.toLowerCase() || '';
     const numberFilter = document.getElementById('closet-search-number')?.value.toLowerCase() || '';
+
     const largeFilter = document.getElementById('closet-filter-large')?.value || '';
     const middleFilter = document.getElementById('closet-filter-middle')?.value || '';
     const selectedSmalls =
@@ -494,7 +495,48 @@ function renderClosetItems() {
     const nextUsableFilter = document.getElementById('closet-filter-next-usable')?.value || '';
     const favoriteFilter = document.getElementById('closet-filter-favorite')?.value || '';
     const setFilter = document.getElementById('closet-filter-set')?.value || '';
+
+    // 何も入力・選択されていないときは一覧を表示しない
+    if (
+        !textFilter &&
+        !numberFilter &&
+        !largeFilter &&
+        !middleFilter &&
+        selectedSmalls.length === 0 &&
+        !storageFilter &&
+        selectedStatuses.length === 0 &&
+        selectedColors.length === 0 &&
+        selectedMoods.length === 0 &&
+        !nextUsableFilter &&
+        !favoriteFilter &&
+        !setFilter &&
+        document.activeElement.id !== 'closet-search-text' &&
+        document.activeElement.id !== 'closet-search-number'
+    ) {
+
+        container.innerHTML = `
+            <p style="text-align:center;color:#888;padding:40px;">
+                検索してください。
+            </p>
+        `;
+
+        return;
+    }
     
+    const hasSearchCondition =
+        textFilter ||
+        numberFilter ||
+        largeFilter ||
+        middleFilter ||
+        selectedSmalls.length > 0 ||
+        storageFilter ||
+        selectedStatuses.length > 0 ||
+        selectedColors.length > 0 ||
+        selectedMoods.length > 0 ||
+        nextUsableFilter ||
+        favoriteFilter ||
+        setFilter;
+
     const filteredItems = items.filter(item => {
         const searchText = [
             item.name,
@@ -571,6 +613,15 @@ function renderClosetItems() {
                matchSet;
     });
 
+    if (!hasSearchCondition) {
+        container.innerHTML = `
+            <p style="text-align:center;color:#888;padding:40px;">
+                検索してください。
+            </p>
+        `;
+        return;
+    }
+
     if (filteredItems.length === 0) {
         container.innerHTML = '<p style="color: var(--text-sub);">条件に一致する備品がありません。</p>';
         return;
@@ -609,7 +660,14 @@ function renderClosetItems() {
         
         let imageUrl = 'images/no-image.png';
         if (item.item_images && item.item_images.length > 0) {
-            imageUrl = getImageUrl(item.item_images[0].storage_path);
+            imageUrl = getImageUrl(
+                item.item_images[0].storage_path,
+                'item-images',
+                {
+                    width: 300,
+                    quality: 60
+                }
+            );
         }
 
         const storageBox = state.closetMaster?.storage?.find(s => s.id === item.storage_box_id);
@@ -663,6 +721,7 @@ function renderClosetItems() {
                         item.item_images && item.item_images.length > 0
                         ? `
                             <img src="${imageUrl}"
+                                loading="lazy"
                                 alt="備品写真"
                                 style="
                                     width:100%;
@@ -1996,6 +2055,7 @@ function resetClosetFilters() {
         const el = document.getElementById(id);
         if (el) {
             el.value = '';
+            el.blur();
         }
     });
 
