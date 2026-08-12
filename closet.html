@@ -1339,20 +1339,43 @@
 
             </div>
 
-            <!-- 衣裳イメージ一覧 -->
-            <div class="card">
+        <!-- 衣裳イメージ一覧 -->
+        <div class="card">
 
-                <div class="section-header">
-                    <h2>
-                        <i class="fa-solid fa-image"></i>
-                        衣裳イメージ一覧
-                    </h2>
+            <div class="section-header">
+                <h2>
+                    <i class="fa-solid fa-image"></i>
+                    衣裳イメージ一覧
+                </h2>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+
+                <h3>表示するキャスト</h3>
+
+                <div
+                    id="costume-role-filter"
+                    style="display:flex; flex-wrap:wrap; gap:10px; margin:15px 0;">
                 </div>
 
-                <div id="costume-image-list-container">
-                </div>
+                <button
+                    class="primary-btn"
+                    onclick="renderCostumeImageList()">
+                    検索
+                </button>
 
             </div>
+
+            <div id="costume-image-list-container">
+
+                <p
+                    style="text-align:center; color:#888; padding:40px;">
+                    キャストを選択して「検索」を押してください。
+                </p>
+
+            </div>
+
+        </div>
 
         </div>
         <div id="costume-image-modal" class="costume-image-modal">
