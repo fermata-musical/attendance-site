@@ -4,6 +4,7 @@
 // ========================================
 
 let selectedImages = [];
+let deletedImages = [];
 
 // プレビューコンテナのID
 const PREVIEW_CONTAINER_ID = "entry-image-preview";
@@ -148,6 +149,12 @@ function renderImagePreview(bucketName = 'item-images') {
 }
 
 function removeImage(index) {
+    const image = selectedImages[index];
+
+    if (image?.isExisting) {
+        deletedImages.push(image.storage_path);
+    }
+
     selectedImages.splice(index, 1);
     renderImagePreview();
 }
@@ -239,6 +246,28 @@ async function uploadImages(targetId, config) {
             }
         }
     }
+
+    console.log("deletedImages =", deletedImages);
+
+    // 編集時に削除された既存画像をStorageから削除
+    if (deletedImages.length > 0) {
+
+        const { data, error } = await db.storage
+            .from(config.bucket)
+            .remove(deletedImages);
+
+        console.log("Storage remove data =", data);
+        console.log("Storage remove error =", error);
+
+        if (error) {
+            console.error("Storage画像削除エラー:", error);
+        } else {
+            console.log("Storage画像削除完了:", deletedImages);
+            console.log("削除したパス =", deletedImages[0]);
+        }
+
+        deletedImages = [];
+    }
 }
 
 /**
@@ -324,5 +353,6 @@ async function getItemImages(itemId) {
         foreignKey: 'item_id',
         orderColumn: 'image_order'
     };
+
     return await getImages(itemId, config);
 }

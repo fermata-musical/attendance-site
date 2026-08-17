@@ -662,11 +662,7 @@ function renderClosetItems() {
         if (item.item_images && item.item_images.length > 0) {
             imageUrl = getImageUrl(
                 item.item_images[0].storage_path,
-                'item-images',
-                {
-                    width: 300,
-                    quality: 60
-                }
+                'item-images'
             );
         }
 
@@ -678,7 +674,13 @@ function renderClosetItems() {
         const isSelected = state.selectedItems && state.selectedItems.has(item.id);
 
         card.innerHTML = `
-            <div style="position:relative; width:100%; aspect-ratio:1 / 1;">
+            <div style="
+                position:relative;
+                width:100%;
+                aspect-ratio:1 / 1;
+                overflow:hidden;
+                background:#f5f5f5;
+            ">
                 
                 <input type="checkbox" class="bulk-select-checkbox" 
                     ${isSelected ? 'checked' : ''}
@@ -714,7 +716,14 @@ function renderClosetItems() {
                 </i>
 
                 <div
-                    style="cursor:pointer; width:100%; height:100%;"
+                    style="
+                        cursor:pointer;
+                        width:100%;
+                        height:100%;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                    "
                     onclick="showClosetDetail('${item.id}')">
 
                     ${
@@ -727,6 +736,7 @@ function renderClosetItems() {
                                     width:100%;
                                     height:100%;
                                     object-fit:cover;
+                                    object-position:center;
                                     display:block;
                                 ">
                         `

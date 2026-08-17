@@ -746,13 +746,24 @@ async function editCostumeImage(projectId) {
             });
 
             preview.querySelectorAll(".costume-image-delete-btn").forEach(btn => {
-                btn.onclick = () => {
-                    const index = Number(btn.dataset.index);
 
+                btn.onclick = () => {
+
+                    // 現在表示されている順番を取得
+                    const wrappers = Array.from(
+                        preview.querySelectorAll(".costume-preview-item")
+                    );
+
+                    const wrapper = btn.parentElement;
+                    const index = wrappers.indexOf(wrapper);
+
+                    if (index === -1) return;
+                    // 配列から削除
                     item.images.splice(index, 1);
                     block.dataset.existingImages = JSON.stringify(item.images);
 
-                    btn.parentElement.remove();
+                    // 画面から削除
+                    wrapper.remove();
                 };
             });
         }
