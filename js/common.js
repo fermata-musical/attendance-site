@@ -32,7 +32,6 @@ function unlockAndUpdate() {
 }
 
 function showTab(tabId) {
-    console.log("tab click:", tabId);
     const target = document.getElementById(tabId);
     if (!target) return;
 
@@ -549,8 +548,6 @@ function savePracticesFromDOM() {
     if (!list || list.offsetParent === null) return;
 
     const cards = list.querySelectorAll('.admin-card-inner');
-    console.log('[対象数]', cards.length);
-
     state.rehearsals = [];
 
     cards.forEach(card => {
@@ -602,7 +599,6 @@ function savePracticesFromDOM() {
         });
     });
 
-    console.log('[保存データ]', state.rehearsals);
     refreshAdminViewList();
 }
 
@@ -674,13 +670,12 @@ async function saveAllPractices(silent = false) {
 
             if (dataList.length === 0) return;
     
-    console.log('[upsert送信]', dataList);
     const { error } = await db.from('practices').upsert(dataList, { onConflict: 'id' });
+
     if (error) { 
         console.error('[保存エラー]', error); 
         alert('保存エラー: ' + error.message); 
     } else { 
-        console.log('[保存成功]');
         if (!silent) {
             isDirty = false; // 保存成功でフラグをリセット
             alert('変更を保存しました！');

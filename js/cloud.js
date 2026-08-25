@@ -1,45 +1,72 @@
-
 // --- クラウド同期ロジック (Supabase版) ---
+async function loadAllAttendance() {
+    const pageSize = 1000;
+    let from = 0;
+    let rows = [];
+
+    while (true) {
+        const { data, error } = await db
+            .from('attendance')
+            .select('*')
+            .order('id', { ascending: true })
+            .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        rows.push(...data);
+
+        if (data.length < pageSize) break;
+
+        from += pageSize;
+    }
+
+    return {
+        data: rows,
+        error: null,
+        status: 200,
+        count: rows.length
+    };
+}
 
 async function loadCloud() {
     if (!db) return;
     try {
         $('sync-indicator').classList.remove('hidden');
         
-        // 各種データの並列取得
-        const [
-            mRes,
-            pRes,
-            aRes,
-            vRes,
-            locRes,
-            menuRes,
-            memoRes,
-            reactionRes,
-            commentRes,
-            commentReactionRes,
-            catRes,
-            castRes,
-            profileRes,
-            linkRes,
-            memoImgRes
-        ] = await Promise.all([
-            db.from('members').select('*'),
-            db.from('practices').select('*').order('sort_order', { ascending: true }),
-            db.from('attendance').select('*'),
-            db.from('visibility_settings').select('*'),
-            db.from('places').select('*').order('sort_order', { ascending: true }),
-            db.from('menus').select('*').order('sort_order', { ascending: true }),
-            db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
-            db.from('memo_reactions').select('*'),
-            db.from('memo_comments').select('*').order('created_at', { ascending: true }),
-            db.from('memo_comment_reactions').select('*'),
-            db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
-            db.from('cast_master').select('*').order('sort_order', { ascending: true }),
-            db.from('self_profiles').select('*'),
-            db.from('links').select('*').order('display_order', { ascending: true }),
-            db.from('memo_files').select('*').order('sort_order', { ascending: true })
-        ]);
+    // 各種データの並列取得
+    const [
+        mRes,
+        pRes,
+        aRes,
+        vRes,
+        locRes,
+        menuRes,
+        memoRes,
+        reactionRes,
+        commentRes,
+        commentReactionRes,
+        catRes,
+        castRes,
+        profileRes,
+        linkRes,
+        memoImgRes
+    ] = await Promise.all([
+        db.from('members').select('*'),
+        db.from('practices').select('*').order('sort_order', { ascending: true }),
+        loadAllAttendance(),
+        db.from('visibility_settings').select('*'),
+        db.from('places').select('*').order('sort_order', { ascending: true }),
+        db.from('menus').select('*').order('sort_order', { ascending: true }),
+        db.from('rehearsal_memos').select('*').order('updated_at', { ascending: false }),
+        db.from('memo_reactions').select('*'),
+        db.from('memo_comments').select('*').order('created_at', { ascending: true }),
+        db.from('memo_comment_reactions').select('*'),
+        db.from('memo_categories').select('*').order('sort_order', { ascending: true }),
+        db.from('cast_master').select('*').order('sort_order', { ascending: true }),
+        db.from('self_profiles').select('*'),
+        db.from('links').select('*').order('display_order', { ascending: true }),
+        db.from('memo_files').select('*').order('sort_order', { ascending: true })
+    ]);
 
         if (mRes.error) throw mRes.error;
         if (pRes.error) throw pRes.error;
@@ -59,8 +86,6 @@ async function loadCloud() {
 
         if (linkRes && linkRes.data) {
             state.links = linkRes.data;
-
-            console.log("state.links", state.links);
 
         } else if (linkRes && linkRes.error) {
             console.warn("links取得エラー:", linkRes.error);
@@ -129,9 +154,17 @@ async function loadCloud() {
 
         // 出欠情報
         state.attendance = {};
+
         aRes.data.forEach(a => {
-            if (!state.attendance[a.member_id]) state.attendance[a.member_id] = {};
-            state.attendance[a.member_id][a.practice_id] = { id: a.id, status: a.status, note: a.note };
+            if (!state.attendance[a.member_id]) {
+                state.attendance[a.member_id] = {};
+            }
+
+            state.attendance[a.member_id][a.practice_id] = {
+                id: a.id,
+                status: a.status,
+                note: a.note || ''
+            };
         });
 
         // 閲覧制限設定

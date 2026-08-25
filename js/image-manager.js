@@ -161,6 +161,8 @@ function removeImage(index) {
 
 function clearSelectedImages() {
     selectedImages = [];
+    deletedImages = [];
+
     const preview = document.getElementById(PREVIEW_CONTAINER_ID);
     if (preview) {
         preview.innerHTML = "";
@@ -249,8 +251,15 @@ async function uploadImages(targetId, config) {
 
     console.log("deletedImages =", deletedImages);
 
+    if (deletedImages.length === 0) {
+        console.error("削除対象画像が0件です");
+        alert("削除対象画像が0件です");
+    }
+
     // 編集時に削除された既存画像をStorageから削除
     if (deletedImages.length > 0) {
+
+        console.log("削除対象 =", JSON.stringify(deletedImages));
 
         const { data, error } = await db.storage
             .from(config.bucket)
@@ -261,9 +270,10 @@ async function uploadImages(targetId, config) {
 
         if (error) {
             console.error("Storage画像削除エラー:", error);
+            alert("Storage削除エラー: " + error.message);
         } else {
-            console.log("Storage画像削除完了:", deletedImages);
-            console.log("削除したパス =", deletedImages[0]);
+            console.log("Storage画像削除成功");
+            alert("Storage削除成功");
         }
 
         deletedImages = [];
@@ -337,8 +347,41 @@ async function saveItemImages(itemId, isEdit) {
     };
 
     if (isEdit) {
-        // 編集時は既存のDBレコードを一旦すべて削除
-        await db.from(config.table)
+
+        // 現在DBに登録されている画像を取得
+        const { data: oldImages, error: fetchError } = await db
+            .from(config.table)
+            .select('storage_path')
+            .eq(config.foreignKey, itemId);
+
+        if (fetchError) {
+            throw fetchError;
+        }
+
+        // 編集後も残す画像
+        const keepPaths = selectedImages
+            .filter(img => img.isExisting)
+            .map(img => img.storage_path);
+
+        // Storageから削除すべき画像
+        const deletePaths = (oldImages || [])
+            .map(img => img.storage_path)
+            .filter(path => !keepPaths.includes(path));
+
+        // Storage削除
+        if (deletePaths.length > 0) {
+            const { error: storageError } = await db.storage
+                .from(config.bucket)
+                .remove(deletePaths);
+
+            if (storageError) {
+                console.error('Storage削除エラー', storageError);
+            }
+        }
+
+        // DBの画像レコード削除
+        await db
+            .from(config.table)
             .delete()
             .eq(config.foreignKey, itemId);
     }

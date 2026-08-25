@@ -446,7 +446,13 @@ function renderAttendanceContent() {
 
             displaySlots.forEach(s => {
                 if (!s) return;
-                const data = state.attendance[state.currentMember]?.[s.id] || {id:null, status: null, note: ''};
+
+                const data = state.attendance[state.currentMember]?.[s.id] || {
+                    id: null,
+                    status: null,
+                    note: ''
+                };
+
                 const statusStr = data.status === 'attend' ? '出席' : (data.status === 'absent' ? '欠席' : null);
                 
                 // メニューや時間が空の場合の表示
